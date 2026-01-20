@@ -26,6 +26,7 @@ dist-ssr
 # Environment files
 .env
 .env.local
+api/.env
 
 # Claude temp files
 .claude/
