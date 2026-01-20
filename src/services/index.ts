@@ -1,14 +1,18 @@
 /**
  * Unified Storage Service
  *
- * Currently uses localStorage for all operations.
- * Supabase integration is available in supabaseStorage.ts but requires
- * async/await refactoring of the entire app to use properly.
+ * DUAL-MODE STORAGE:
+ * - localStorage (default): Uses browser localStorage for development
+ * - api: Uses PHP/MySQL backend via API calls for production
  *
- * TODO: Refactor app components to use async/await, then switch to Supabase
+ * Mode is controlled by VITE_STORAGE_MODE environment variable.
+ * Set to 'api' for production deployment with MySQL backend.
+ *
+ * All services provide both synchronous methods (localStorage only) and
+ * async methods (dual-mode) via service.async.* for API compatibility.
  */
 
-// Re-export all services from localStorage storage
+// Re-export all services from storage
 export {
   memberService,
   leadService,
@@ -27,6 +31,9 @@ export {
   seedDemoData,
   resetAndSeedData,
 } from './storage';
+
+// Re-export storage mode utilities for consumers
+export { isApiMode, getStorageMode, setStorageMode } from './api';
 
 // Export Supabase services separately for future use or manual migration
 export * as supabase from './supabaseStorage';

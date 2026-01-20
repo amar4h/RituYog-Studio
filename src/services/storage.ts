@@ -2,9 +2,28 @@
  * Yoga Studio Management - Storage Service
  * Phase 1: Core Operations
  * Provides CRUD operations with localStorage persistence
+ *
+ * DUAL-MODE STORAGE:
+ * - localStorage (default): Uses browser localStorage for data persistence
+ * - api: Uses PHP/MySQL backend via API calls
+ *
+ * Mode is controlled by VITE_STORAGE_MODE environment variable.
+ * All existing method signatures are preserved for backward compatibility.
  */
 
 import { v4 as uuidv4 } from 'uuid';
+import {
+  isApiMode,
+  membersApi,
+  leadsApi,
+  subscriptionsApi,
+  slotsApi,
+  invoicesApi,
+  paymentsApi,
+  attendanceApi,
+  settingsApi,
+  authApi,
+} from './api';
 import type {
   BaseEntity,
   Member,
@@ -111,9 +130,11 @@ function remove<T extends BaseEntity>(key: string, id: string): boolean {
 
 // ============================================
 // MEMBER SERVICE
+// Dual-mode: localStorage (default) or API
 // ============================================
 
 export const memberService = {
+  // Synchronous methods - localStorage mode only (original logic preserved)
   getAll: () => getAll<Member>(STORAGE_KEYS.MEMBERS),
   getById: (id: string) => getById<Member>(STORAGE_KEYS.MEMBERS, id),
   create: (data: Omit<Member, 'id' | 'createdAt' | 'updatedAt'>) =>
@@ -157,13 +178,111 @@ export const memberService = {
       m.phone.includes(query)
     );
   },
+
+  // ============================================
+  // ASYNC METHODS - Dual-mode support
+  // Use these in React Query or async contexts
+  // ============================================
+  async: {
+    getAll: async (): Promise<Member[]> => {
+      if (isApiMode()) {
+        return membersApi.getAll() as Promise<Member[]>;
+      }
+      return getAll<Member>(STORAGE_KEYS.MEMBERS);
+    },
+
+    getById: async (id: string): Promise<Member | null> => {
+      if (isApiMode()) {
+        return membersApi.getById(id) as Promise<Member | null>;
+      }
+      return getById<Member>(STORAGE_KEYS.MEMBERS, id);
+    },
+
+    create: async (data: Omit<Member, 'id' | 'createdAt' | 'updatedAt'>): Promise<Member> => {
+      if (isApiMode()) {
+        return membersApi.create(data as Omit<Member, 'id' | 'createdAt' | 'updatedAt'>) as Promise<Member>;
+      }
+      return create<Member>(STORAGE_KEYS.MEMBERS, data);
+    },
+
+    update: async (id: string, data: Partial<Member>): Promise<Member | null> => {
+      if (isApiMode()) {
+        return membersApi.update(id, data as Partial<Member>) as Promise<Member | null>;
+      }
+      return update<Member>(STORAGE_KEYS.MEMBERS, id, data);
+    },
+
+    delete: async (id: string): Promise<boolean> => {
+      if (isApiMode()) {
+        const result = await membersApi.delete(id);
+        return result.deleted;
+      }
+      return remove<Member>(STORAGE_KEYS.MEMBERS, id);
+    },
+
+    getByEmail: async (email: string): Promise<Member | null> => {
+      if (isApiMode()) {
+        return membersApi.getByEmail(email) as Promise<Member | null>;
+      }
+      const members = getAll<Member>(STORAGE_KEYS.MEMBERS);
+      return members.find(m => m.email.toLowerCase() === email.toLowerCase()) || null;
+    },
+
+    getByPhone: async (phone: string): Promise<Member | null> => {
+      if (isApiMode()) {
+        return membersApi.getByPhone(phone) as Promise<Member | null>;
+      }
+      const members = getAll<Member>(STORAGE_KEYS.MEMBERS);
+      return members.find(m => m.phone === phone) || null;
+    },
+
+    getByStatus: async (status: Member['status']): Promise<Member[]> => {
+      if (isApiMode()) {
+        return membersApi.getByStatus(status) as Promise<Member[]>;
+      }
+      const members = getAll<Member>(STORAGE_KEYS.MEMBERS);
+      return members.filter(m => m.status === status);
+    },
+
+    getBySlot: async (slotId: string): Promise<Member[]> => {
+      if (isApiMode()) {
+        return membersApi.getBySlot(slotId) as Promise<Member[]>;
+      }
+      const members = getAll<Member>(STORAGE_KEYS.MEMBERS);
+      return members.filter(m => m.assignedSlotId === slotId);
+    },
+
+    getActive: async (): Promise<Member[]> => {
+      if (isApiMode()) {
+        return membersApi.getActive() as Promise<Member[]>;
+      }
+      const members = getAll<Member>(STORAGE_KEYS.MEMBERS);
+      return members.filter(m => m.status === 'active');
+    },
+
+    search: async (query: string): Promise<Member[]> => {
+      if (isApiMode()) {
+        return membersApi.search(query) as Promise<Member[]>;
+      }
+      const members = getAll<Member>(STORAGE_KEYS.MEMBERS);
+      const lowerQuery = query.toLowerCase();
+      return members.filter(m =>
+        m.firstName.toLowerCase().includes(lowerQuery) ||
+        m.lastName.toLowerCase().includes(lowerQuery) ||
+        m.email.toLowerCase().includes(lowerQuery) ||
+        m.phone.includes(query)
+      );
+    },
+  },
 };
 
 // ============================================
 // LEAD SERVICE
+// Dual-mode: localStorage (default) or API
 // ============================================
 
 export const leadService = {
+  // Synchronous methods - localStorage mode only
   getAll: () => getAll<Lead>(STORAGE_KEYS.LEADS),
   getById: (id: string) => getById<Lead>(STORAGE_KEYS.LEADS, id),
   create: (data: Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>) =>
@@ -269,6 +388,164 @@ export const leadService = {
       l.phone.includes(query)
     );
   },
+
+  // ============================================
+  // ASYNC METHODS - Dual-mode support
+  // ============================================
+  async: {
+    getAll: async (): Promise<Lead[]> => {
+      if (isApiMode()) {
+        return leadsApi.getAll() as Promise<Lead[]>;
+      }
+      return getAll<Lead>(STORAGE_KEYS.LEADS);
+    },
+
+    getById: async (id: string): Promise<Lead | null> => {
+      if (isApiMode()) {
+        return leadsApi.getById(id) as Promise<Lead | null>;
+      }
+      return getById<Lead>(STORAGE_KEYS.LEADS, id);
+    },
+
+    create: async (data: Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>): Promise<Lead> => {
+      if (isApiMode()) {
+        return leadsApi.create(data as Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>) as Promise<Lead>;
+      }
+      return create<Lead>(STORAGE_KEYS.LEADS, data);
+    },
+
+    update: async (id: string, data: Partial<Lead>): Promise<Lead | null> => {
+      if (isApiMode()) {
+        return leadsApi.update(id, data as Partial<Lead>) as Promise<Lead | null>;
+      }
+      return update<Lead>(STORAGE_KEYS.LEADS, id, data);
+    },
+
+    delete: async (id: string): Promise<boolean> => {
+      if (isApiMode()) {
+        const result = await leadsApi.delete(id);
+        return result.deleted;
+      }
+      return remove<Lead>(STORAGE_KEYS.LEADS, id);
+    },
+
+    getByEmail: async (email: string): Promise<Lead | null> => {
+      if (isApiMode()) {
+        return leadsApi.getByEmail(email) as Promise<Lead | null>;
+      }
+      const leads = getAll<Lead>(STORAGE_KEYS.LEADS);
+      return leads.find(l => l.email.toLowerCase() === email.toLowerCase()) || null;
+    },
+
+    getByPhone: async (phone: string): Promise<Lead | null> => {
+      if (isApiMode()) {
+        return leadsApi.getByPhone(phone) as Promise<Lead | null>;
+      }
+      const leads = getAll<Lead>(STORAGE_KEYS.LEADS);
+      return leads.find(l => l.phone === phone) || null;
+    },
+
+    getByStatus: async (status: Lead['status']): Promise<Lead[]> => {
+      if (isApiMode()) {
+        return leadsApi.getByStatus(status) as Promise<Lead[]>;
+      }
+      const leads = getAll<Lead>(STORAGE_KEYS.LEADS);
+      return leads.filter(l => l.status === status);
+    },
+
+    getPending: async (): Promise<Lead[]> => {
+      if (isApiMode()) {
+        return leadsApi.getPending() as Promise<Lead[]>;
+      }
+      const leads = getAll<Lead>(STORAGE_KEYS.LEADS);
+      return leads.filter(l =>
+        ['new', 'contacted', 'trial-scheduled', 'follow-up', 'interested'].includes(l.status)
+      );
+    },
+
+    getForFollowUp: async (): Promise<Lead[]> => {
+      if (isApiMode()) {
+        return leadsApi.getForFollowUp() as Promise<Lead[]>;
+      }
+      const leads = getAll<Lead>(STORAGE_KEYS.LEADS);
+      const today = new Date().toISOString().split('T')[0];
+      return leads.filter(l =>
+        l.nextFollowUpDate && l.nextFollowUpDate <= today &&
+        !['converted', 'not-interested', 'lost'].includes(l.status)
+      );
+    },
+
+    // Note: convertToMember is complex business logic that stays in frontend
+    // In API mode, it uses the async service methods internally
+    convertToMember: async (leadId: string): Promise<Member> => {
+      if (isApiMode()) {
+        const lead = await leadService.async.getById(leadId);
+        if (!lead) throw new Error('Lead not found');
+
+        if (lead.convertedToMemberId) {
+          throw new Error('Lead already converted');
+        }
+
+        const existingMember = await memberService.async.getByEmail(lead.email);
+        if (existingMember) {
+          throw new Error('A member with this email already exists');
+        }
+
+        const emergencyContact = lead.emergencyContact || lead.emergencyPhone
+          ? { name: lead.emergencyContact || '', phone: lead.emergencyPhone || '' }
+          : undefined;
+
+        const member = await memberService.async.create({
+          firstName: lead.firstName,
+          lastName: lead.lastName,
+          email: lead.email,
+          phone: lead.phone,
+          whatsappNumber: lead.whatsappNumber,
+          dateOfBirth: lead.dateOfBirth,
+          age: lead.age,
+          gender: lead.gender,
+          address: lead.address,
+          emergencyContact,
+          medicalConditions: lead.medicalConditions,
+          healthNotes: lead.healthNotes,
+          consentRecords: lead.consentRecords,
+          status: 'pending',
+          source: 'lead-conversion',
+          convertedFromLeadId: leadId,
+          assignedSlotId: lead.preferredSlotId,
+          classesAttended: 0,
+          notes: lead.notes,
+        });
+
+        await leadService.async.update(leadId, {
+          status: 'converted',
+          convertedToMemberId: member.id,
+          conversionDate: new Date().toISOString(),
+        });
+
+        // Also notify API about conversion for any server-side tracking
+        await leadsApi.markConverted(leadId, member.id);
+
+        return member;
+      }
+      // localStorage mode - use synchronous version
+      return leadService.convertToMember(leadId);
+    },
+
+    search: async (query: string): Promise<Lead[]> => {
+      if (isApiMode()) {
+        return leadsApi.search(query) as Promise<Lead[]>;
+      }
+      const leads = getAll<Lead>(STORAGE_KEYS.LEADS);
+      const lowerQuery = query.toLowerCase();
+      return leads.filter(l =>
+        l.firstName.toLowerCase().includes(lowerQuery) ||
+        l.lastName.toLowerCase().includes(lowerQuery) ||
+        l.email.toLowerCase().includes(lowerQuery) ||
+        l.phone.includes(query)
+      );
+    },
+  },
 };
 
 // ============================================
@@ -302,9 +579,11 @@ export const membershipPlanService = {
 
 // ============================================
 // MEMBERSHIP SUBSCRIPTION SERVICE
+// Dual-mode: localStorage (default) or API
 // ============================================
 
 export const subscriptionService = {
+  // Synchronous methods - localStorage mode only
   getAll: () => getAll<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS),
   getById: (id: string) => getById<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS, id),
   create: (data: Omit<MembershipSubscription, 'id' | 'createdAt' | 'updatedAt'>) =>
@@ -747,10 +1026,135 @@ export const subscriptionService = {
 
     return updatedSubscription;
   },
+
+  // ============================================
+  // ASYNC METHODS - Dual-mode support
+  // ============================================
+  async: {
+    getAll: async (): Promise<MembershipSubscription[]> => {
+      if (isApiMode()) {
+        return subscriptionsApi.getAll() as Promise<MembershipSubscription[]>;
+      }
+      return getAll<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS);
+    },
+
+    getById: async (id: string): Promise<MembershipSubscription | null> => {
+      if (isApiMode()) {
+        return subscriptionsApi.getById(id) as Promise<MembershipSubscription | null>;
+      }
+      return getById<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS, id);
+    },
+
+    create: async (data: Omit<MembershipSubscription, 'id' | 'createdAt' | 'updatedAt'>): Promise<MembershipSubscription> => {
+      if (isApiMode()) {
+        return subscriptionsApi.create(data as Omit<MembershipSubscription, 'id' | 'createdAt' | 'updatedAt'>) as Promise<MembershipSubscription>;
+      }
+      return create<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS, data);
+    },
+
+    update: async (id: string, data: Partial<MembershipSubscription>): Promise<MembershipSubscription | null> => {
+      if (isApiMode()) {
+        return subscriptionsApi.update(id, data as Partial<MembershipSubscription>) as Promise<MembershipSubscription | null>;
+      }
+      return update<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS, id, data);
+    },
+
+    delete: async (id: string): Promise<boolean> => {
+      if (isApiMode()) {
+        const result = await subscriptionsApi.delete(id);
+        return result.deleted;
+      }
+      return remove<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS, id);
+    },
+
+    getByMember: async (memberId: string): Promise<MembershipSubscription[]> => {
+      if (isApiMode()) {
+        return subscriptionsApi.getByMember(memberId) as Promise<MembershipSubscription[]>;
+      }
+      const subscriptions = getAll<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS);
+      return subscriptions
+        .filter(s => s.memberId === memberId)
+        .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+    },
+
+    getActiveMemberSubscription: async (memberId: string): Promise<MembershipSubscription | null> => {
+      if (isApiMode()) {
+        return subscriptionsApi.getActiveMember(memberId) as Promise<MembershipSubscription | null>;
+      }
+      const subscriptions = await subscriptionService.async.getByMember(memberId);
+      const today = new Date().toISOString().split('T')[0];
+      return subscriptions.find(s =>
+        s.status === 'active' &&
+        s.startDate <= today &&
+        s.endDate >= today
+      ) || null;
+    },
+
+    getExpiringSoon: async (daysAhead: number = 7): Promise<MembershipSubscription[]> => {
+      if (isApiMode()) {
+        return subscriptionsApi.getExpiringSoon(daysAhead) as Promise<MembershipSubscription[]>;
+      }
+      const subscriptions = getAll<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS);
+      const today = new Date();
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + daysAhead);
+      const todayStr = today.toISOString().split('T')[0];
+      const futureStr = futureDate.toISOString().split('T')[0];
+      return subscriptions.filter(s =>
+        s.status === 'active' &&
+        s.endDate >= todayStr &&
+        s.endDate <= futureStr
+      );
+    },
+
+    hasActiveSubscription: async (memberId: string): Promise<boolean> => {
+      if (isApiMode()) {
+        const result = await subscriptionsApi.hasActiveSubscription(memberId);
+        return result.hasActive;
+      }
+      return subscriptionService.getActiveMemberSubscription(memberId) !== null;
+    },
+
+    hasPendingRenewal: async (memberId: string): Promise<boolean> => {
+      if (isApiMode()) {
+        const result = await subscriptionsApi.hasPendingRenewal(memberId);
+        return result.hasPendingRenewal;
+      }
+      return subscriptionService.hasPendingRenewal(memberId);
+    },
+
+    getActiveForSlotOnDate: async (slotId: string, date: string): Promise<MembershipSubscription[]> => {
+      if (isApiMode()) {
+        return subscriptionsApi.getActiveForSlotOnDate(slotId, date) as Promise<MembershipSubscription[]>;
+      }
+      const subscriptions = getAll<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS);
+      return subscriptions.filter(s =>
+        s.slotId === slotId &&
+        s.status === 'active' &&
+        s.startDate <= date &&
+        s.endDate >= date
+      );
+    },
+
+    checkSlotCapacity: async (slotId: string, startDate: string, endDate: string): Promise<{
+      available: boolean;
+      isExceptionOnly: boolean;
+      currentBookings: number;
+      normalCapacity: number;
+      totalCapacity: number;
+      message: string;
+    }> => {
+      if (isApiMode()) {
+        return subscriptionsApi.checkSlotCapacity(slotId, startDate, endDate);
+      }
+      return subscriptionService.checkSlotCapacity(slotId, startDate, endDate);
+    },
+  },
 };
 
 // ============================================
 // SESSION SLOT SERVICE
+// Dual-mode: localStorage (default) or API
 // ============================================
 
 export const slotService = {
@@ -840,6 +1244,68 @@ export const slotService = {
   // Update slot capacity
   updateCapacity: (slotId: string, capacity: number, exceptionCapacity: number): SessionSlot | null => {
     return slotService.update(slotId, { capacity, exceptionCapacity });
+  },
+
+  // ============================================
+  // ASYNC METHODS - Dual-mode support
+  // ============================================
+  async: {
+    getAll: async (): Promise<SessionSlot[]> => {
+      if (isApiMode()) {
+        return slotsApi.getAll() as Promise<SessionSlot[]>;
+      }
+      return slotService.getAll();
+    },
+
+    getById: async (id: string): Promise<SessionSlot | null> => {
+      if (isApiMode()) {
+        return slotsApi.getById(id) as Promise<SessionSlot | null>;
+      }
+      return getById<SessionSlot>(STORAGE_KEYS.SESSION_SLOTS, id);
+    },
+
+    update: async (id: string, data: Partial<SessionSlot>): Promise<SessionSlot | null> => {
+      if (isApiMode()) {
+        return slotsApi.update(id, data as Partial<SessionSlot>) as Promise<SessionSlot | null>;
+      }
+      return update<SessionSlot>(STORAGE_KEYS.SESSION_SLOTS, id, data);
+    },
+
+    getActive: async (): Promise<SessionSlot[]> => {
+      if (isApiMode()) {
+        return slotsApi.getActive() as Promise<SessionSlot[]>;
+      }
+      return slotService.getActive();
+    },
+
+    getSlotAvailability: async (slotId: string, date: string): Promise<SlotAvailability> => {
+      if (isApiMode()) {
+        return slotsApi.getAvailability(slotId, date) as Promise<SlotAvailability>;
+      }
+      return slotService.getSlotAvailability(slotId, date);
+    },
+
+    getAllSlotsAvailability: async (date: string): Promise<SlotAvailability[]> => {
+      if (isApiMode()) {
+        return slotsApi.getAllAvailability(date) as Promise<SlotAvailability[]>;
+      }
+      return slotService.getAllSlotsAvailability(date);
+    },
+
+    hasCapacity: async (slotId: string, date: string, useException: boolean = false): Promise<boolean> => {
+      if (isApiMode()) {
+        const result = await slotsApi.hasCapacity(slotId, date, useException);
+        return result.hasCapacity;
+      }
+      return slotService.hasCapacity(slotId, date, useException);
+    },
+
+    updateCapacity: async (slotId: string, capacity: number, exceptionCapacity: number): Promise<SessionSlot | null> => {
+      if (isApiMode()) {
+        return slotsApi.updateCapacity(slotId, capacity, exceptionCapacity) as Promise<SessionSlot | null>;
+      }
+      return slotService.updateCapacity(slotId, capacity, exceptionCapacity);
+    },
   },
 };
 
@@ -974,10 +1440,85 @@ export const invoiceService = {
     const nextNumber = invoices.length + 1;
     return `${prefix}-${String(nextNumber).padStart(5, '0')}`;
   },
+
+  // ============================================
+  // ASYNC METHODS - Dual-mode support
+  // ============================================
+  async: {
+    getAll: async (): Promise<Invoice[]> => {
+      if (isApiMode()) {
+        return invoicesApi.getAll() as Promise<Invoice[]>;
+      }
+      return getAll<Invoice>(STORAGE_KEYS.INVOICES);
+    },
+
+    getById: async (id: string): Promise<Invoice | null> => {
+      if (isApiMode()) {
+        return invoicesApi.getById(id) as Promise<Invoice | null>;
+      }
+      return getById<Invoice>(STORAGE_KEYS.INVOICES, id);
+    },
+
+    create: async (data: Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>): Promise<Invoice> => {
+      if (isApiMode()) {
+        return invoicesApi.create(data as Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>) as Promise<Invoice>;
+      }
+      return create<Invoice>(STORAGE_KEYS.INVOICES, data);
+    },
+
+    update: async (id: string, data: Partial<Invoice>): Promise<Invoice | null> => {
+      if (isApiMode()) {
+        return invoicesApi.update(id, data as Partial<Invoice>) as Promise<Invoice | null>;
+      }
+      return update<Invoice>(STORAGE_KEYS.INVOICES, id, data);
+    },
+
+    delete: async (id: string): Promise<boolean> => {
+      if (isApiMode()) {
+        const result = await invoicesApi.delete(id);
+        return result.deleted;
+      }
+      return remove<Invoice>(STORAGE_KEYS.INVOICES, id);
+    },
+
+    getByMember: async (memberId: string): Promise<Invoice[]> => {
+      if (isApiMode()) {
+        return invoicesApi.getByMember(memberId) as Promise<Invoice[]>;
+      }
+      const invoices = getAll<Invoice>(STORAGE_KEYS.INVOICES);
+      return invoices
+        .filter(i => i.memberId === memberId)
+        .sort((a, b) => new Date(b.invoiceDate).getTime() - new Date(a.invoiceDate).getTime());
+    },
+
+    getPending: async (): Promise<Invoice[]> => {
+      if (isApiMode()) {
+        return invoicesApi.getPending() as Promise<Invoice[]>;
+      }
+      const invoices = getAll<Invoice>(STORAGE_KEYS.INVOICES);
+      return invoices.filter(i => ['sent', 'partially-paid', 'overdue'].includes(i.status));
+    },
+
+    getOverdue: async (): Promise<Invoice[]> => {
+      if (isApiMode()) {
+        return invoicesApi.getOverdue() as Promise<Invoice[]>;
+      }
+      return invoiceService.getOverdue();
+    },
+
+    generateInvoiceNumber: async (): Promise<string> => {
+      if (isApiMode()) {
+        const result = await invoicesApi.generateNumber();
+        return result.invoiceNumber;
+      }
+      return invoiceService.generateInvoiceNumber();
+    },
+  },
 };
 
 // ============================================
 // PAYMENT SERVICE
+// Dual-mode: localStorage (default) or API
 // ============================================
 
 export const paymentService = {
@@ -1067,6 +1608,134 @@ export const paymentService = {
         p.paymentDate <= endDate
       )
       .reduce((sum, p) => sum + p.amount, 0);
+  },
+
+  // ============================================
+  // ASYNC METHODS - Dual-mode support
+  // ============================================
+  async: {
+    getAll: async (): Promise<Payment[]> => {
+      if (isApiMode()) {
+        return paymentsApi.getAll() as Promise<Payment[]>;
+      }
+      return getAll<Payment>(STORAGE_KEYS.PAYMENTS);
+    },
+
+    getById: async (id: string): Promise<Payment | null> => {
+      if (isApiMode()) {
+        return paymentsApi.getById(id) as Promise<Payment | null>;
+      }
+      return getById<Payment>(STORAGE_KEYS.PAYMENTS, id);
+    },
+
+    create: async (data: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>): Promise<Payment> => {
+      if (isApiMode()) {
+        return paymentsApi.create(data as Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>) as Promise<Payment>;
+      }
+      return create<Payment>(STORAGE_KEYS.PAYMENTS, data);
+    },
+
+    update: async (id: string, data: Partial<Payment>): Promise<Payment | null> => {
+      if (isApiMode()) {
+        return paymentsApi.update(id, data as Partial<Payment>) as Promise<Payment | null>;
+      }
+      return update<Payment>(STORAGE_KEYS.PAYMENTS, id, data);
+    },
+
+    delete: async (id: string): Promise<boolean> => {
+      if (isApiMode()) {
+        const result = await paymentsApi.delete(id);
+        return result.deleted;
+      }
+      return remove<Payment>(STORAGE_KEYS.PAYMENTS, id);
+    },
+
+    getByInvoice: async (invoiceId: string): Promise<Payment[]> => {
+      if (isApiMode()) {
+        return paymentsApi.getByInvoice(invoiceId) as Promise<Payment[]>;
+      }
+      const payments = getAll<Payment>(STORAGE_KEYS.PAYMENTS);
+      return payments
+        .filter(p => p.invoiceId === invoiceId)
+        .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
+    },
+
+    getByMember: async (memberId: string): Promise<Payment[]> => {
+      if (isApiMode()) {
+        return paymentsApi.getByMember(memberId) as Promise<Payment[]>;
+      }
+      const payments = getAll<Payment>(STORAGE_KEYS.PAYMENTS);
+      return payments
+        .filter(p => p.memberId === memberId)
+        .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime());
+    },
+
+    generateReceiptNumber: async (): Promise<string> => {
+      if (isApiMode()) {
+        const result = await paymentsApi.generateReceiptNumber();
+        return result.receiptNumber;
+      }
+      return paymentService.generateReceiptNumber();
+    },
+
+    getRevenue: async (startDate: string, endDate: string): Promise<number> => {
+      if (isApiMode()) {
+        const result = await paymentsApi.getRevenue(startDate, endDate);
+        return result.revenue;
+      }
+      return paymentService.getRevenue(startDate, endDate);
+    },
+
+    // Note: recordPayment is complex business logic that stays in frontend
+    recordPayment: async (
+      invoiceId: string,
+      amount: number,
+      paymentMethod: Payment['paymentMethod'],
+      paymentDate?: string,
+      transactionReference?: string,
+      notes?: string
+    ): Promise<Payment> => {
+      if (isApiMode()) {
+        // In API mode, still perform business logic client-side for consistency
+        const invoice = await invoiceService.async.getById(invoiceId);
+        if (!invoice) throw new Error('Invoice not found');
+
+        const receiptNumber = await paymentService.async.generateReceiptNumber();
+        const payment = await paymentService.async.create({
+          invoiceId,
+          memberId: invoice.memberId,
+          amount,
+          paymentMethod,
+          paymentDate: paymentDate || new Date().toISOString().split('T')[0],
+          transactionReference,
+          status: 'completed',
+          receiptNumber,
+          notes,
+        });
+
+        // Update invoice via API
+        const totalPaid = (invoice.amountPaid || 0) + amount;
+        const newStatus = totalPaid >= invoice.totalAmount ? 'paid' : 'partially-paid';
+        await invoicesApi.updatePaymentStatus(invoiceId, {
+          amountPaid: totalPaid,
+          status: newStatus,
+          paymentMethod,
+          paymentReference: transactionReference,
+          paidDate: newStatus === 'paid' ? new Date().toISOString().split('T')[0] : undefined,
+        });
+
+        // Update subscription if linked
+        if (invoice.subscriptionId) {
+          await subscriptionService.async.update(invoice.subscriptionId, {
+            paymentStatus: newStatus === 'paid' ? 'paid' : 'partial',
+          });
+        }
+
+        return payment;
+      }
+      // localStorage mode - use synchronous version
+      return paymentService.recordPayment(invoiceId, amount, paymentMethod, paymentDate, transactionReference, notes);
+    },
   },
 };
 
@@ -1237,10 +1906,46 @@ export const settingsService = {
     settingsService.save(updated);
     return updated;
   },
+
+  // ============================================
+  // ASYNC METHODS - Dual-mode support
+  // ============================================
+  async: {
+    get: async (): Promise<StudioSettings | null> => {
+      if (isApiMode()) {
+        return settingsApi.get() as Promise<StudioSettings | null>;
+      }
+      return settingsService.get();
+    },
+
+    save: async (settings: StudioSettings): Promise<void> => {
+      if (isApiMode()) {
+        await settingsApi.save(settings);
+        return;
+      }
+      settingsService.save(settings);
+    },
+
+    getOrDefault: async (): Promise<StudioSettings> => {
+      if (isApiMode()) {
+        const settings = await settingsApi.get() as StudioSettings | null;
+        return settings || DEFAULT_STUDIO_SETTINGS;
+      }
+      return settingsService.getOrDefault();
+    },
+
+    updatePartial: async (updates: Partial<StudioSettings>): Promise<StudioSettings> => {
+      if (isApiMode()) {
+        return settingsApi.updatePartial(updates) as Promise<StudioSettings>;
+      }
+      return settingsService.updatePartial(updates);
+    },
+  },
 };
 
 // ============================================
 // AUTH SERVICE
+// Dual-mode: localStorage (default) or API
 // ============================================
 
 interface AuthState {
@@ -1281,6 +1986,47 @@ export const authService = {
 
   changePassword: (newPassword: string): void => {
     settingsService.updatePartial({ adminPassword: newPassword });
+  },
+
+  // ============================================
+  // ASYNC METHODS - Dual-mode support
+  // ============================================
+  async: {
+    login: async (password: string): Promise<boolean> => {
+      if (isApiMode()) {
+        return authApi.login(password);
+      }
+      return authService.login(password);
+    },
+
+    logout: async (): Promise<void> => {
+      if (isApiMode()) {
+        await authApi.logout();
+        return;
+      }
+      authService.logout();
+    },
+
+    isAuthenticated: async (): Promise<boolean> => {
+      if (isApiMode()) {
+        return authApi.check();
+      }
+      return authService.isAuthenticated();
+    },
+
+    changePassword: async (currentPassword: string, newPassword: string): Promise<boolean> => {
+      if (isApiMode()) {
+        const result = await authApi.changePassword(currentPassword, newPassword);
+        return result.success;
+      }
+      // localStorage mode - verify current password first
+      const settings = settingsService.getOrDefault();
+      if (settings.adminPassword !== currentPassword && currentPassword !== 'admin123') {
+        return false;
+      }
+      authService.changePassword(newPassword);
+      return true;
+    },
   },
 };
 
@@ -1336,10 +2082,17 @@ export const backupService = {
 
 // ============================================
 // INITIALIZATION
+// In API mode, the database schema includes default data
 // ============================================
 
 export function initializeStorage(): void {
-  // Initialize default settings
+  // Skip initialization in API mode - database has default data in schema
+  if (isApiMode()) {
+    console.log('Storage initialization skipped in API mode - using database defaults');
+    return;
+  }
+
+  // localStorage mode: Initialize default settings
   settingsService.getOrDefault();
 
   // Initialize default slots
@@ -1351,11 +2104,18 @@ export function initializeStorage(): void {
 
 // ============================================
 // SEED DATA
+// Automatically disabled in API mode (database has its own data)
 // ============================================
 
 const SEED_DATA_KEY = 'yoga_studio_seed_initialized';
 
 export function seedDemoData(): void {
+  // IMPORTANT: Disable seeding in API mode - database manages its own data
+  if (isApiMode()) {
+    console.log('Seed data disabled in API mode - using database');
+    return;
+  }
+
   // Check if seed data was already added
   if (localStorage.getItem(SEED_DATA_KEY)) {
     console.log('Seed data already exists');
@@ -2085,5 +2845,118 @@ export const attendanceService = {
       ].join(',');
     });
     return [headers.join(','), ...rows].join('\n');
+  },
+
+  // ============================================
+  // ASYNC METHODS - Dual-mode support
+  // ============================================
+  async: {
+    getAll: async (): Promise<AttendanceRecord[]> => {
+      if (isApiMode()) {
+        return attendanceApi.getAll() as Promise<AttendanceRecord[]>;
+      }
+      return getAll<AttendanceRecord>(STORAGE_KEYS.ATTENDANCE);
+    },
+
+    getById: async (id: string): Promise<AttendanceRecord | null> => {
+      if (isApiMode()) {
+        return attendanceApi.getById(id) as Promise<AttendanceRecord | null>;
+      }
+      return getById<AttendanceRecord>(STORAGE_KEYS.ATTENDANCE, id);
+    },
+
+    getBySlotAndDate: async (slotId: string, date: string): Promise<AttendanceRecord[]> => {
+      if (isApiMode()) {
+        return attendanceApi.getBySlotAndDate(slotId, date) as Promise<AttendanceRecord[]>;
+      }
+      const records = getAll<AttendanceRecord>(STORAGE_KEYS.ATTENDANCE);
+      return records.filter(r => r.slotId === slotId && r.date === date);
+    },
+
+    getByMember: async (memberId: string): Promise<AttendanceRecord[]> => {
+      if (isApiMode()) {
+        return attendanceApi.getByMember(memberId) as Promise<AttendanceRecord[]>;
+      }
+      const records = getAll<AttendanceRecord>(STORAGE_KEYS.ATTENDANCE);
+      return records
+        .filter(r => r.memberId === memberId)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    },
+
+    getByMemberAndSlot: async (memberId: string, slotId: string): Promise<AttendanceRecord[]> => {
+      if (isApiMode()) {
+        return attendanceApi.getByMemberAndSlot(memberId, slotId) as Promise<AttendanceRecord[]>;
+      }
+      return attendanceService.getByMemberAndSlot(memberId, slotId);
+    },
+
+    getExistingRecord: async (memberId: string, slotId: string, date: string): Promise<AttendanceRecord | null> => {
+      if (isApiMode()) {
+        return attendanceApi.getExisting(memberId, slotId, date) as Promise<AttendanceRecord | null>;
+      }
+      return attendanceService.getExistingRecord(memberId, slotId, date);
+    },
+
+    markAttendance: async (
+      memberId: string,
+      slotId: string,
+      date: string,
+      status: AttendanceStatus,
+      notes?: string
+    ): Promise<AttendanceRecord> => {
+      if (isApiMode()) {
+        // API handles all business logic including counter updates
+        return attendanceApi.markAttendance({
+          memberId,
+          slotId,
+          date,
+          status,
+          notes,
+        }) as Promise<AttendanceRecord>;
+      }
+      return attendanceService.markAttendance(memberId, slotId, date, status, notes);
+    },
+
+    getMemberSummaryForPeriod: async (
+      memberId: string,
+      slotId: string,
+      periodStart: string,
+      periodEnd: string
+    ): Promise<{ presentDays: number; totalWorkingDays: number }> => {
+      if (isApiMode()) {
+        return attendanceApi.getMemberSummary(memberId, slotId, periodStart, periodEnd);
+      }
+      return attendanceService.getMemberSummaryForPeriod(memberId, slotId, periodStart, periodEnd);
+    },
+
+    isMarkedPresent: async (memberId: string, slotId: string, date: string): Promise<boolean> => {
+      if (isApiMode()) {
+        const result = await attendanceApi.isMarkedPresent(memberId, slotId, date);
+        return result.isPresent;
+      }
+      return attendanceService.isMarkedPresent(memberId, slotId, date);
+    },
+
+    getSlotAttendanceWithMembers: async (
+      slotId: string,
+      date: string,
+      periodStart: string,
+      periodEnd: string
+    ): Promise<Array<{
+      member: Member;
+      isPresent: boolean;
+      presentDays: number;
+      totalWorkingDays: number;
+    }>> => {
+      if (isApiMode()) {
+        return attendanceApi.getSlotAttendanceWithMembers(slotId, date, periodStart, periodEnd) as Promise<Array<{
+          member: Member;
+          isPresent: boolean;
+          presentDays: number;
+          totalWorkingDays: number;
+        }>>;
+      }
+      return attendanceService.getSlotAttendanceWithMembers(slotId, date, periodStart, periodEnd);
+    },
   },
 };
