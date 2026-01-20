@@ -101,9 +101,6 @@ export function LeadListPage() {
       header: '',
       render: (lead) => (
         <div className="flex gap-2 justify-end">
-          <Link to={`/admin/leads/${lead.id}`}>
-            <Button variant="ghost" size="sm">View</Button>
-          </Link>
           {lead.status !== 'converted' && lead.status !== 'lost' && (
             <Button
               variant="outline"

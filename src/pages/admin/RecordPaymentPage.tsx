@@ -229,52 +229,6 @@ export function RecordPaymentPage() {
                 />
               </div>
             </Card>
-
-            {/* Quick Amount Buttons */}
-            {selectedInvoice && balance > 0 && (
-              <Card title="Quick Amount">
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFormData(prev => ({ ...prev, amount: balance }))}
-                  >
-                    Full Balance ({formatCurrency(balance)})
-                  </Button>
-                  {balance >= 1000 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setFormData(prev => ({ ...prev, amount: 1000 }))}
-                    >
-                      ₹1,000
-                    </Button>
-                  )}
-                  {balance >= 2000 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setFormData(prev => ({ ...prev, amount: 2000 }))}
-                    >
-                      ₹2,000
-                    </Button>
-                  )}
-                  {balance >= 500 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setFormData(prev => ({ ...prev, amount: Math.round(balance / 2) }))}
-                    >
-                      50% ({formatCurrency(Math.round(balance / 2))})
-                    </Button>
-                  )}
-                </div>
-              </Card>
-            )}
           </div>
 
           {/* Summary Sidebar */}
@@ -289,6 +243,65 @@ export function RecordPaymentPage() {
                         {formatCurrency(formData.amount)}
                       </p>
                     </div>
+
+                    {/* Quick Amount Buttons */}
+                    {balance > 0 && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-2">Quick Select</p>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, amount: balance }))}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                              formData.amount === balance
+                                ? 'bg-indigo-600 text-white border-indigo-600'
+                                : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400 hover:bg-indigo-50'
+                            }`}
+                          >
+                            Full ({formatCurrency(balance)})
+                          </button>
+                          {balance >= 500 && (
+                            <button
+                              type="button"
+                              onClick={() => setFormData(prev => ({ ...prev, amount: Math.round(balance / 2) }))}
+                              className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                                formData.amount === Math.round(balance / 2)
+                                  ? 'bg-indigo-600 text-white border-indigo-600'
+                                  : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400 hover:bg-indigo-50'
+                              }`}
+                            >
+                              50% ({formatCurrency(Math.round(balance / 2))})
+                            </button>
+                          )}
+                          {balance >= 1000 && (
+                            <button
+                              type="button"
+                              onClick={() => setFormData(prev => ({ ...prev, amount: 1000 }))}
+                              className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                                formData.amount === 1000
+                                  ? 'bg-indigo-600 text-white border-indigo-600'
+                                  : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400 hover:bg-indigo-50'
+                              }`}
+                            >
+                              ₹1,000
+                            </button>
+                          )}
+                          {balance >= 2000 && (
+                            <button
+                              type="button"
+                              onClick={() => setFormData(prev => ({ ...prev, amount: 2000 }))}
+                              className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                                formData.amount === 2000
+                                  ? 'bg-indigo-600 text-white border-indigo-600'
+                                  : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400 hover:bg-indigo-50'
+                              }`}
+                            >
+                              ₹2,000
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Card, Button, StatusBadge, Badge, Select, ConfirmDialog, Alert, Modal } from '../../components/common';
 import { leadService, slotService, trialBookingService, membershipPlanService, subscriptionService } from '../../services';
 import { formatPhone, formatName, formatCurrency } from '../../utils/formatUtils';
-import { formatDate, getToday, addMonths } from '../../utils/dateUtils';
+import { formatDate, getToday, calculateSubscriptionEndDate } from '../../utils/dateUtils';
 import type { Lead } from '../../types';
 
 export function LeadDetailPage() {
@@ -18,14 +18,20 @@ export function LeadDetailPage() {
   const [converting, setConverting] = useState(false);
   const [capacityWarning, setCapacityWarning] = useState('');
 
-  // Subscription selection state for conversion
-  const [selectedPlanId, setSelectedPlanId] = useState('');
-  const [selectedSlotId, setSelectedSlotId] = useState('');
-  const [startDate, setStartDate] = useState(getToday());
-
   const lead = id ? leadService.getById(id) : null;
   const slots = slotService.getActive();
   const membershipPlans = membershipPlanService.getActive();
+
+  // Get the Monthly plan as default
+  const monthlyPlan = membershipPlans.find(p => p.type === 'monthly');
+
+  // Subscription selection state for conversion
+  const [selectedPlanId, setSelectedPlanId] = useState(monthlyPlan?.id || '');
+  const [selectedSlotId, setSelectedSlotId] = useState('');
+  const [startDate, setStartDate] = useState(getToday());
+  const [discountType, setDiscountType] = useState<'fixed' | 'percentage'>('percentage');
+  const [discountValue, setDiscountValue] = useState(0);
+  const [discountReason, setDiscountReason] = useState('');
 
   // Auto-open convert modal if navigated from list page with openConvertModal state
   useEffect(() => {
@@ -78,14 +84,20 @@ export function LeadDetailPage() {
       // Convert lead to member
       const member = leadService.convertToMember(lead.id);
 
+      // Calculate discount amount
+      const originalAmount = selectedPlan?.price || 0;
+      const calculatedDiscount = discountType === 'percentage'
+        ? Math.round((originalAmount * discountValue) / 100)
+        : discountValue;
+
       // Create subscription directly - this also sets member status to 'active'
       const result = subscriptionService.createWithInvoice(
         member.id,
         selectedPlanId,
         selectedSlotId,
         startDate,
-        0, // no discount
-        undefined
+        calculatedDiscount,
+        discountReason || undefined
       );
 
       // If there's a warning (e.g., using exception capacity), show it before navigating
@@ -113,7 +125,7 @@ export function LeadDetailPage() {
   };
 
   const selectedPlan = membershipPlans.find(p => p.id === selectedPlanId);
-  const endDate = selectedPlan ? addMonths(startDate, selectedPlan.durationMonths) : '';
+  const endDate = selectedPlan ? calculateSubscriptionEndDate(startDate, selectedPlan.durationMonths) : '';
 
   const handleDelete = () => {
     try {
@@ -581,26 +593,79 @@ export function LeadDetailPage() {
                 />
               </div>
 
+              {/* Discount Section */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Discount (Optional)
+                </label>
+                <div className="flex gap-3">
+                  <select
+                    value={discountType}
+                    onChange={(e) => setDiscountType(e.target.value as 'fixed' | 'percentage')}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    <option value="percentage">Percentage (%)</option>
+                    <option value="fixed">Fixed (Rs)</option>
+                  </select>
+                  <input
+                    type="number"
+                    min={0}
+                    max={discountType === 'percentage' ? 100 : selectedPlan?.price || 99999}
+                    value={discountValue || ''}
+                    onChange={(e) => setDiscountValue(parseInt(e.target.value) || 0)}
+                    placeholder={discountType === 'percentage' ? 'e.g., 10' : 'e.g., 500'}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+                {discountValue > 0 && (
+                  <input
+                    type="text"
+                    value={discountReason}
+                    onChange={(e) => setDiscountReason(e.target.value)}
+                    placeholder="Discount reason (optional)"
+                    className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                )}
+              </div>
+
               {/* Summary */}
-              {selectedPlan && (
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="font-medium text-gray-900 mb-2">Summary</h4>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Plan</span>
-                      <span className="text-gray-900">{selectedPlan.name}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Period</span>
-                      <span className="text-gray-900">{startDate} to {endDate}</span>
-                    </div>
-                    <div className="flex justify-between font-medium border-t pt-2 mt-2">
-                      <span className="text-gray-900">Amount</span>
-                      <span className="text-indigo-600">{formatCurrency(selectedPlan.price)}</span>
+              {selectedPlan && (() => {
+                const originalAmount = selectedPlan.price;
+                const calculatedDiscount = discountType === 'percentage'
+                  ? Math.round((originalAmount * discountValue) / 100)
+                  : discountValue;
+                const payableAmount = Math.max(0, originalAmount - calculatedDiscount);
+
+                return (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-medium text-gray-900 mb-2">Summary</h4>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Plan</span>
+                        <span className="text-gray-900">{selectedPlan.name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Period</span>
+                        <span className="text-gray-900">{startDate} to {endDate}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Original Amount</span>
+                        <span className="text-gray-900">{formatCurrency(originalAmount)}</span>
+                      </div>
+                      {calculatedDiscount > 0 && (
+                        <div className="flex justify-between text-green-600">
+                          <span>Discount{discountType === 'percentage' ? ` (${discountValue}%)` : ''}</span>
+                          <span>-{formatCurrency(calculatedDiscount)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-medium border-t pt-2 mt-2">
+                        <span className="text-gray-900">Payable Amount</span>
+                        <span className="text-indigo-600">{formatCurrency(payableAmount)}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </>
 
           {/* Actions */}

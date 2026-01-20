@@ -35,6 +35,7 @@ import {
   DEFAULT_SESSION_SLOTS,
   DEFAULT_MEMBERSHIP_PLANS,
 } from '../constants';
+import { calculateSubscriptionEndDate } from '../utils/dateUtils';
 
 // ============================================
 // GENERIC CRUD OPERATIONS
@@ -349,6 +350,30 @@ export const subscriptionService = {
     return subscriptionService.getActiveMemberSubscription(memberId) !== null;
   },
 
+  // Check if member has a pending renewal (currently active subscription + future scheduled renewal)
+  // Returns true only when member has BOTH an active subscription AND a future one waiting to start
+  hasPendingRenewal: (memberId: string): boolean => {
+    const subscriptions = subscriptionService.getByMember(memberId);
+    const today = new Date().toISOString().split('T')[0];
+
+    // Find currently active subscription
+    const activeSubscription = subscriptions.find(s =>
+      s.status === 'active' &&
+      s.startDate <= today &&
+      s.endDate >= today
+    );
+
+    if (!activeSubscription) return false;
+
+    // Check if there's a future subscription (scheduled or active with future start date)
+    const hasFutureSubscription = subscriptions.some(s =>
+      s.id !== activeSubscription.id &&
+      (s.status === 'scheduled' || (s.status === 'active' && s.startDate > today))
+    );
+
+    return hasFutureSubscription;
+  },
+
   // Get active subscriptions for a slot on a specific date
   getActiveForSlotOnDate: (slotId: string, date: string): MembershipSubscription[] => {
     const subscriptions = getAll<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS);
@@ -378,15 +403,23 @@ export const subscriptionService = {
       };
     }
 
-    // Count overlapping active subscriptions
+    // Count overlapping subscriptions (active or scheduled)
     const allSubscriptions = subscriptionService.getAll();
     const overlappingSubscriptions = allSubscriptions.filter(s =>
       s.slotId === slotId &&
-      s.status === 'active' &&
+      ['active', 'scheduled', 'pending'].includes(s.status) &&
       s.startDate <= endDate && s.endDate >= startDate
     );
 
-    const currentBookings = overlappingSubscriptions.length;
+    // Deduplicate by member to avoid counting renewals twice
+    const memberIds = new Set<string>();
+    const uniqueBookings = overlappingSubscriptions.filter(s => {
+      if (memberIds.has(s.memberId)) return false;
+      memberIds.add(s.memberId);
+      return true;
+    });
+
+    const currentBookings = uniqueBookings.length;
     const normalCapacity = slot.capacity;
     const totalCapacity = slot.capacity + slot.exceptionCapacity;
 
@@ -441,17 +474,14 @@ export const subscriptionService = {
     const slot = slotService.getById(slotId);
     if (!slot) throw new Error('Session slot not found');
 
-    // Calculate end date based on months
-    const start = new Date(startDate);
-    const end = new Date(start);
-    end.setMonth(end.getMonth() + plan.durationMonths);
-    const endDate = end.toISOString().split('T')[0];
+    // Calculate end date based on plan duration (e.g., Jan 1 + 1 month = Jan 31)
+    const endDate = calculateSubscriptionEndDate(startDate, plan.durationMonths);
 
     // Check for overlapping subscriptions
     const existingSubscriptions = subscriptionService.getByMember(memberId);
     const overlappingSubscription = existingSubscriptions.find(s => {
-      // Only check active or pending subscriptions
-      if (!['active', 'pending'].includes(s.status)) return false;
+      // Only check active, pending, or scheduled subscriptions
+      if (!['active', 'pending', 'scheduled'].includes(s.status)) return false;
 
       // Check if date ranges overlap
       // Overlap occurs when: newStart <= existingEnd AND newEnd >= existingStart
@@ -462,9 +492,14 @@ export const subscriptionService = {
       const overlapPlan = membershipPlanService.getById(overlappingSubscription.planId);
       throw new Error(
         `Member already has an overlapping subscription (${overlapPlan?.name || 'Unknown'}) ` +
-        `from ${overlappingSubscription.startDate} to ${overlappingSubscription.endDate}`
+        `from ${overlappingSubscription.startDate} to ${overlappingSubscription.endDate}. ` +
+        `Please choose a start date after ${overlappingSubscription.endDate}.`
       );
     }
+
+    // Check if this is a renewal (member already has this slot assigned)
+    // Renewals don't consume additional capacity - member is already in the slot
+    const isRenewalInSameSlot = member.assignedSlotId === slotId;
 
     // Check slot capacity - count current active subscriptions for this slot
     // A subscription occupies a slot for its entire duration
@@ -473,14 +508,17 @@ export const subscriptionService = {
       s.slotId === slotId &&
       s.status === 'active' &&
       // Check if existing subscription overlaps with new subscription period
-      s.startDate <= endDate && s.endDate >= startDate
+      s.startDate <= endDate && s.endDate >= startDate &&
+      // Exclude the renewing member from the count (they're already in this slot)
+      s.memberId !== memberId
     );
 
     const currentSlotBookings = activeSubscriptionsInSlot.length;
     const totalCapacity = slot.capacity + slot.exceptionCapacity;
 
     // Check if slot is completely full (beyond normal + exception capacity)
-    if (currentSlotBookings >= totalCapacity) {
+    // Skip this check for renewals in the same slot - member is already occupying the slot
+    if (!isRenewalInSameSlot && currentSlotBookings >= totalCapacity) {
       throw new Error(
         `Slot "${slot.displayName}" is completely full. ` +
         `Current bookings: ${currentSlotBookings}, Total capacity: ${totalCapacity}. ` +
@@ -489,7 +527,8 @@ export const subscriptionService = {
     }
 
     // Check if normal capacity is exceeded (will use exception capacity)
-    const isUsingExceptionCapacity = currentSlotBookings >= slot.capacity;
+    // Skip warning for renewals in the same slot - member is already occupying the slot
+    const isUsingExceptionCapacity = !isRenewalInSameSlot && currentSlotBookings >= slot.capacity;
 
     // Calculate amounts
     const originalAmount = plan.price;
@@ -588,6 +627,125 @@ export const subscriptionService = {
         ? `${subscription.notes}\nExtended by ${extensionDays} days: ${reason || 'No reason provided'}`
         : `Extended by ${extensionDays} days: ${reason || 'No reason provided'}`,
     });
+  },
+
+  // Transfer member to different slot/batch
+  transferSlot: (
+    subscriptionId: string,
+    newSlotId: string,
+    effectiveDate: string,
+    reason?: string
+  ): { subscription: MembershipSubscription; warning?: string } => {
+    const subscription = subscriptionService.getById(subscriptionId);
+    if (!subscription) {
+      throw new Error('Subscription not found');
+    }
+
+    // Only allow transfer for active or scheduled subscriptions
+    if (!['active', 'scheduled'].includes(subscription.status)) {
+      throw new Error('Can only transfer active or scheduled subscriptions');
+    }
+
+    const newSlot = slotService.getById(newSlotId);
+    if (!newSlot) {
+      throw new Error('Target slot not found');
+    }
+
+    if (subscription.slotId === newSlotId) {
+      throw new Error('Member is already in this slot');
+    }
+
+    // Effective date must be within subscription period
+    if (effectiveDate < subscription.startDate) {
+      throw new Error('Effective date cannot be before subscription start date');
+    }
+
+    if (effectiveDate > subscription.endDate) {
+      throw new Error('Effective date cannot be after subscription end date');
+    }
+
+    // Check capacity in new slot from effective date to subscription end date
+    const capacityCheck = subscriptionService.checkSlotCapacity(
+      newSlotId,
+      effectiveDate,
+      subscription.endDate
+    );
+
+    if (!capacityCheck.available) {
+      throw new Error(`Cannot transfer: ${capacityCheck.message}`);
+    }
+
+    let warning: string | undefined;
+    if (capacityCheck.isExceptionOnly) {
+      warning = `Transfer will use exception capacity in "${newSlot.displayName}"`;
+    }
+
+    // Update subscription with new slot
+    const oldSlot = slotService.getById(subscription.slotId);
+    const noteText = `Batch transfer: ${oldSlot?.displayName || 'Unknown'} → ${newSlot.displayName} (effective ${effectiveDate})${reason ? `: ${reason}` : ''}`;
+
+    const updatedSubscription = subscriptionService.update(subscriptionId, {
+      slotId: newSlotId,
+      notes: subscription.notes
+        ? `${subscription.notes}\n${noteText}`
+        : noteText,
+    });
+
+    if (!updatedSubscription) {
+      throw new Error('Failed to update subscription');
+    }
+
+    // Also update member's assigned slot
+    memberService.update(subscription.memberId, {
+      assignedSlotId: newSlotId,
+    });
+
+    // Update slot subscription if exists
+    const slotSub = slotSubscriptionService.getByMember(subscription.memberId);
+    if (slotSub) {
+      slotSubscriptionService.update(slotSub.id, {
+        slotId: newSlotId,
+      });
+    }
+
+    return { subscription: updatedSubscription, warning };
+  },
+
+  // Set extra days on a subscription (for compensations, holidays, etc.)
+  // This actually extends the end date by the difference between new and old extra days
+  setExtraDays: (
+    subscriptionId: string,
+    newDays: number,
+    reason?: string
+  ): MembershipSubscription => {
+    const subscription = subscriptionService.getById(subscriptionId);
+    if (!subscription) {
+      throw new Error('Subscription not found');
+    }
+
+    if (newDays < 0) {
+      throw new Error('Extra days cannot be negative');
+    }
+
+    const currentExtraDays = subscription.extraDays || 0;
+    const daysDifference = newDays - currentExtraDays;
+
+    // Calculate the new end date based on the difference
+    const currentEnd = new Date(subscription.endDate);
+    currentEnd.setDate(currentEnd.getDate() + daysDifference);
+    const newEndDate = currentEnd.toISOString().split('T')[0];
+
+    const updatedSubscription = subscriptionService.update(subscriptionId, {
+      endDate: newEndDate,
+      extraDays: newDays,
+      extraDaysReason: reason || undefined,
+    });
+
+    if (!updatedSubscription) {
+      throw new Error('Failed to update subscription');
+    }
+
+    return updatedSubscription;
   },
 };
 
@@ -1322,10 +1480,236 @@ export function seedDemoData(): void {
     }
   });
 
-  // Also create a couple of leads for testing
+  // ============================================
+  // CREATE MEMBERS WITH EXPIRING SUBSCRIPTIONS (for testing renewal)
+  // ============================================
+  const expiringMembers = [
+    { firstName: 'Sanjay', lastName: 'Chopra', email: 'sanjay.chopra@email.com', phone: '9876543240', gender: 'male' as const, daysToExpiry: 3 },
+    { firstName: 'Lakshmi', lastName: 'Pillai', email: 'lakshmi.pillai@email.com', phone: '9876543241', gender: 'female' as const, daysToExpiry: 5 },
+    { firstName: 'Manoj', lastName: 'Tiwari', email: 'manoj.tiwari@email.com', phone: '9876543242', gender: 'male' as const, daysToExpiry: 7 },
+  ];
+
+  expiringMembers.forEach((memberData, index) => {
+    const slot = slots[index % slots.length];
+
+    // Calculate dates so subscription expires in X days
+    const expiryDate = new Date(now);
+    expiryDate.setDate(expiryDate.getDate() + memberData.daysToExpiry);
+    const expEndDate = expiryDate.toISOString().split('T')[0];
+
+    // Start date was 30 days before expiry (monthly plan)
+    const expStartDate = new Date(expiryDate);
+    expStartDate.setDate(expStartDate.getDate() - 30);
+    const expStart = expStartDate.toISOString().split('T')[0];
+
+    const member = memberService.create({
+      firstName: memberData.firstName,
+      lastName: memberData.lastName,
+      email: memberData.email,
+      phone: memberData.phone,
+      gender: memberData.gender,
+      status: 'active',
+      source: 'walk-in',
+      assignedSlotId: slot.id,
+      classesAttended: Math.floor(Math.random() * 15) + 10,
+      medicalConditions: [],
+      consentRecords: [],
+    });
+
+    // Create subscription directly
+    const subscription = subscriptionService.create({
+      memberId: member.id,
+      planId: monthlyPlan.id,
+      slotId: slot.id,
+      startDate: expStart,
+      endDate: expEndDate,
+      originalAmount: monthlyPlan.price,
+      discountAmount: 0,
+      payableAmount: monthlyPlan.price,
+      status: 'active',
+      isExtension: false,
+      paymentStatus: 'paid',
+    });
+
+    // Create paid invoice
+    invoiceService.create({
+      invoiceNumber: invoiceService.generateInvoiceNumber(),
+      invoiceType: 'membership',
+      memberId: member.id,
+      amount: monthlyPlan.price,
+      discount: 0,
+      totalAmount: monthlyPlan.price,
+      amountPaid: monthlyPlan.price,
+      invoiceDate: expStart,
+      dueDate: expStart,
+      status: 'paid',
+      items: [{
+        description: `${monthlyPlan.name} Membership - ${slot.displayName}`,
+        quantity: 1,
+        unitPrice: monthlyPlan.price,
+        total: monthlyPlan.price,
+      }],
+      subscriptionId: subscription.id,
+    });
+
+    // Create slot subscription
+    slotSubscriptionService.create({
+      memberId: member.id,
+      slotId: slot.id,
+      startDate: expStart,
+      isActive: true,
+      isException: false,
+    });
+  });
+
+  // ============================================
+  // FILL FIRST SLOT TO CAPACITY FOR TRANSFER TESTING
+  // ============================================
+  // First slot (Morning 7:30 AM) already has ~3 members from round-robin + 1 expiring = 4
+  // Add 6 more members to fill normal capacity (10). Exception capacity (1) will still be available.
+  const fullSlot = slots[0]; // Morning 7:30 AM slot
+  const fillSlotMembers = [
+    { firstName: 'Ashwin', lastName: 'Menon', email: 'ashwin.menon@email.com', phone: '9876543260', gender: 'male' as const },
+    { firstName: 'Divya', lastName: 'Krishnan', email: 'divya.k@email.com', phone: '9876543261', gender: 'female' as const },
+    { firstName: 'Karthik', lastName: 'Subramanian', email: 'karthik.s@email.com', phone: '9876543262', gender: 'male' as const },
+    { firstName: 'Revathi', lastName: 'Balan', email: 'revathi.b@email.com', phone: '9876543263', gender: 'female' as const },
+    { firstName: 'Ganesh', lastName: 'Narayanan', email: 'ganesh.n@email.com', phone: '9876543264', gender: 'male' as const },
+    { firstName: 'Shalini', lastName: 'Rajan', email: 'shalini.r@email.com', phone: '9876543265', gender: 'female' as const },
+  ];
+
+  fillSlotMembers.forEach((memberData) => {
+    const member = memberService.create({
+      firstName: memberData.firstName,
+      lastName: memberData.lastName,
+      email: memberData.email,
+      phone: memberData.phone,
+      gender: memberData.gender,
+      status: 'active',
+      source: 'referral',
+      assignedSlotId: fullSlot.id,
+      classesAttended: Math.floor(Math.random() * 10) + 5,
+      medicalConditions: [],
+      consentRecords: [],
+    });
+
+    // Create subscription
+    const subscription = subscriptionService.create({
+      memberId: member.id,
+      planId: monthlyPlan.id,
+      slotId: fullSlot.id,
+      startDate: startDate,
+      endDate: endDate,
+      originalAmount: monthlyPlan.price,
+      discountAmount: 0,
+      payableAmount: monthlyPlan.price,
+      status: 'active',
+      isExtension: false,
+      paymentStatus: 'paid',
+    });
+
+    // Create slot subscription
+    slotSubscriptionService.create({
+      memberId: member.id,
+      slotId: fullSlot.id,
+      startDate: startDate,
+      isActive: true,
+      isException: false,
+    });
+
+    // Create invoice
+    invoiceService.create({
+      invoiceNumber: invoiceService.generateInvoiceNumber(),
+      invoiceType: 'membership',
+      memberId: member.id,
+      amount: monthlyPlan.price,
+      discount: 0,
+      totalAmount: monthlyPlan.price,
+      amountPaid: monthlyPlan.price,
+      invoiceDate: startDate,
+      dueDate: startDate,
+      status: 'paid',
+      items: [{
+        description: `${monthlyPlan.name} Membership - ${fullSlot.displayName}`,
+        quantity: 1,
+        unitPrice: monthlyPlan.price,
+        total: monthlyPlan.price,
+      }],
+      subscriptionId: subscription.id,
+    });
+  });
+
+  // ============================================
+  // CREATE MEMBER FOR TRANSFER TESTING
+  // ============================================
+  // Member in slot 2 who can be used to test transfer to full slot
+  const transferTestMember = memberService.create({
+    firstName: 'Sunil',
+    lastName: 'Mehta',
+    email: 'sunil.mehta@email.com',
+    phone: '9876543290',
+    gender: 'male',
+    status: 'active',
+    source: 'referral',
+    assignedSlotId: slots[1]?.id, // In Morning 8:45 AM slot
+    classesAttended: 8,
+    medicalConditions: [],
+    consentRecords: [],
+  });
+
+  const transferTestSub = subscriptionService.create({
+    memberId: transferTestMember.id,
+    planId: quarterlyPlan.id,
+    slotId: slots[1]?.id!,
+    startDate: startDate,
+    endDate: quarterlyEndDate,
+    originalAmount: quarterlyPlan.price,
+    discountAmount: 0,
+    payableAmount: quarterlyPlan.price,
+    status: 'active',
+    isExtension: false,
+    paymentStatus: 'paid',
+  });
+
+  slotSubscriptionService.create({
+    memberId: transferTestMember.id,
+    slotId: slots[1]?.id!,
+    startDate: startDate,
+    isActive: true,
+    isException: false,
+  });
+
+  invoiceService.create({
+    invoiceNumber: invoiceService.generateInvoiceNumber(),
+    invoiceType: 'membership',
+    memberId: transferTestMember.id,
+    amount: quarterlyPlan.price,
+    discount: 0,
+    totalAmount: quarterlyPlan.price,
+    amountPaid: quarterlyPlan.price,
+    invoiceDate: startDate,
+    dueDate: startDate,
+    status: 'paid',
+    items: [{
+      description: `${quarterlyPlan.name} Membership - ${slots[1]?.displayName}`,
+      quantity: 1,
+      unitPrice: quarterlyPlan.price,
+      total: quarterlyPlan.price,
+    }],
+    subscriptionId: transferTestSub.id,
+  });
+
+  // ============================================
+  // CREATE LEADS FOR CONVERSION TESTING
+  // ============================================
   const sampleLeads = [
-    { firstName: 'Neha', lastName: 'Kapoor', email: 'neha.kapoor@email.com', phone: '9876543230', preferredSlot: slots[0]?.id },
-    { firstName: 'Rohit', lastName: 'Malhotra', email: 'rohit.m@email.com', phone: '9876543231', preferredSlot: slots[1]?.id },
+    // New lead - ready for direct conversion
+    { firstName: 'Neha', lastName: 'Kapoor', email: 'neha.kapoor@email.com', phone: '9876543230', preferredSlot: slots[1]?.id, status: 'new' as const },
+    // Contacted lead - ready for conversion
+    { firstName: 'Rohit', lastName: 'Malhotra', email: 'rohit.m@email.com', phone: '9876543231', preferredSlot: slots[2]?.id, status: 'contacted' as const },
+    // Negotiating lead - almost ready
+    { firstName: 'Shreya', lastName: 'Agarwal', email: 'shreya.a@email.com', phone: '9876543232', preferredSlot: slots[1]?.id, status: 'negotiating' as const },
+    // Lead interested in full slot - to test capacity check during conversion
+    { firstName: 'Vivek', lastName: 'Srinivasan', email: 'vivek.s@email.com', phone: '9876543233', preferredSlot: fullSlot.id, status: 'new' as const },
   ];
 
   sampleLeads.forEach(leadData => {
@@ -1334,17 +1718,70 @@ export function seedDemoData(): void {
       lastName: leadData.lastName,
       email: leadData.email,
       phone: leadData.phone,
-      status: 'new',
-      source: 'website',
+      status: leadData.status,
+      source: 'online',
       preferredSlotId: leadData.preferredSlot,
       medicalConditions: [],
       consentRecords: [],
     });
   });
 
+  // ============================================
+  // CREATE LEADS WITH TRIAL BOOKINGS
+  // ============================================
+  // Tomorrow's date for trial
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  // Skip weekends
+  while (tomorrow.getDay() === 0 || tomorrow.getDay() === 6) {
+    tomorrow.setDate(tomorrow.getDate() + 1);
+  }
+  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+  // Day after tomorrow
+  const dayAfter = new Date(tomorrow);
+  dayAfter.setDate(dayAfter.getDate() + 1);
+  while (dayAfter.getDay() === 0 || dayAfter.getDay() === 6) {
+    dayAfter.setDate(dayAfter.getDate() + 1);
+  }
+  const dayAfterStr = dayAfter.toISOString().split('T')[0];
+
+  const trialLeads = [
+    { firstName: 'Poornima', lastName: 'Das', email: 'poornima.d@email.com', phone: '9876543280', trialSlot: slots[1]?.id, trialDate: tomorrowStr, trialCompleted: false },
+    { firstName: 'Venkat', lastName: 'Raman', email: 'venkat.r@email.com', phone: '9876543281', trialSlot: slots[2]?.id, trialDate: dayAfterStr, trialCompleted: false },
+    { firstName: 'Smita', lastName: 'Banerjee', email: 'smita.b@email.com', phone: '9876543282', trialSlot: slots[1]?.id, trialDate: today, trialCompleted: true },
+  ];
+
+  trialLeads.forEach(leadData => {
+    const lead = leadService.create({
+      firstName: leadData.firstName,
+      lastName: leadData.lastName,
+      email: leadData.email,
+      phone: leadData.phone,
+      status: leadData.trialCompleted ? 'trial-completed' : 'trial-scheduled',
+      source: 'online',
+      preferredSlotId: leadData.trialSlot,
+      trialDate: leadData.trialDate,
+      trialSlotId: leadData.trialSlot,
+      medicalConditions: [],
+      consentRecords: [],
+    });
+
+    // Create trial booking
+    trialBookingService.create({
+      leadId: lead.id,
+      slotId: leadData.trialSlot!,
+      date: leadData.trialDate,
+      status: leadData.trialCompleted ? 'attended' : 'confirmed',
+      isException: false,
+      confirmationSent: true,
+      reminderSent: leadData.trialCompleted,
+    });
+  });
+
   // Mark seed data as initialized
   localStorage.setItem(SEED_DATA_KEY, 'true');
-  console.log('Seed data created successfully: 12 members, 2 leads');
+  console.log('Seed data created successfully: 12 regular members, 3 expiring members, 6 fill members, 1 transfer test member, 4 leads, 3 leads with trials');
 }
 
 // Function to reset all data and re-seed
@@ -1489,6 +1926,16 @@ export const attendanceService = {
 
     const slot = slotService.getById(slotId);
     if (!slot) throw new Error('Slot not found');
+
+    // Validate date is not more than 3 days in the past
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const attendanceDate = new Date(date);
+    attendanceDate.setHours(0, 0, 0, 0);
+    const daysDiff = Math.floor((today.getTime() - attendanceDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysDiff > 3) {
+      throw new Error('Cannot mark attendance for more than 3 days in the past');
+    }
 
     // Check for existing record
     const existing = attendanceService.getExistingRecord(memberId, slotId, date);

@@ -11,3 +11,4 @@ export { DataTable, Pagination, type Column } from './DataTable';
 export { LoadingSpinner, PageLoading, SkeletonCard, SkeletonTable } from './LoadingSpinner';
 export { EmptyState, EmptyIcons } from './EmptyState';
 export { Checkbox, Radio, RadioGroup } from './Checkbox';
+export { SlotSelector } from './SlotSelector';

@@ -106,35 +106,37 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Blob> {
   const balance = invoice.totalAmount - invoice.amountPaid;
 
   let y = margin;
+  const headerTop = y; // Top alignment reference point
 
-  // ==================== HEADER ====================
+  // ==================== HEADER (top-justified) ====================
 
-  // Logo
+  // Logo - 26mm to align with studio info block
+  const logoSize = 26;
   let logoWidth = 0;
   if (template.showLogo && settings.logoData) {
     try {
-      doc.addImage(settings.logoData, 'AUTO', margin, y, 20, 20);
-      logoWidth = 25;
+      doc.addImage(settings.logoData, 'AUTO', margin, headerTop, logoSize, logoSize);
+      logoWidth = logoSize + 4;
     } catch {
       // Skip logo on error
     }
   }
 
-  // Studio name
+  // Studio name - top-justified, same color as header text (accent color)
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(20);
-  doc.setTextColor(30, 30, 30);
-  doc.text(settings.studioName, margin + logoWidth, y + 7);
+  doc.setFontSize(18);
+  doc.setTextColor(accent.r, accent.g, accent.b);
+  doc.text(settings.studioName, margin + logoWidth, headerTop + 5);
 
-  // Studio contact info - each on separate line
+  // Studio contact info - same color as header text (accent color)
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.setTextColor(120, 120, 120);
+  doc.setTextColor(accent.r, accent.g, accent.b);
 
-  let contactY = y + 13;
+  let contactY = headerTop + 11;
   if (template.showStudioAddress && settings.address) {
-    doc.text(settings.address, margin + logoWidth, contactY, { maxWidth: 80 });
-    const addressLines = doc.splitTextToSize(settings.address, 80);
+    doc.text(settings.address, margin + logoWidth, contactY, { maxWidth: 60 });
+    const addressLines = doc.splitTextToSize(settings.address, 60);
     contactY += addressLines.length * 4;
   }
   if (template.showStudioPhone && settings.phone) {
@@ -145,11 +147,11 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Blob> {
     doc.text(settings.email, margin + logoWidth, contactY);
   }
 
-  // INVOICE label - right aligned, large
+  // INVOICE label - right aligned, top-justified
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(28);
   doc.setTextColor(accent.r, accent.g, accent.b);
-  doc.text(template.headerText || 'INVOICE', rightCol, y + 10, { align: 'right' });
+  doc.text(template.headerText || 'INVOICE', rightCol, headerTop + 8, { align: 'right' });
 
   y = 55;
 

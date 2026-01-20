@@ -14,6 +14,13 @@ export function addMonths(dateString: string, months: number): string {
   return format(dateAddMonths(parseISO(dateString), months), 'yyyy-MM-dd');
 }
 
+// Calculate subscription end date (start + months - 1 day)
+// For example: Jan 1 + 1 month = Jan 31 (not Feb 1)
+export function calculateSubscriptionEndDate(startDate: string, durationMonths: number): string {
+  const endPlusOne = dateAddMonths(parseISO(startDate), durationMonths);
+  return format(dateAddDays(endPlusOne, -1), 'yyyy-MM-dd');
+}
+
 // ============================================
 // DATE FORMATTING
 // ============================================
@@ -37,6 +44,21 @@ export function formatDateLong(dateString: string): string {
 export function formatDateShort(dateString: string): string {
   try {
     return format(parseISO(dateString), 'dd/MM/yyyy');
+  } catch {
+    return dateString;
+  }
+}
+
+// Compact date format: "20 Jan" or "20 Jan 2026" if different year
+export function formatDateCompact(dateString: string): string {
+  try {
+    const date = parseISO(dateString);
+    const currentYear = new Date().getFullYear();
+    const dateYear = date.getFullYear();
+    if (dateYear === currentYear) {
+      return format(date, 'd MMM');
+    }
+    return format(date, 'd MMM yyyy');
   } catch {
     return dateString;
   }

@@ -1,10 +1,10 @@
 import { useState, FormEvent, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button, Input, Textarea, Alert, Modal } from '../../components/common';
+import { Card, Button, Input, Textarea, Alert, Modal, SlotSelector } from '../../components/common';
 import { leadService, slotService, trialBookingService, settingsService } from '../../services';
 import { validateEmail, validatePhone } from '../../utils/validationUtils';
 import { getToday, formatDate, isHoliday, getHolidayName } from '../../utils/dateUtils';
-import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isWeekend, isBefore, startOfToday } from 'date-fns';
+import { format, addMonths, addWeeks, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isWeekend, isBefore, isAfter, startOfToday } from 'date-fns';
 import type { MedicalCondition, ConsentRecord, Holiday } from '../../types';
 
 export function BookTrialPage() {
@@ -202,6 +202,9 @@ export function BookTrialPage() {
   };
 
   // Get availability status for a date (for the selected slot)
+  // Booking window is limited to 2 weeks ahead
+  const bookingWindowEnd = addWeeks(startOfToday(), 2);
+
   const getDateAvailability = (date: Date) => {
     const dateString = format(date, 'yyyy-MM-dd');
     const today = startOfToday();
@@ -209,6 +212,11 @@ export function BookTrialPage() {
     // Check if date is in the past
     if (isBefore(date, today)) {
       return { status: 'past', available: 0, tooltip: 'Past date' };
+    }
+
+    // Check if date is beyond the 2-week booking window
+    if (isAfter(date, bookingWindowEnd)) {
+      return { status: 'unavailable', available: 0, tooltip: 'Beyond 2-week booking window' };
     }
 
     // Check if weekend
@@ -531,28 +539,15 @@ export function BookTrialPage() {
               <p className="text-sm text-gray-600 mb-4">
                 Choose your preferred session time. Sessions run Monday to Friday.
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {slots.map(slot => (
-                  <button
-                    key={slot.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedSlotId(slot.id);
-                      setSelectedDate(''); // Reset date when slot changes
-                    }}
-                    className={`p-4 rounded-lg text-left transition-all ${
-                      selectedSlotId === slot.id
-                        ? 'bg-indigo-600 text-white ring-2 ring-indigo-600 ring-offset-2'
-                        : 'bg-gray-50 hover:bg-gray-100 text-gray-900'
-                    }`}
-                  >
-                    <p className="font-semibold">{slot.displayName}</p>
-                    <p className={`text-sm ${selectedSlotId === slot.id ? 'text-indigo-200' : 'text-gray-500'}`}>
-                      {slot.startTime} - {slot.endTime}
-                    </p>
-                  </button>
-                ))}
-              </div>
+              <SlotSelector
+                selectedSlotId={selectedSlotId}
+                onSelect={(slotId) => {
+                  setSelectedSlotId(slotId);
+                  setSelectedDate(''); // Reset date when slot changes
+                }}
+                variant="tiles"
+                columns={4}
+              />
             </Card>
 
             {/* Step 2: Calendar Date Selection */}
@@ -631,7 +626,8 @@ export function BookTrialPage() {
                       const isDisabled = availability.status === 'past' ||
                                         availability.status === 'weekend' ||
                                         availability.status === 'holiday' ||
-                                        availability.status === 'full';
+                                        availability.status === 'full' ||
+                                        availability.status === 'unavailable';
 
                       let bgColor = 'bg-white hover:bg-gray-50';
                       let textColor = 'text-gray-900';
@@ -647,6 +643,10 @@ export function BookTrialPage() {
                       } else if (availability.status === 'weekend' || availability.status === 'holiday') {
                         bgColor = 'bg-gray-200';
                         textColor = 'text-gray-500';
+                      } else if (availability.status === 'unavailable') {
+                        bgColor = 'bg-gray-100';
+                        textColor = 'text-gray-400';
+                        borderColor = 'border-gray-200';
                       } else if (availability.status === 'full') {
                         bgColor = 'bg-red-50';
                         textColor = 'text-red-400';

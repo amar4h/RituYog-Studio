@@ -24,6 +24,14 @@ export function SettingsPage() {
     email: settings.email || '',
   });
 
+  // Invoice numbering state
+  const [invoiceNumbering, setInvoiceNumbering] = useState({
+    invoicePrefix: settings.invoicePrefix || 'INV',
+    receiptPrefix: settings.receiptPrefix || 'RCP',
+    invoiceStartNumber: settings.invoiceStartNumber || 1,
+    receiptStartNumber: settings.receiptStartNumber || 1,
+  });
+
   // Logo state
   const [logoData, setLogoData] = useState<string | undefined>(settings.logoData);
 
@@ -111,6 +119,27 @@ export function SettingsPage() {
       setSuccess('Invoice template updated successfully');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update invoice template');
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleSaveInvoiceNumbering = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setLoading('invoice-numbering');
+
+    try {
+      settingsService.updatePartial({
+        invoicePrefix: invoiceNumbering.invoicePrefix.trim().toUpperCase() || 'INV',
+        receiptPrefix: invoiceNumbering.receiptPrefix.trim().toUpperCase() || 'RCP',
+        invoiceStartNumber: invoiceNumbering.invoiceStartNumber || 1,
+        receiptStartNumber: invoiceNumbering.receiptStartNumber || 1,
+      });
+      setSuccess('Invoice numbering settings updated successfully');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update invoice numbering');
     } finally {
       setLoading(null);
     }
@@ -374,9 +403,19 @@ export function SettingsPage() {
               value={studioData.email}
               onChange={(e) => setStudioData(prev => ({ ...prev, email: e.target.value }))}
             />
-            <Button type="submit" loading={loading === 'studio'}>
-              Save Changes
-            </Button>
+            <div className="flex gap-3 items-center">
+              <Button type="submit" loading={loading === 'studio'}>
+                Save Changes
+              </Button>
+              {success === 'Studio information updated successfully' && (
+                <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Saved!
+                </span>
+              )}
+            </div>
           </form>
         </Card>
 
@@ -443,6 +482,68 @@ export function SettingsPage() {
           </div>
         </Card>
       </div>
+
+      {/* Invoice Numbering */}
+      <Card title="Invoice & Receipt Numbering">
+        <p className="text-sm text-gray-600 mb-4">
+          Configure the prefix and starting number for invoice and receipt numbers. For example, with prefix "INV" and starting number 1, invoices will be numbered as INV-00001, INV-00002, etc.
+        </p>
+        <form onSubmit={handleSaveInvoiceNumbering} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Input
+              label="Invoice Prefix"
+              value={invoiceNumbering.invoicePrefix}
+              onChange={(e) => setInvoiceNumbering(prev => ({ ...prev, invoicePrefix: e.target.value }))}
+              placeholder="INV"
+              helperText="Prefix for invoice numbers"
+            />
+            <Input
+              label="Invoice Starting No."
+              type="number"
+              min={1}
+              value={invoiceNumbering.invoiceStartNumber}
+              onChange={(e) => setInvoiceNumbering(prev => ({ ...prev, invoiceStartNumber: parseInt(e.target.value) || 1 }))}
+              placeholder="1"
+              helperText="Starting number for sequence"
+            />
+            <Input
+              label="Receipt Prefix"
+              value={invoiceNumbering.receiptPrefix}
+              onChange={(e) => setInvoiceNumbering(prev => ({ ...prev, receiptPrefix: e.target.value }))}
+              placeholder="RCP"
+              helperText="Prefix for receipt numbers"
+            />
+            <Input
+              label="Receipt Starting No."
+              type="number"
+              min={1}
+              value={invoiceNumbering.receiptStartNumber}
+              onChange={(e) => setInvoiceNumbering(prev => ({ ...prev, receiptStartNumber: parseInt(e.target.value) || 1 }))}
+              placeholder="1"
+              helperText="Starting number for sequence"
+            />
+          </div>
+          <div className="p-3 bg-gray-50 rounded-lg">
+            <p className="text-sm text-gray-600">
+              <span className="font-medium">Preview:</span> Invoice: <span className="font-mono text-indigo-600">{invoiceNumbering.invoicePrefix || 'INV'}-{String(invoiceNumbering.invoiceStartNumber || 1).padStart(5, '0')}</span>,
+              Receipt: <span className="font-mono text-indigo-600">{invoiceNumbering.receiptPrefix || 'RCP'}-{String(invoiceNumbering.receiptStartNumber || 1).padStart(5, '0')}</span>
+            </p>
+          </div>
+          <div className="flex gap-3 items-center">
+            <Button type="submit" loading={loading === 'invoice-numbering'}>
+              Save Numbering Settings
+            </Button>
+            {success === 'Invoice numbering settings updated successfully' && (
+              <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Saved!
+              </span>
+            )}
+          </div>
+        </form>
+      </Card>
 
       {/* Invoice Template Configuration */}
       <Card title="Invoice Template">
@@ -670,7 +771,7 @@ export function SettingsPage() {
             helperText="Terms shown on the invoice (separate from membership terms)"
           />
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 items-center">
             <Button type="submit" loading={loading === 'invoice-template'}>
               Save Invoice Template
             </Button>
@@ -681,6 +782,14 @@ export function SettingsPage() {
             >
               Reset to Default
             </Button>
+            {success === 'Invoice template updated successfully' && (
+              <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Saved!
+              </span>
+            )}
           </div>
         </form>
       </Card>
@@ -711,9 +820,19 @@ export function SettingsPage() {
               onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
               required
             />
-            <Button type="submit" loading={loading === 'password'}>
-              Change Password
-            </Button>
+            <div className="flex gap-3 items-center">
+              <Button type="submit" loading={loading === 'password'}>
+                Change Password
+              </Button>
+              {success === 'Password changed successfully' && (
+                <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Changed!
+                </span>
+              )}
+            </div>
           </form>
         </Card>
       </div>
@@ -800,9 +919,19 @@ export function SettingsPage() {
             rows={4}
             helperText="Health-related disclaimer for yoga practice (supports Markdown)"
           />
-          <Button type="submit" loading={loading === 'terms'}>
-            Save Terms
-          </Button>
+          <div className="flex gap-3 items-center">
+            <Button type="submit" loading={loading === 'terms'}>
+              Save Terms
+            </Button>
+            {success === 'Terms and disclaimers updated successfully' && (
+              <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Saved!
+              </span>
+            )}
+          </div>
         </form>
       </Card>
 

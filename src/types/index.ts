@@ -163,7 +163,7 @@ export interface MembershipPlan extends BaseEntity {
 // MEMBERSHIP SUBSCRIPTIONS
 // ============================================
 
-export type SubscriptionStatus = 'active' | 'expired' | 'cancelled' | 'pending' | 'suspended';
+export type SubscriptionStatus = 'active' | 'expired' | 'cancelled' | 'pending' | 'suspended' | 'scheduled';
 export type PaymentStatus = 'pending' | 'partial' | 'paid';
 
 export interface MembershipSubscription extends BaseEntity {
@@ -190,6 +190,10 @@ export interface MembershipSubscription extends BaseEntity {
   // Payment link
   invoiceId?: string;
   paymentStatus: PaymentStatus;
+
+  // Extra days (for compensations, holidays, etc.)
+  extraDays?: number;
+  extraDaysReason?: string;
 
   notes?: string;
 }
@@ -424,6 +428,8 @@ export interface StudioSettings {
   taxRate?: number;
   invoicePrefix: string;
   receiptPrefix: string;
+  invoiceStartNumber?: number;
+  receiptStartNumber?: number;
 
   // Trial settings
   trialClassEnabled: boolean;

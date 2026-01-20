@@ -1,31 +1,89 @@
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useMemo } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Card, Button, Input, Select, Alert } from '../../components/common';
+import { Card, Button, Input, Select, Alert, SlotSelector } from '../../components/common';
 import { memberService, membershipPlanService, subscriptionService, slotService } from '../../services';
 import { formatCurrency } from '../../utils/formatUtils';
-import { getToday, addMonths } from '../../utils/dateUtils';
+import { getToday, addDays, calculateSubscriptionEndDate } from '../../utils/dateUtils';
 
 export function SubscriptionFormPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const locationState = location.state as { memberId?: string; slotId?: string; planId?: string } | null;
+  const locationState = location.state as { memberId?: string; slotId?: string; planId?: string; isRenewal?: boolean } | null;
   const preselectedMemberId = locationState?.memberId;
   const preselectedSlotId = locationState?.slotId;
   const preselectedPlanId = locationState?.planId;
+  const isRenewalFromNavigation = locationState?.isRenewal || false;
 
   // Get preselected member's slot if available
   const preselectedMember = preselectedMemberId ? memberService.getById(preselectedMemberId) : null;
 
+  // Check if this is a renewal (member has existing, scheduled, or recently expired subscription)
+  const existingOrExpiredSubscription = useMemo(() => {
+    if (!preselectedMemberId) return null;
+    const allSubs = subscriptionService.getByMember(preselectedMemberId);
+    const today = getToday();
+
+    // Sort by end date descending to get the latest subscription
+    const sortedSubs = [...allSubs].sort((a, b) =>
+      new Date(b.endDate).getTime() - new Date(a.endDate).getTime()
+    );
+
+    // Find the most relevant subscription for renewal purposes
+    // Priority: active > scheduled > recently expired
+    const active = sortedSubs.find(s =>
+      s.status === 'active' && s.startDate <= today && s.endDate >= today
+    );
+    if (active) return active;
+
+    const scheduled = sortedSubs.find(s =>
+      s.status === 'scheduled' || (s.status === 'active' && s.startDate > today)
+    );
+    if (scheduled) return scheduled;
+
+    // Check for recently expired (within last 30 days)
+    const recentlyExpired = sortedSubs.find(s => {
+      if (s.status !== 'expired' && s.status !== 'active') return false;
+      const expiredDate = new Date(s.endDate);
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      return expiredDate >= thirtyDaysAgo && expiredDate < new Date(today);
+    });
+    return recentlyExpired || null;
+  }, [preselectedMemberId]);
+
+  const isRenewal = isRenewalFromNavigation || !!existingOrExpiredSubscription;
+
+  // For renewals, calculate start date based on existing subscription
+  // Always set to day after the latest subscription ends
+  const getInitialStartDate = () => {
+    if (existingOrExpiredSubscription) {
+      // Always start day after existing subscription ends
+      // This ensures no overlap and proper continuity
+      return addDays(existingOrExpiredSubscription.endDate, 1);
+    }
+    return getToday();
+  };
+
   // Determine which slot to pre-select: from navigation state, or member's existing slot
   const initialSlotId = preselectedSlotId || preselectedMember?.assignedSlotId || '';
 
+  // Get plans and slots first for default selection
+  const plans = membershipPlanService.getActive();
+  const slots = slotService.getActive();
+
+  // Get the Monthly plan as default when no plan is preselected
+  const monthlyPlan = plans.find(p => p.type === 'monthly');
+  const initialPlanId = preselectedPlanId || monthlyPlan?.id || '';
+
   const [formData, setFormData] = useState({
     memberId: preselectedMemberId || '',
-    planId: preselectedPlanId || '',
+    planId: initialPlanId,
     slotId: initialSlotId,
-    startDate: getToday(),
-    discountAmount: 0,
+    startDate: getInitialStartDate(),
+    discountType: 'percentage' as 'fixed' | 'percentage',
+    discountValue: 0,
     discountReason: '',
+    allowSlotChange: false, // For renewals - whether to allow changing slot
   });
 
   const [error, setError] = useState('');
@@ -33,34 +91,37 @@ export function SubscriptionFormPage() {
   const [capacityWarning, setCapacityWarning] = useState('');
 
   // Get all members that are eligible for subscription
-  const allMembers = memberService.getAll().filter(m => ['active', 'pending', 'trial'].includes(m.status));
+  // Always include preselected member regardless of status (for renewals/expired members)
+  const allMembers = memberService.getAll().filter(m =>
+    m.id === preselectedMemberId || ['active', 'pending', 'trial'].includes(m.status)
+  );
 
   // Filter out members who already have active subscriptions (unless they are the preselected member)
   const members = allMembers.filter(m => {
-    // Always include the preselected member (they are being converted from lead)
+    // Always include the preselected member (for renewals or expired member subscriptions)
     if (m.id === preselectedMemberId) return true;
     // Exclude members with active subscriptions
     const activeSubscription = subscriptionService.getActiveMemberSubscription(m.id);
     return !activeSubscription;
   });
 
-  const plans = membershipPlanService.getActive();
-  const slots = slotService.getActive();
-
   const selectedPlan = plans.find(p => p.id === formData.planId);
   const selectedMember = members.find(m => m.id === formData.memberId);
   const selectedSlot = slots.find(s => s.id === formData.slotId);
 
   // Determine if slot selection should be shown
-  // Hide it when member already has an assigned slot (renewal/extension scenario)
+  // Show it when member doesn't have an assigned slot OR when allowSlotChange is enabled for renewals
   const memberHasAssignedSlot = selectedMember?.assignedSlotId;
-  const shouldShowSlotSelection = !memberHasAssignedSlot;
+  const shouldShowSlotSelection = !memberHasAssignedSlot || formData.allowSlotChange;
 
-  // Calculate amounts
+  // Calculate amounts with discount type support
   const originalAmount = selectedPlan?.price || 0;
-  const payableAmount = Math.max(0, originalAmount - formData.discountAmount);
+  const discountAmount = formData.discountType === 'percentage'
+    ? Math.round((originalAmount * formData.discountValue) / 100)
+    : formData.discountValue;
+  const payableAmount = Math.max(0, originalAmount - discountAmount);
   const endDate = selectedPlan
-    ? addMonths(formData.startDate, selectedPlan.durationMonths)
+    ? calculateSubscriptionEndDate(formData.startDate, selectedPlan.durationMonths)
     : '';
 
   // Check if member already has active subscription
@@ -87,7 +148,7 @@ export function SubscriptionFormPage() {
       return;
     }
 
-    if (formData.discountAmount > originalAmount) {
+    if (discountAmount > originalAmount) {
       setError('Discount cannot exceed the plan price');
       return;
     }
@@ -100,7 +161,7 @@ export function SubscriptionFormPage() {
         formData.planId,
         formData.slotId,
         formData.startDate,
-        formData.discountAmount > 0 ? formData.discountAmount : 0,
+        discountAmount > 0 ? discountAmount : 0,
         formData.discountReason.trim() || undefined
       );
 
@@ -126,9 +187,19 @@ export function SubscriptionFormPage() {
           ← Back to Subscriptions
         </Link>
         <h1 className="text-2xl font-bold text-gray-900 mt-2">
-          New Subscription
+          {isRenewal ? 'Renew Subscription' : 'New Subscription'}
         </h1>
-        <p className="text-gray-600">Create a new membership subscription</p>
+        <p className="text-gray-600">
+          {isRenewal
+            ? `Renew membership for ${preselectedMember?.firstName} ${preselectedMember?.lastName}`
+            : 'Create a new membership subscription'
+          }
+        </p>
+        {isRenewal && existingOrExpiredSubscription && (
+          <p className="text-sm text-indigo-600 mt-1">
+            Previous subscription: {existingOrExpiredSubscription.startDate} to {existingOrExpiredSubscription.endDate}
+          </p>
+        )}
       </div>
 
       {error && (
@@ -157,7 +228,22 @@ export function SubscriptionFormPage() {
                   const member = members.find(m => m.id === memberId);
                   // Auto-set slot if member has an assigned slot
                   const slotId = member?.assignedSlotId || formData.slotId;
-                  setFormData(prev => ({ ...prev, memberId, slotId }));
+
+                  // Auto-set start date if member has existing subscription
+                  let startDate = formData.startDate;
+                  if (memberId) {
+                    const allSubs = subscriptionService.getByMember(memberId);
+                    // Find the latest active or scheduled subscription
+                    const latestSub = allSubs
+                      .filter(s => ['active', 'scheduled', 'pending'].includes(s.status))
+                      .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime())[0];
+                    if (latestSub) {
+                      // Start day after the latest subscription ends
+                      startDate = addDays(latestSub.endDate, 1);
+                    }
+                  }
+
+                  setFormData(prev => ({ ...prev, memberId, slotId, startDate }));
                 }}
                 options={[
                   { value: '', label: 'Choose a member...' },
@@ -182,9 +268,9 @@ export function SubscriptionFormPage() {
               )}
 
               {existingSubscription && (
-                <Alert variant="warning" className="mt-4">
-                  This member already has an active subscription that expires on {existingSubscription.endDate}.
-                  Creating a new subscription will replace the existing one.
+                <Alert variant="info" className="mt-4">
+                  This member has an active subscription until <strong>{existingSubscription.endDate}</strong>.
+                  The new subscription should start on <strong>{addDays(existingSubscription.endDate, 1)}</strong> to avoid overlap.
                 </Alert>
               )}
             </Card>
@@ -240,96 +326,32 @@ export function SubscriptionFormPage() {
                     Slot pre-selected from trial booking.
                   </p>
                 )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {slots.map(slot => {
-                    const isCurrentSlot = selectedMember?.assignedSlotId === slot.id;
-
-                    // Use checkSlotCapacity for accurate capacity check based on subscription period
-                    // This matches the backend validation logic
-                    const capacityCheck = selectedPlan && endDate
-                      ? subscriptionService.checkSlotCapacity(slot.id, formData.startDate, endDate)
-                      : null;
-
-                    // Fallback to simple availability check if no plan selected yet
-                    const availability = slotService.getSlotAvailability(slot.id, getToday());
-
-                    const isCompletelyFull = capacityCheck
-                      ? !capacityCheck.available
-                      : (availability.regularBookings + availability.exceptionBookings) >= (slot.capacity + slot.exceptionCapacity);
-                    const isNormalCapacityFull = capacityCheck
-                      ? capacityCheck.isExceptionOnly
-                      : availability.regularBookings >= slot.capacity;
-
-                    // Display values from capacity check or availability
-                    const currentBookings = capacityCheck?.currentBookings ?? (availability.regularBookings + availability.exceptionBookings);
-                    const totalCapacity = capacityCheck?.totalCapacity ?? (slot.capacity + slot.exceptionCapacity);
-
-                    return (
-                      <button
-                        key={slot.id}
-                        type="button"
-                        onClick={() => {
-                          if (!isCompletelyFull) {
-                            setFormData(prev => ({ ...prev, slotId: slot.id }));
-                            // Show warning if selecting a slot that's using exception capacity
-                            if (isNormalCapacityFull) {
-                              setCapacityWarning(`Warning: Normal capacity for "${slot.displayName}" is full. Adding a member will use exception capacity.`);
-                            } else {
-                              setCapacityWarning('');
-                            }
-                          }
-                        }}
-                        disabled={isCompletelyFull}
-                        className={`p-4 border-2 rounded-lg text-left transition-colors ${
-                          isCompletelyFull
-                            ? 'border-red-300 bg-red-50 cursor-not-allowed opacity-70'
-                            : formData.slotId === slot.id
-                              ? 'border-indigo-500 bg-indigo-50'
-                              : 'border-gray-200 hover:border-indigo-300'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className={`font-semibold ${isCompletelyFull ? 'text-red-700' : 'text-gray-900'}`}>{slot.displayName}</p>
-                            <p className="text-sm text-gray-500">{slot.startTime} - {slot.endTime}</p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1">
-                            {isCurrentSlot && (
-                              <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded">
-                                Current
-                              </span>
-                            )}
-                            {isCompletelyFull && (
-                              <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded">
-                                Full
-                              </span>
-                            )}
-                            {!isCompletelyFull && isNormalCapacityFull && (
-                              <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded">
-                                Exception Only
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="mt-2 text-sm">
-                          <span className={isNormalCapacityFull ? 'text-amber-600' : 'text-gray-600'}>
-                            {currentBookings}/{totalCapacity} booked
-                          </span>
-                          {capacityCheck && (
-                            <span className="text-gray-400 ml-2 text-xs">
-                              ({capacityCheck.normalCapacity} regular + {totalCapacity - capacityCheck.normalCapacity} exc.)
-                            </span>
-                          )}
-                        </div>
-                        {isCompletelyFull && (
-                          <p className="mt-2 text-xs text-red-600">
-                            This slot is completely full for the selected period.
-                          </p>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                <SlotSelector
+                  selectedSlotId={formData.slotId}
+                  onSelect={(slotId) => {
+                    setFormData(prev => ({ ...prev, slotId }));
+                    // Check if slot uses exception capacity and show warning
+                    // But skip warning if this is a renewal and member is staying in their current slot
+                    const isMemberCurrentSlot = selectedMember?.assignedSlotId === slotId;
+                    if (selectedPlan && endDate && !isMemberCurrentSlot) {
+                      const capacityCheck = subscriptionService.checkSlotCapacity(slotId, formData.startDate, endDate);
+                      if (capacityCheck.isExceptionOnly) {
+                        const slot = slots.find(s => s.id === slotId);
+                        setCapacityWarning(`Warning: Normal capacity for "${slot?.displayName}" is full. Adding a member will use exception capacity.`);
+                      } else {
+                        setCapacityWarning('');
+                      }
+                    } else {
+                      setCapacityWarning('');
+                    }
+                  }}
+                  variant="cards"
+                  columns={2}
+                  showCapacity
+                  subscriptionStartDate={formData.startDate}
+                  subscriptionEndDate={endDate}
+                  currentSlotId={selectedMember?.assignedSlotId}
+                />
 
                 {slots.length === 0 && (
                   <div className="text-center py-4">
@@ -341,16 +363,35 @@ export function SubscriptionFormPage() {
                 )}
               </Card>
             ) : (
-              /* For renewals/extensions, show the assigned slot as read-only info */
+              /* For renewals/extensions, show the assigned slot with option to change */
               selectedSlot && (
                 <Card title="Session Slot">
                   <div className="p-4 bg-indigo-50 rounded-lg">
                     <p className="font-semibold text-indigo-900">{selectedSlot.displayName}</p>
                     <p className="text-sm text-indigo-700">{selectedSlot.startTime} - {selectedSlot.endTime}</p>
                   </div>
-                  <p className="text-sm text-gray-500 mt-3">
-                    The member's existing slot will be retained for this renewal.
-                  </p>
+                  <div className="mt-3 flex items-center justify-between">
+                    <p className="text-sm text-gray-500">
+                      {formData.allowSlotChange
+                        ? 'Select a new slot from the options above'
+                        : "The member's existing slot will be retained for this renewal."
+                      }
+                    </p>
+                    {isRenewal && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData(prev => ({
+                          ...prev,
+                          allowSlotChange: !prev.allowSlotChange,
+                          slotId: prev.allowSlotChange ? (selectedMember?.assignedSlotId || '') : prev.slotId,
+                        }))}
+                      >
+                        {formData.allowSlotChange ? 'Keep Current Slot' : 'Change Slot'}
+                      </Button>
+                    )}
+                  </div>
                 </Card>
               )
             )}
@@ -377,24 +418,44 @@ export function SubscriptionFormPage() {
 
             {/* Discount */}
             <Card title="Discount (Optional)">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  label="Discount Amount (₹)"
-                  type="number"
-                  min={0}
-                  max={originalAmount}
-                  value={formData.discountAmount}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    discountAmount: parseInt(e.target.value) || 0,
-                  }))}
-                />
-                <Input
-                  label="Discount Reason"
-                  value={formData.discountReason}
-                  onChange={(e) => setFormData(prev => ({ ...prev, discountReason: e.target.value }))}
-                  placeholder="e.g., Early bird, Referral"
-                />
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Select
+                    label="Discount Type"
+                    value={formData.discountType}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      discountType: e.target.value as 'fixed' | 'percentage',
+                      discountValue: 0, // Reset value when type changes
+                    }))}
+                    options={[
+                      { value: 'percentage', label: 'Percentage (%)' },
+                      { value: 'fixed', label: 'Fixed Amount (₹)' },
+                    ]}
+                  />
+                  <Input
+                    label={formData.discountType === 'percentage' ? 'Discount (%)' : 'Discount Amount (₹)'}
+                    type="number"
+                    min={0}
+                    max={formData.discountType === 'percentage' ? 100 : originalAmount}
+                    value={formData.discountValue}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      discountValue: parseInt(e.target.value) || 0,
+                    }))}
+                  />
+                  <Input
+                    label="Discount Reason"
+                    value={formData.discountReason}
+                    onChange={(e) => setFormData(prev => ({ ...prev, discountReason: e.target.value }))}
+                    placeholder="e.g., Early bird, Referral"
+                  />
+                </div>
+                {formData.discountType === 'percentage' && formData.discountValue > 0 && selectedPlan && (
+                  <p className="text-sm text-gray-600">
+                    {formData.discountValue}% discount = {formatCurrency(discountAmount)} off
+                  </p>
+                )}
               </div>
             </Card>
           </div>
@@ -440,10 +501,13 @@ export function SubscriptionFormPage() {
                         <span className="text-gray-600">Plan Price</span>
                         <span className="text-gray-900">{formatCurrency(originalAmount)}</span>
                       </div>
-                      {formData.discountAmount > 0 && (
+                      {discountAmount > 0 && (
                         <div className="flex justify-between text-green-600">
-                          <span>Discount</span>
-                          <span>-{formatCurrency(formData.discountAmount)}</span>
+                          <span>
+                            Discount
+                            {formData.discountType === 'percentage' && ` (${formData.discountValue}%)`}
+                          </span>
+                          <span>-{formatCurrency(discountAmount)}</span>
                         </div>
                       )}
                       <div className="flex justify-between text-lg font-bold border-t pt-2">

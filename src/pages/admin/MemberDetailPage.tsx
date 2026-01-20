@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { Card, Button, StatusBadge, Badge, ConfirmDialog, Alert } from '../../components/common';
+import { Card, Button, StatusBadge, Badge, ConfirmDialog, Alert, Modal, Input, Select } from '../../components/common';
 import {
   memberService,
   subscriptionService,
@@ -10,13 +10,24 @@ import {
   slotService,
 } from '../../services';
 import { formatCurrency, formatPhone, formatName } from '../../utils/formatUtils';
-import { formatDate, getDaysRemaining, getMonthStart, getMonthEnd } from '../../utils/dateUtils';
+import { formatDate, getDaysRemaining, getMonthStart, getMonthEnd, getToday } from '../../utils/dateUtils';
 
 export function MemberDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  // Extra days modal state
+  const [showExtraDaysModal, setShowExtraDaysModal] = useState(false);
+  const [extraDays, setExtraDays] = useState(0);
+  const [extraDaysReason, setExtraDaysReason] = useState('');
+
+  // Batch transfer modal state
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferSlotId, setTransferSlotId] = useState('');
+  const [transferReason, setTransferReason] = useState('');
 
   const member = id ? memberService.getById(id) : null;
 
@@ -51,12 +62,51 @@ export function MemberDetailPage() {
     ? Math.round((monthSummary.presentDays / monthSummary.totalWorkingDays) * 100)
     : 0;
 
+  // Get all slots for transfer
+  const allSlots = slotService.getActive();
+
   const handleDelete = () => {
     try {
       memberService.delete(member.id);
       navigate('/admin/members');
     } catch (err) {
       setError('Failed to delete member');
+    }
+  };
+
+  const handleAddExtraDays = () => {
+    if (!subscription || extraDays <= 0) return;
+
+    try {
+      subscriptionService.extendSubscription(subscription.id, extraDays, extraDaysReason || undefined);
+      setSuccess(`Added ${extraDays} extra days to subscription`);
+      setShowExtraDaysModal(false);
+      setExtraDays(0);
+      setExtraDaysReason('');
+      // Force re-render by navigating to the same page
+      navigate(`/admin/members/${member.id}`, { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add extra days');
+    }
+  };
+
+  const handleTransferSlot = () => {
+    if (!subscription || !transferSlotId) return;
+
+    try {
+      const result = subscriptionService.transferSlot(
+        subscription.id,
+        transferSlotId,
+        getToday(),
+        transferReason || undefined
+      );
+      setSuccess(`Member transferred to new slot successfully${result.warning ? `. ${result.warning}` : ''}`);
+      setShowTransferModal(false);
+      setTransferSlotId('');
+      setTransferReason('');
+      navigate(`/admin/members/${member.id}`, { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to transfer slot');
     }
   };
 
@@ -93,6 +143,12 @@ export function MemberDetailPage() {
       {error && (
         <Alert variant="error" dismissible onDismiss={() => setError('')}>
           {error}
+        </Alert>
+      )}
+
+      {success && (
+        <Alert variant="success" dismissible onDismiss={() => setSuccess('')}>
+          {success}
         </Alert>
       )}
 
@@ -174,12 +230,38 @@ export function MemberDetailPage() {
                     Discount: {formatCurrency(subscription.discountAmount)}
                   </p>
                 )}
+                {subscription.extensionDays && subscription.extensionDays > 0 && (
+                  <p className="text-indigo-600">
+                    +{subscription.extensionDays} extra days added
+                  </p>
+                )}
               </div>
-              <Link to="/admin/subscriptions/new" state={{ memberId: member.id }}>
-                <Button variant="outline" fullWidth>
-                  {subscription.status === 'expired' ? 'Renew Membership' : 'Extend Membership'}
-                </Button>
-              </Link>
+              <div className="space-y-2">
+                <Link to="/admin/subscriptions/new" state={{ memberId: member.id, isRenewal: true }}>
+                  <Button variant="outline" fullWidth>
+                    {subscription.status === 'expired' ? 'Renew Membership' : 'Extend Membership'}
+                  </Button>
+                </Link>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowExtraDaysModal(true)}
+                  >
+                    + Extra Days
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setTransferSlotId('');
+                      setShowTransferModal(true);
+                    }}
+                  >
+                    Transfer Slot
+                  </Button>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="text-center py-4">
@@ -396,6 +478,122 @@ export function MemberDetailPage() {
         confirmLabel="Delete"
         variant="danger"
       />
+
+      {/* Extra Days Modal */}
+      <Modal
+        isOpen={showExtraDaysModal}
+        onClose={() => {
+          setShowExtraDaysModal(false);
+          setExtraDays(0);
+          setExtraDaysReason('');
+        }}
+        title="Add Extra Days"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Add extra days to the current subscription. This extends the end date without creating a new subscription.
+          </p>
+          {subscription && (
+            <div className="p-3 bg-gray-50 rounded-lg text-sm">
+              <p><span className="text-gray-500">Current end date:</span> {formatDate(subscription.endDate)}</p>
+              {extraDays > 0 && (
+                <p className="text-green-600 mt-1">
+                  New end date: {formatDate(
+                    new Date(new Date(subscription.endDate).getTime() + extraDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+                  )}
+                </p>
+              )}
+            </div>
+          )}
+          <Input
+            label="Number of Days"
+            type="number"
+            min={1}
+            max={365}
+            value={extraDays || ''}
+            onChange={(e) => setExtraDays(parseInt(e.target.value) || 0)}
+            placeholder="Enter number of days"
+          />
+          <Input
+            label="Reason (Optional)"
+            value={extraDaysReason}
+            onChange={(e) => setExtraDaysReason(e.target.value)}
+            placeholder="e.g., Holiday closure, Medical leave"
+          />
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="outline" onClick={() => setShowExtraDaysModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddExtraDays} disabled={extraDays <= 0}>
+              Add {extraDays || 0} Days
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Batch Transfer Modal */}
+      <Modal
+        isOpen={showTransferModal}
+        onClose={() => {
+          setShowTransferModal(false);
+          setTransferSlotId('');
+          setTransferReason('');
+        }}
+        title="Transfer to Different Slot"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Move this member to a different session slot. The transfer will take effect immediately.
+          </p>
+          {memberSlot && (
+            <div className="p-3 bg-gray-50 rounded-lg text-sm">
+              <p><span className="text-gray-500">Current slot:</span> {memberSlot.displayName}</p>
+              <p className="text-gray-400 text-xs">{memberSlot.startTime} - {memberSlot.endTime}</p>
+            </div>
+          )}
+          <Select
+            label="New Session Slot"
+            value={transferSlotId}
+            onChange={(e) => setTransferSlotId(e.target.value)}
+            options={[
+              { value: '', label: 'Select a slot...' },
+              ...allSlots
+                .filter(s => s.id !== member.assignedSlotId)
+                .map(s => {
+                  const capacityCheck = subscription
+                    ? subscriptionService.checkSlotCapacity(s.id, getToday(), subscription.endDate)
+                    : null;
+                  const capacityStatus = capacityCheck
+                    ? capacityCheck.available
+                      ? capacityCheck.isExceptionOnly
+                        ? ' (Exception only)'
+                        : ''
+                      : ' (Full)'
+                    : '';
+                  return {
+                    value: s.id,
+                    label: `${s.displayName} (${s.startTime} - ${s.endTime})${capacityStatus}`,
+                    disabled: capacityCheck ? !capacityCheck.available : false,
+                  };
+                }),
+            ]}
+          />
+          <Input
+            label="Reason (Optional)"
+            value={transferReason}
+            onChange={(e) => setTransferReason(e.target.value)}
+            placeholder="e.g., Schedule change, Personal preference"
+          />
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="outline" onClick={() => setShowTransferModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleTransferSlot} disabled={!transferSlotId}>
+              Transfer
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

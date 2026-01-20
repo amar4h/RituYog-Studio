@@ -1,12 +1,13 @@
-import { Card } from '../../components/common';
+import { Link } from 'react-router-dom';
+import { Card, Button } from '../../components/common';
 import { formatCurrency } from '../../utils/formatUtils';
+import { getDaysRemaining } from '../../utils/dateUtils';
 import {
   memberService,
   leadService,
   subscriptionService,
   paymentService,
   slotService,
-  slotSubscriptionService,
 } from '../../services';
 import { getToday, getCurrentMonthRange } from '../../utils/dateUtils';
 
@@ -15,8 +16,17 @@ export function DashboardPage() {
   const members = memberService.getAll();
   const activeMembers = members.filter(m => m.status === 'active');
   const leads = leadService.getPending();
-  const expiringSubscriptions = subscriptionService.getExpiringSoon(7);
+  const allExpiringSubscriptions = subscriptionService.getExpiringSoon(7);
   const slots = slotService.getActive();
+
+  // Get all subscriptions to check for renewals
+  const allSubscriptions = subscriptionService.getAll();
+
+  // Filter out members who already have a scheduled/future renewal subscription
+  const expiringSubscriptions = allExpiringSubscriptions.filter(expiring => {
+    // Use hasPendingRenewal which checks for future subscriptions (scheduled or active with future start)
+    return !subscriptionService.hasPendingRenewal(expiring.memberId);
+  });
 
   // Calculate revenue
   const { start, end } = getCurrentMonthRange();
@@ -25,20 +35,31 @@ export function DashboardPage() {
   // Calculate slot utilization
   const today = getToday();
 
-  // Get all active subscriptions to count members per slot
-  const allSubscriptions = subscriptionService.getAll();
-  const activeSubscriptions = allSubscriptions.filter(s => s.status === 'active');
-
   const slotUtilization = slots.map(slot => {
-    // Method 1: Count active members assigned to this slot
-    const membersAssignedToSlot = activeMembers.filter(m => m.assignedSlotId === slot.id).length;
-    // Method 2: Count active subscriptions for this slot
-    const subscribersWithActiveSubscription = activeSubscriptions.filter(s => s.slotId === slot.id).length;
-    // Method 3: Check slot subscriptions as fallback
-    const slotSubscribers = slotSubscriptionService.getActiveForSlot(slot.id);
-    // Use the highest count (in case data is in different places)
-    const subscriberCount = Math.max(membersAssignedToSlot, subscribersWithActiveSubscription, slotSubscribers.length);
+    // Get all membership subscriptions for this slot
+    const slotSubscriptions = allSubscriptions.filter(s => s.slotId === slot.id);
+
+    // Filter for currently active subscriptions (status active AND within date range)
+    const currentlyActiveSubscriptions = slotSubscriptions.filter(s =>
+      s.status === 'active' && s.startDate <= today && s.endDate >= today
+    );
+
+    // Filter for scheduled subscriptions (future members - either status 'scheduled' or active with future start)
+    const scheduledSubscriptions = slotSubscriptions.filter(s =>
+      s.status === 'scheduled' || (s.status === 'active' && s.startDate > today)
+    );
+
+    // Get member IDs who have active subscriptions
+    const activeMemberIds = new Set(currentlyActiveSubscriptions.map(s => s.memberId));
+
+    // Filter scheduled subscriptions to only include NEW members (not renewals)
+    // Renewals are members who already have an active subscription
+    const newScheduledSubscriptions = scheduledSubscriptions.filter(s => !activeMemberIds.has(s.memberId));
+
+    // Total booked = currently active + NEW scheduled only (renewals don't double-count)
+    const subscriberCount = currentlyActiveSubscriptions.length + newScheduledSubscriptions.length;
     const utilization = Math.round((subscriberCount / slot.capacity) * 100);
+
     return {
       slot,
       subscribers: subscriberCount,
@@ -129,7 +150,7 @@ export function DashboardPage() {
         </Card>
 
         {/* Expiring memberships */}
-        <Card title="Expiring Memberships" subtitle="Next 7 days">
+        <Card title="Expiring Memberships" subtitle="Next 7 days (not yet renewed)">
           {expiringSubscriptions.length === 0 ? (
             <p className="text-gray-500 text-center py-4">
               No memberships expiring in the next 7 days
@@ -138,28 +159,52 @@ export function DashboardPage() {
             <div className="space-y-3">
               {expiringSubscriptions.slice(0, 5).map(subscription => {
                 const member = memberService.getById(subscription.memberId);
+                const daysLeft = getDaysRemaining(subscription.endDate);
+                const slot = slots.find(s => s.id === subscription.slotId);
                 return (
                   <div
                     key={subscription.id}
                     className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg"
                   >
-                    <div>
-                      <p className="font-medium text-gray-900">
+                    <div className="flex-1 min-w-0">
+                      <Link
+                        to={`/admin/members/${subscription.memberId}`}
+                        className="font-medium text-gray-900 hover:text-indigo-600"
+                      >
                         {member?.firstName} {member?.lastName}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Expires: {subscription.endDate}
-                      </p>
+                      </Link>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                          daysLeft <= 2 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {daysLeft === 0 ? 'Expires today' : `${daysLeft}d left`}
+                        </span>
+                        {slot && (
+                          <span className="text-xs text-gray-500">{slot.displayName}</span>
+                        )}
+                      </div>
                     </div>
-                    <a
-                      href={`/admin/members/${subscription.memberId}`}
-                      className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+                    <Link
+                      to="/admin/subscriptions/new"
+                      state={{
+                        memberId: subscription.memberId,
+                        slotId: subscription.slotId,
+                        planId: subscription.planId,
+                        isRenewal: true,
+                      }}
                     >
-                      View →
-                    </a>
+                      <Button size="sm" variant="primary">
+                        Renew
+                      </Button>
+                    </Link>
                   </div>
                 );
               })}
+              {expiringSubscriptions.length > 5 && (
+                <p className="text-center text-sm text-gray-500 pt-2">
+                  +{expiringSubscriptions.length - 5} more expiring
+                </p>
+              )}
             </div>
           )}
         </Card>

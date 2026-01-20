@@ -1,16 +1,19 @@
 import { useState, useCallback } from 'react';
-import { Card, Button, Alert } from '../../components/common';
+import { Card, Button, Alert, SlotSelector } from '../../components/common';
 import { MemberAttendanceTile } from '../../components/attendance';
 import { slotService, attendanceService } from '../../services';
 import { getToday, getMonthStart, getMonthEnd, formatDate } from '../../utils/dateUtils';
-import { parseISO, isWeekend } from 'date-fns';
+import { parseISO, isWeekend, addDays, subDays, format } from 'date-fns';
 
 export function AttendancePage() {
   // Current date for marking attendance
   const [selectedDate, setSelectedDate] = useState(getToday());
 
-  // Selected slot
-  const [selectedSlotId, setSelectedSlotId] = useState<string>('');
+  // Get slots and default to first slot (7:30 AM)
+  const slots = slotService.getActive();
+
+  // Selected slot - default to first slot (7:30 AM)
+  const [selectedSlotId, setSelectedSlotId] = useState<string>(slots[0]?.id || '');
 
   // Period for counting (defaults to current month)
   const [periodStart, setPeriodStart] = useState(getMonthStart());
@@ -21,7 +24,6 @@ export function AttendancePage() {
   const [success, setSuccess] = useState('');
   const [refreshKey, setRefreshKey] = useState(0); // Force re-render after attendance change
 
-  const slots = slotService.getActive();
   const selectedSlot = slots.find(s => s.id === selectedSlotId);
 
   // Check if selected date is a weekend
@@ -59,14 +61,14 @@ export function AttendancePage() {
   // Navigate date
   const handlePreviousDay = () => {
     const date = parseISO(selectedDate);
-    date.setDate(date.getDate() - 1);
-    setSelectedDate(date.toISOString().split('T')[0]);
+    const newDate = subDays(date, 1);
+    setSelectedDate(format(newDate, 'yyyy-MM-dd'));
   };
 
   const handleNextDay = () => {
     const date = parseISO(selectedDate);
-    date.setDate(date.getDate() + 1);
-    setSelectedDate(date.toISOString().split('T')[0]);
+    const newDate = addDays(date, 1);
+    setSelectedDate(format(newDate, 'yyyy-MM-dd'));
   };
 
   const handleToday = () => {
@@ -142,25 +144,14 @@ export function AttendancePage() {
 
           <div className="hidden sm:block h-6 w-px bg-gray-300" />
 
-          {/* Session Selection - Compact Pills */}
+          {/* Session Selection - Compact Tiles */}
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-gray-500 uppercase shrink-0">Session:</span>
-            <div className="flex gap-1 flex-wrap">
-              {slots.map(slot => (
-                <button
-                  key={slot.id}
-                  onClick={() => setSelectedSlotId(slot.id)}
-                  className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                    selectedSlotId === slot.id
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                  title={slot.displayName}
-                >
-                  {slot.startTime}
-                </button>
-              ))}
-            </div>
+            <SlotSelector
+              selectedSlotId={selectedSlotId}
+              onSelect={setSelectedSlotId}
+              variant="pills"
+            />
           </div>
 
           <div className="hidden sm:block h-6 w-px bg-gray-300" />
