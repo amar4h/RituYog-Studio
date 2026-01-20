@@ -129,19 +129,169 @@ function remove<T extends BaseEntity>(key: string, id: string): boolean {
 }
 
 // ============================================
+// API WRITE (Synchronous write to API)
+// In API mode, all writes go to MySQL immediately
+// ============================================
+
+// Style element for global waiting cursor
+let waitingStyleElement: HTMLStyleElement | null = null;
+
+/**
+ * Set cursor to waiting state during synchronous operations.
+ * Uses a <style> tag with !important to override all cursor styles,
+ * and forces a reflow to ensure the cursor updates before blocking operations.
+ */
+function setWaitingCursor(waiting: boolean): void {
+  if (typeof document === 'undefined') return;
+
+  if (waiting) {
+    // Create and inject style element with global cursor override
+    if (!waitingStyleElement) {
+      waitingStyleElement = document.createElement('style');
+      waitingStyleElement.id = 'yoga-studio-waiting-cursor';
+      document.head.appendChild(waitingStyleElement);
+    }
+    waitingStyleElement.textContent = '*, *::before, *::after { cursor: wait !important; }';
+
+    // Force reflow to ensure cursor updates before synchronous operation
+    document.body.offsetHeight;
+  } else {
+    // Remove the style to restore normal cursors
+    if (waitingStyleElement) {
+      waitingStyleElement.textContent = '';
+    }
+  }
+}
+
+/**
+ * Perform an immediate API write operation
+ * This is called synchronously but performs the API call
+ * to ensure data consistency across browsers
+ */
+function performApiWrite(operation: {
+  type: 'create' | 'update' | 'delete';
+  endpoint: string;
+  id?: string;
+  data?: unknown;
+}): void {
+  if (!isApiMode()) return;
+
+  const baseUrl = import.meta.env.VITE_API_URL || '/api';
+  const apiKey = import.meta.env.VITE_API_KEY || '';
+
+  let url = `${baseUrl}/${operation.endpoint}`;
+  let method = 'POST';
+
+  if (operation.type === 'create') {
+    url += '?action=create';
+    method = 'POST';
+  } else if (operation.type === 'update') {
+    url += `?action=update&id=${operation.id}`;
+    method = 'PUT';
+  } else if (operation.type === 'delete') {
+    url += `?action=delete&id=${operation.id}`;
+    method = 'DELETE';
+  }
+
+  // Show waiting cursor during synchronous operation
+  setWaitingCursor(true);
+
+  // Use synchronous XMLHttpRequest to ensure write completes before returning
+  // This blocks the UI briefly but ensures data consistency
+  const xhr = new XMLHttpRequest();
+  xhr.open(method, url, false); // false = synchronous
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.setRequestHeader('X-API-Key', apiKey);
+
+  try {
+    console.log(`[API Write] ${operation.type} ${operation.endpoint}`, operation.id || '');
+    xhr.send(operation.data ? JSON.stringify(operation.data) : null);
+    console.log(`[API Write] Response: ${xhr.status}`, xhr.responseText?.substring(0, 200));
+    if (xhr.status >= 400) {
+      console.error('[API Write] Failed:', xhr.status, xhr.responseText);
+    }
+  } catch (error) {
+    console.error('[API Write] Network error:', error);
+  } finally {
+    // Restore normal cursor
+    setWaitingCursor(false);
+  }
+}
+
+// Storage key to endpoint mapping
+const STORAGE_KEY_TO_ENDPOINT: Record<string, string> = {
+  [STORAGE_KEYS.MEMBERS]: 'members',
+  [STORAGE_KEYS.LEADS]: 'leads',
+  [STORAGE_KEYS.SUBSCRIPTIONS]: 'subscriptions',
+  [STORAGE_KEYS.SESSION_SLOTS]: 'slots',
+  [STORAGE_KEYS.MEMBERSHIP_PLANS]: 'plans',
+  [STORAGE_KEYS.INVOICES]: 'invoices',
+  [STORAGE_KEYS.PAYMENTS]: 'payments',
+  [STORAGE_KEYS.ATTENDANCE]: 'attendance',
+  [STORAGE_KEYS.TRIAL_BOOKINGS]: 'trials',
+};
+
+// Dual-mode create: updates localStorage AND immediately writes to API
+function createDual<T extends BaseEntity>(
+  key: string,
+  data: Omit<T, 'id' | 'createdAt' | 'updatedAt'>
+): T {
+  const newItem = create<T>(key, data);
+
+  const endpoint = STORAGE_KEY_TO_ENDPOINT[key];
+  if (endpoint) {
+    performApiWrite({ type: 'create', endpoint, data: newItem });
+  }
+
+  return newItem;
+}
+
+// Dual-mode update: updates localStorage AND immediately writes to API
+function updateDual<T extends BaseEntity>(
+  key: string,
+  id: string,
+  data: Partial<Omit<T, 'id' | 'createdAt' | 'updatedAt'>>
+): T | null {
+  const updatedItem = update<T>(key, id, data);
+
+  if (updatedItem) {
+    const endpoint = STORAGE_KEY_TO_ENDPOINT[key];
+    if (endpoint) {
+      performApiWrite({ type: 'update', endpoint, id, data: updatedItem });
+    }
+  }
+
+  return updatedItem;
+}
+
+// Dual-mode delete: updates localStorage AND immediately writes to API
+function removeDual<T extends BaseEntity>(key: string, id: string): boolean {
+  const result = remove<T>(key, id);
+
+  if (result) {
+    const endpoint = STORAGE_KEY_TO_ENDPOINT[key];
+    if (endpoint) {
+      performApiWrite({ type: 'delete', endpoint, id });
+    }
+  }
+
+  return result;
+}
+
+// ============================================
 // MEMBER SERVICE
 // Dual-mode: localStorage (default) or API
 // ============================================
 
 export const memberService = {
-  // Synchronous methods - localStorage mode only (original logic preserved)
+  // Synchronous methods - dual-mode (localStorage + API queue)
   getAll: () => getAll<Member>(STORAGE_KEYS.MEMBERS),
   getById: (id: string) => getById<Member>(STORAGE_KEYS.MEMBERS, id),
   create: (data: Omit<Member, 'id' | 'createdAt' | 'updatedAt'>) =>
-    create<Member>(STORAGE_KEYS.MEMBERS, data),
+    createDual<Member>(STORAGE_KEYS.MEMBERS, data),
   update: (id: string, data: Partial<Member>) =>
-    update<Member>(STORAGE_KEYS.MEMBERS, id, data),
-  delete: (id: string) => remove<Member>(STORAGE_KEYS.MEMBERS, id),
+    updateDual<Member>(STORAGE_KEYS.MEMBERS, id, data),
+  delete: (id: string) => removeDual<Member>(STORAGE_KEYS.MEMBERS, id),
 
   getByEmail: (email: string): Member | null => {
     const members = getAll<Member>(STORAGE_KEYS.MEMBERS);
@@ -282,14 +432,14 @@ export const memberService = {
 // ============================================
 
 export const leadService = {
-  // Synchronous methods - localStorage mode only
+  // Synchronous methods - dual-mode (localStorage + API queue)
   getAll: () => getAll<Lead>(STORAGE_KEYS.LEADS),
   getById: (id: string) => getById<Lead>(STORAGE_KEYS.LEADS, id),
   create: (data: Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>) =>
-    create<Lead>(STORAGE_KEYS.LEADS, data),
+    createDual<Lead>(STORAGE_KEYS.LEADS, data),
   update: (id: string, data: Partial<Lead>) =>
-    update<Lead>(STORAGE_KEYS.LEADS, id, data),
-  delete: (id: string) => remove<Lead>(STORAGE_KEYS.LEADS, id),
+    updateDual<Lead>(STORAGE_KEYS.LEADS, id, data),
+  delete: (id: string) => removeDual<Lead>(STORAGE_KEYS.LEADS, id),
 
   getByEmail: (email: string): Lead | null => {
     const leads = getAll<Lead>(STORAGE_KEYS.LEADS);
@@ -555,11 +705,12 @@ export const leadService = {
 export const membershipPlanService = {
   getAll: () => getAll<MembershipPlan>(STORAGE_KEYS.MEMBERSHIP_PLANS),
   getById: (id: string) => getById<MembershipPlan>(STORAGE_KEYS.MEMBERSHIP_PLANS, id),
+  // Dual-mode: updates localStorage AND immediately writes to API
   create: (data: Omit<MembershipPlan, 'id' | 'createdAt' | 'updatedAt'>) =>
-    create<MembershipPlan>(STORAGE_KEYS.MEMBERSHIP_PLANS, data),
+    createDual<MembershipPlan>(STORAGE_KEYS.MEMBERSHIP_PLANS, data),
   update: (id: string, data: Partial<MembershipPlan>) =>
-    update<MembershipPlan>(STORAGE_KEYS.MEMBERSHIP_PLANS, id, data),
-  delete: (id: string) => remove<MembershipPlan>(STORAGE_KEYS.MEMBERSHIP_PLANS, id),
+    updateDual<MembershipPlan>(STORAGE_KEYS.MEMBERSHIP_PLANS, id, data),
+  delete: (id: string) => removeDual<MembershipPlan>(STORAGE_KEYS.MEMBERSHIP_PLANS, id),
 
   getActive: (): MembershipPlan[] => {
     const plans = getAll<MembershipPlan>(STORAGE_KEYS.MEMBERSHIP_PLANS);
@@ -583,14 +734,14 @@ export const membershipPlanService = {
 // ============================================
 
 export const subscriptionService = {
-  // Synchronous methods - localStorage mode only
+  // Synchronous methods - dual-mode (localStorage + API queue)
   getAll: () => getAll<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS),
   getById: (id: string) => getById<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS, id),
   create: (data: Omit<MembershipSubscription, 'id' | 'createdAt' | 'updatedAt'>) =>
-    create<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS, data),
+    createDual<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS, data),
   update: (id: string, data: Partial<MembershipSubscription>) =>
-    update<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS, id, data),
-  delete: (id: string) => remove<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS, id),
+    updateDual<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS, id, data),
+  delete: (id: string) => removeDual<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS, id),
 
   getByMember: (memberId: string): MembershipSubscription[] => {
     const subscriptions = getAll<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS);
@@ -1168,8 +1319,9 @@ export const slotService = {
 
   getById: (id: string) => getById<SessionSlot>(STORAGE_KEYS.SESSION_SLOTS, id),
 
+  // Dual-mode update: updates localStorage AND immediately writes to API
   update: (id: string, data: Partial<SessionSlot>) =>
-    update<SessionSlot>(STORAGE_KEYS.SESSION_SLOTS, id, data),
+    updateDual<SessionSlot>(STORAGE_KEYS.SESSION_SLOTS, id, data),
 
   getActive: (): SessionSlot[] => {
     return slotService.getAll().filter(s => s.isActive);
@@ -1316,6 +1468,8 @@ export const slotService = {
 export const slotSubscriptionService = {
   getAll: () => getAll<SlotSubscription>(STORAGE_KEYS.SLOT_SUBSCRIPTIONS),
   getById: (id: string) => getById<SlotSubscription>(STORAGE_KEYS.SLOT_SUBSCRIPTIONS, id),
+  // Note: SlotSubscription does not have its own API endpoint yet - only syncs via localStorage
+  // TODO: Add slot-subscriptions API endpoint for full API mode support
   create: (data: Omit<SlotSubscription, 'id' | 'createdAt' | 'updatedAt'>) =>
     create<SlotSubscription>(STORAGE_KEYS.SLOT_SUBSCRIPTIONS, data),
   update: (id: string, data: Partial<SlotSubscription>) =>
@@ -1405,13 +1559,14 @@ export const slotSubscriptionService = {
 // ============================================
 
 export const invoiceService = {
+  // Synchronous methods - dual-mode (localStorage + API queue)
   getAll: () => getAll<Invoice>(STORAGE_KEYS.INVOICES),
   getById: (id: string) => getById<Invoice>(STORAGE_KEYS.INVOICES, id),
   create: (data: Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>) =>
-    create<Invoice>(STORAGE_KEYS.INVOICES, data),
+    createDual<Invoice>(STORAGE_KEYS.INVOICES, data),
   update: (id: string, data: Partial<Invoice>) =>
-    update<Invoice>(STORAGE_KEYS.INVOICES, id, data),
-  delete: (id: string) => remove<Invoice>(STORAGE_KEYS.INVOICES, id),
+    updateDual<Invoice>(STORAGE_KEYS.INVOICES, id, data),
+  delete: (id: string) => removeDual<Invoice>(STORAGE_KEYS.INVOICES, id),
 
   getByMember: (memberId: string): Invoice[] => {
     const invoices = getAll<Invoice>(STORAGE_KEYS.INVOICES);
@@ -1522,13 +1677,14 @@ export const invoiceService = {
 // ============================================
 
 export const paymentService = {
+  // Synchronous methods - dual-mode (localStorage + API queue)
   getAll: () => getAll<Payment>(STORAGE_KEYS.PAYMENTS),
   getById: (id: string) => getById<Payment>(STORAGE_KEYS.PAYMENTS, id),
   create: (data: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>) =>
-    create<Payment>(STORAGE_KEYS.PAYMENTS, data),
+    createDual<Payment>(STORAGE_KEYS.PAYMENTS, data),
   update: (id: string, data: Partial<Payment>) =>
-    update<Payment>(STORAGE_KEYS.PAYMENTS, id, data),
-  delete: (id: string) => remove<Payment>(STORAGE_KEYS.PAYMENTS, id),
+    updateDual<Payment>(STORAGE_KEYS.PAYMENTS, id, data),
+  delete: (id: string) => removeDual<Payment>(STORAGE_KEYS.PAYMENTS, id),
 
   getByInvoice: (invoiceId: string): Payment[] => {
     const payments = getAll<Payment>(STORAGE_KEYS.PAYMENTS);
@@ -1744,13 +1900,14 @@ export const paymentService = {
 // ============================================
 
 export const trialBookingService = {
+  // Synchronous methods - dual-mode (localStorage + API queue)
   getAll: () => getAll<TrialBooking>(STORAGE_KEYS.TRIAL_BOOKINGS),
   getById: (id: string) => getById<TrialBooking>(STORAGE_KEYS.TRIAL_BOOKINGS, id),
   create: (data: Omit<TrialBooking, 'id' | 'createdAt' | 'updatedAt'>) =>
-    create<TrialBooking>(STORAGE_KEYS.TRIAL_BOOKINGS, data),
+    createDual<TrialBooking>(STORAGE_KEYS.TRIAL_BOOKINGS, data),
   update: (id: string, data: Partial<TrialBooking>) =>
-    update<TrialBooking>(STORAGE_KEYS.TRIAL_BOOKINGS, id, data),
-  delete: (id: string) => remove<TrialBooking>(STORAGE_KEYS.TRIAL_BOOKINGS, id),
+    updateDual<TrialBooking>(STORAGE_KEYS.TRIAL_BOOKINGS, id, data),
+  delete: (id: string) => removeDual<TrialBooking>(STORAGE_KEYS.TRIAL_BOOKINGS, id),
 
   getByLead: (leadId: string): TrialBooking[] => {
     const bookings = getAll<TrialBooking>(STORAGE_KEYS.TRIAL_BOOKINGS);
@@ -1889,7 +2046,39 @@ export const settingsService = {
   },
 
   save: (settings: StudioSettings): void => {
+    // Save to localStorage
     localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+
+    // Immediately write to API if in API mode (synchronous to ensure consistency)
+    if (isApiMode()) {
+      const baseUrl = import.meta.env.VITE_API_URL || '/api';
+      const apiKey = import.meta.env.VITE_API_KEY || '';
+
+      // Show waiting cursor during synchronous operation
+      setWaitingCursor(true);
+
+      // Use synchronous XMLHttpRequest to ensure write completes
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${baseUrl}/settings?action=save`, false); // false = synchronous
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.setRequestHeader('X-API-Key', apiKey);
+
+      try {
+        console.log('[Settings] Sending to API...', { baseUrl, settingsKeys: Object.keys(settings) });
+        xhr.send(JSON.stringify(settings));
+        console.log('[Settings] API response:', xhr.status, xhr.responseText?.substring(0, 500));
+        if (xhr.status >= 400) {
+          console.error('[Settings] Failed to sync to API:', xhr.status, xhr.responseText);
+        } else {
+          console.log('[Settings] Successfully saved to API');
+        }
+      } catch (error) {
+        console.error('[Settings] Network error:', error);
+      } finally {
+        // Restore normal cursor
+        setWaitingCursor(false);
+      }
+    }
   },
 
   getOrDefault: (): StudioSettings => {
@@ -2635,14 +2824,14 @@ export const notificationService = {
 import { getWorkingDaysCountForSubscription } from '../utils/dateUtils';
 
 export const attendanceService = {
-  // Basic CRUD
+  // Basic CRUD - dual-mode (localStorage + API queue)
   getAll: () => getAll<AttendanceRecord>(STORAGE_KEYS.ATTENDANCE),
   getById: (id: string) => getById<AttendanceRecord>(STORAGE_KEYS.ATTENDANCE, id),
   create: (data: Omit<AttendanceRecord, 'id' | 'createdAt' | 'updatedAt'>) =>
-    create<AttendanceRecord>(STORAGE_KEYS.ATTENDANCE, data),
+    createDual<AttendanceRecord>(STORAGE_KEYS.ATTENDANCE, data),
   update: (id: string, data: Partial<AttendanceRecord>) =>
-    update<AttendanceRecord>(STORAGE_KEYS.ATTENDANCE, id, data),
-  delete: (id: string) => remove<AttendanceRecord>(STORAGE_KEYS.ATTENDANCE, id),
+    updateDual<AttendanceRecord>(STORAGE_KEYS.ATTENDANCE, id, data),
+  delete: (id: string) => removeDual<AttendanceRecord>(STORAGE_KEYS.ATTENDANCE, id),
 
   // Query methods
   getBySlotAndDate: (slotId: string, date: string): AttendanceRecord[] => {
@@ -2960,3 +3149,101 @@ export const attendanceService = {
     },
   },
 };
+
+// ============================================
+// DATA SYNC FROM API TO LOCALSTORAGE
+// Enables existing sync methods to work with API data
+// ============================================
+
+/**
+ * Sync all data from API to localStorage
+ * This allows existing synchronous methods to work seamlessly
+ * Call this on app startup when in API mode
+ */
+export async function syncFromApi(): Promise<void> {
+  if (!isApiMode()) {
+    console.log('[Storage] localStorage mode - no sync needed');
+    return;
+  }
+
+  console.log('[Storage] API mode - syncing data from server...');
+
+  try {
+    // Fetch all data from API in parallel
+    const [
+      members,
+      leads,
+      subscriptions,
+      slots,
+      plans,
+      invoices,
+      payments,
+      attendance,
+      settings,
+    ] = await Promise.all([
+      membersApi.getAll().catch(() => []),
+      leadsApi.getAll().catch(() => []),
+      subscriptionsApi.getAll().catch(() => []),
+      slotsApi.getAll().catch(() => []),
+      slotsApi.getAll().catch(() => []), // Plans use slots endpoint for now
+      invoicesApi.getAll().catch(() => []),
+      paymentsApi.getAll().catch(() => []),
+      attendanceApi.getAll().catch(() => []),
+      settingsApi.get().catch(() => null),
+    ]);
+
+    // Also fetch membership plans separately
+    const plansData = await fetch(
+      `${import.meta.env.VITE_API_URL || '/api'}/plans`,
+      {
+        headers: {
+          'X-API-Key': import.meta.env.VITE_API_KEY || '',
+        },
+      }
+    ).then(r => r.json()).catch(() => []);
+
+    // Store in localStorage
+    saveAll(STORAGE_KEYS.MEMBERS, members as Member[]);
+    saveAll(STORAGE_KEYS.LEADS, leads as Lead[]);
+    saveAll(STORAGE_KEYS.SUBSCRIPTIONS, subscriptions as MembershipSubscription[]);
+    saveAll(STORAGE_KEYS.SESSION_SLOTS, slots as SessionSlot[]);
+    saveAll(STORAGE_KEYS.MEMBERSHIP_PLANS, Array.isArray(plansData) ? plansData : plansData.data || []);
+    saveAll(STORAGE_KEYS.INVOICES, invoices as Invoice[]);
+    saveAll(STORAGE_KEYS.PAYMENTS, payments as Payment[]);
+    saveAll(STORAGE_KEYS.ATTENDANCE, attendance as AttendanceRecord[]);
+
+    if (settings) {
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+    }
+
+    // Mark sync as completed
+    localStorage.setItem('yoga_studio_api_synced', new Date().toISOString());
+
+    console.log('[Storage] Sync complete:', {
+      members: (members as Member[]).length,
+      leads: (leads as Lead[]).length,
+      subscriptions: (subscriptions as MembershipSubscription[]).length,
+      slots: (slots as SessionSlot[]).length,
+      invoices: (invoices as Invoice[]).length,
+      payments: (payments as Payment[]).length,
+      attendance: (attendance as AttendanceRecord[]).length,
+    });
+  } catch (error) {
+    console.error('[Storage] Sync failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Check if data has been synced from API
+ */
+export function isApiSynced(): boolean {
+  return localStorage.getItem('yoga_studio_api_synced') !== null;
+}
+
+/**
+ * Clear sync flag to force re-sync
+ */
+export function clearApiSync(): void {
+  localStorage.removeItem('yoga_studio_api_synced');
+}

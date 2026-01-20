@@ -86,9 +86,6 @@ export function LoginPage() {
             </Button>
           </form>
 
-          <p className="text-center text-sm text-gray-500 mt-6">
-            Default password: <code className="bg-gray-100 px-2 py-0.5 rounded">admin123</code>
-          </p>
         </div>
       </div>
     </div>

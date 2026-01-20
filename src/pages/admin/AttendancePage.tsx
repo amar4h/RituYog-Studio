@@ -1,13 +1,99 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Card, Button, Alert, SlotSelector } from '../../components/common';
 import { MemberAttendanceTile } from '../../components/attendance';
 import { slotService, attendanceService } from '../../services';
 import { getToday, getMonthStart, getMonthEnd, formatDate } from '../../utils/dateUtils';
-import { parseISO, isWeekend, addDays, subDays, format } from 'date-fns';
+import { parseISO, isWeekend, addDays, subDays, format, startOfMonth, endOfMonth, isAfter } from 'date-fns';
+
+// ============================================
+// PERIOD PRESETS CONFIGURATION
+// ============================================
+
+// Type for period preset
+interface PeriodPreset {
+  id: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+}
+
+/**
+ * Basant Ritu Campaign period configuration.
+ * This campaign runs from 23 Jan 2026 to 28 Feb 2026.
+ * After 28 Feb 2026, this option automatically disappears from the UI.
+ * No manual code change is required - removal is date-driven.
+ */
+const BASANT_RITU_CAMPAIGN: PeriodPreset = {
+  id: 'basant-ritu',
+  label: 'Basant Ritu Campaign',
+  startDate: '2026-01-23',
+  endDate: '2026-02-28',
+};
+
+/**
+ * Determines which period presets are available based on current date.
+ * - "Current Month" is always available
+ * - "Basant Ritu Campaign" is only available until 28 Feb 2026 (inclusive)
+ *   After that date, it automatically disappears from the UI.
+ */
+function getAvailablePeriodPresets(today: string): PeriodPreset[] {
+  const presets: PeriodPreset[] = [];
+  const todayDate = parseISO(today);
+  const campaignEndDate = parseISO(BASANT_RITU_CAMPAIGN.endDate);
+
+  // "Current Month" is always available
+  const currentMonthStart = format(startOfMonth(todayDate), 'yyyy-MM-dd');
+  const currentMonthEnd = format(endOfMonth(todayDate), 'yyyy-MM-dd');
+  presets.push({
+    id: 'current-month',
+    label: 'Current Month',
+    startDate: currentMonthStart,
+    endDate: currentMonthEnd,
+  });
+
+  // "Basant Ritu Campaign" is only available until 28 Feb 2026 (inclusive)
+  // isAfter returns true if todayDate > campaignEndDate, so we include it when NOT after
+  if (!isAfter(todayDate, campaignEndDate)) {
+    presets.push(BASANT_RITU_CAMPAIGN);
+  }
+
+  return presets;
+}
+
+/**
+ * Determines the default period preset based on current date.
+ * - Until 28 Feb 2026 (inclusive): "Basant Ritu Campaign" is the default
+ * - From 1 Mar 2026 onwards: "Current Month" is the default
+ * This logic ensures automatic transition without code changes.
+ */
+function getDefaultPeriodPresetId(today: string): string {
+  const todayDate = parseISO(today);
+  const campaignEndDate = parseISO(BASANT_RITU_CAMPAIGN.endDate);
+
+  // Until 28 Feb 2026 (inclusive), Basant Ritu is the default
+  if (!isAfter(todayDate, campaignEndDate)) {
+    return 'basant-ritu';
+  }
+
+  // After 28 Feb 2026, Current Month is the default
+  return 'current-month';
+}
 
 export function AttendancePage() {
+  // Get today's date for determining available presets
+  const today = getToday();
+
+  // Compute available period presets based on current date (memoized)
+  const availablePresets = useMemo(() => getAvailablePeriodPresets(today), [today]);
+
+  // Determine default preset ID based on current date
+  const defaultPresetId = useMemo(() => getDefaultPeriodPresetId(today), [today]);
+
+  // Find the default preset object
+  const defaultPreset = availablePresets.find(p => p.id === defaultPresetId) || availablePresets[0];
+
   // Current date for marking attendance
-  const [selectedDate, setSelectedDate] = useState(getToday());
+  const [selectedDate, setSelectedDate] = useState(today);
 
   // Get slots and default to first slot (7:30 AM)
   const slots = slotService.getActive();
@@ -15,9 +101,10 @@ export function AttendancePage() {
   // Selected slot - default to first slot (7:30 AM)
   const [selectedSlotId, setSelectedSlotId] = useState<string>(slots[0]?.id || '');
 
-  // Period for counting (defaults to current month)
-  const [periodStart, setPeriodStart] = useState(getMonthStart());
-  const [periodEnd, setPeriodEnd] = useState(getMonthEnd());
+  // Period selection state - initialized with default preset
+  const [selectedPresetId, setSelectedPresetId] = useState<string>(defaultPresetId);
+  const [periodStart, setPeriodStart] = useState(defaultPreset.startDate);
+  const [periodEnd, setPeriodEnd] = useState(defaultPreset.endDate);
 
   // UI state
   const [error, setError] = useState('');
@@ -52,10 +139,24 @@ export function AttendancePage() {
     }
   }, [selectedSlotId, selectedDate]);
 
-  // Reset period to current month
-  const handleResetPeriod = () => {
-    setPeriodStart(getMonthStart());
-    setPeriodEnd(getMonthEnd());
+  // Handle period preset selection
+  const handlePresetSelect = (presetId: string) => {
+    const preset = availablePresets.find(p => p.id === presetId);
+    if (preset) {
+      setSelectedPresetId(presetId);
+      setPeriodStart(preset.startDate);
+      setPeriodEnd(preset.endDate);
+    }
+  };
+
+  // Handle manual period change (clears preset selection)
+  const handleManualPeriodChange = (type: 'start' | 'end', value: string) => {
+    setSelectedPresetId('custom'); // Clear preset selection when manually editing
+    if (type === 'start') {
+      setPeriodStart(value);
+    } else {
+      setPeriodEnd(value);
+    }
   };
 
   // Navigate date
@@ -156,28 +257,40 @@ export function AttendancePage() {
 
           <div className="hidden sm:block h-6 w-px bg-gray-300" />
 
-          {/* Period Selection - Inline */}
+          {/* Period Selection - Preset buttons + date inputs */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-medium text-gray-500 uppercase shrink-0">Period:</span>
+            {/* Period Preset Buttons */}
+            <div className="flex gap-1">
+              {availablePresets.map((preset) => (
+                <button
+                  key={preset.id}
+                  onClick={() => handlePresetSelect(preset.id)}
+                  className={`px-2 py-1 text-xs rounded border transition-colors ${
+                    selectedPresetId === preset.id
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                  title={`${formatDate(preset.startDate)} - ${formatDate(preset.endDate)}`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            {/* Date inputs for custom range */}
             <input
               type="date"
               value={periodStart}
-              onChange={(e) => setPeriodStart(e.target.value)}
+              onChange={(e) => handleManualPeriodChange('start', e.target.value)}
               className="px-1 sm:px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 w-28 sm:w-auto"
             />
             <span className="text-gray-400">-</span>
             <input
               type="date"
               value={periodEnd}
-              onChange={(e) => setPeriodEnd(e.target.value)}
+              onChange={(e) => handleManualPeriodChange('end', e.target.value)}
               className="px-1 sm:px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 w-28 sm:w-auto"
             />
-            <button
-              onClick={handleResetPeriod}
-              className="text-xs text-indigo-600 hover:text-indigo-800"
-            >
-              Reset
-            </button>
           </div>
         </div>
       </div>

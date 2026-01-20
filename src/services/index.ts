@@ -30,6 +30,9 @@ export {
   initializeStorage,
   seedDemoData,
   resetAndSeedData,
+  syncFromApi,
+  isApiSynced,
+  clearApiSync,
 } from './storage';
 
 // Re-export storage mode utilities for consumers
