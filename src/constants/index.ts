@@ -1,0 +1,398 @@
+/**
+ * Yoga Studio Management - Constants
+ * Phase 1: Core Operations
+ */
+
+import type { SessionSlot, MembershipPlan, StudioSettings, WeeklyAvailability, InvoiceTemplate } from '../types';
+
+// ============================================
+// SESSION SLOTS (Fixed 4 slots)
+// ============================================
+
+export const DEFAULT_SESSION_SLOTS: Omit<SessionSlot, 'id' | 'createdAt' | 'updatedAt'>[] = [
+  {
+    startTime: '07:30',
+    endTime: '08:30',
+    displayName: 'Morning 7:30 AM',
+    capacity: 10,
+    exceptionCapacity: 1,
+    sessionType: 'offline',
+    isActive: true,
+  },
+  {
+    startTime: '08:45',
+    endTime: '09:45',
+    displayName: 'Morning 8:45 AM',
+    capacity: 10,
+    exceptionCapacity: 1,
+    sessionType: 'offline',
+    isActive: true,
+  },
+  {
+    startTime: '10:00',
+    endTime: '11:00',
+    displayName: 'Late Morning 10:00 AM',
+    capacity: 10,
+    exceptionCapacity: 1,
+    sessionType: 'offline',
+    isActive: true,
+  },
+  {
+    startTime: '19:30',
+    endTime: '20:30',
+    displayName: 'Evening 7:30 PM',
+    capacity: 10,
+    exceptionCapacity: 1,
+    sessionType: 'offline',
+    isActive: true,
+  },
+];
+
+// Slot IDs for reference
+export const SLOT_IDS = {
+  MORNING_EARLY: 'slot-0730',
+  MORNING_LATE: 'slot-0845',
+  LATE_MORNING: 'slot-1000',
+  EVENING: 'slot-1930',
+} as const;
+
+// ============================================
+// MEMBERSHIP PLANS (Default plans)
+// ============================================
+
+export const DEFAULT_MEMBERSHIP_PLANS: Omit<MembershipPlan, 'id' | 'createdAt' | 'updatedAt'>[] = [
+  {
+    name: 'Monthly',
+    type: 'monthly',
+    price: 2100,
+    durationMonths: 1,
+    description: 'Unlimited yoga sessions for 1 month. Access to your assigned slot Monday to Friday.',
+    isActive: true,
+    allowedSessionTypes: ['offline'],
+    features: [
+      'Unlimited sessions (Mon-Fri)',
+      'One assigned slot',
+      'Access to all class types',
+    ],
+  },
+  {
+    name: 'Quarterly',
+    type: 'quarterly',
+    price: 5500,
+    durationMonths: 3,
+    description: 'Unlimited yoga sessions for 3 months. Access to your assigned slot Monday to Friday. Save ₹800!',
+    isActive: true,
+    allowedSessionTypes: ['offline'],
+    features: [
+      'Unlimited sessions (Mon-Fri)',
+      'One assigned slot',
+      'Access to all class types',
+      'Save ₹800 vs monthly',
+    ],
+  },
+  {
+    name: 'Semi-Annual',
+    type: 'semi-annual',
+    price: 10000,
+    durationMonths: 6,
+    description: 'Unlimited yoga sessions for 6 months. Access to your assigned slot Monday to Friday. Save ₹2,600!',
+    isActive: true,
+    allowedSessionTypes: ['offline'],
+    features: [
+      'Unlimited sessions (Mon-Fri)',
+      'One assigned slot',
+      'Access to all class types',
+      'Save ₹2,600 vs monthly',
+    ],
+  },
+];
+
+// ============================================
+// DEFAULT WORKING HOURS
+// ============================================
+
+export const DEFAULT_WORKING_HOURS: WeeklyAvailability = {
+  monday: [{ start: '06:00', end: '21:00' }],
+  tuesday: [{ start: '06:00', end: '21:00' }],
+  wednesday: [{ start: '06:00', end: '21:00' }],
+  thursday: [{ start: '06:00', end: '21:00' }],
+  friday: [{ start: '06:00', end: '21:00' }],
+  saturday: [], // Closed
+  sunday: [], // Closed
+};
+
+// ============================================
+// DEFAULT INDIAN HOLIDAYS (2025-2026)
+// ============================================
+
+export const DEFAULT_INDIAN_HOLIDAYS = [
+  // 2025 Holidays
+  { date: '2025-01-26', name: 'Republic Day', isRecurringYearly: true },
+  { date: '2025-03-14', name: 'Holi', isRecurringYearly: false },
+  { date: '2025-04-14', name: 'Ambedkar Jayanti', isRecurringYearly: true },
+  { date: '2025-04-18', name: 'Good Friday', isRecurringYearly: false },
+  { date: '2025-05-01', name: 'May Day', isRecurringYearly: true },
+  { date: '2025-08-15', name: 'Independence Day', isRecurringYearly: true },
+  { date: '2025-08-27', name: 'Janmashtami', isRecurringYearly: false },
+  { date: '2025-10-02', name: 'Gandhi Jayanti', isRecurringYearly: true },
+  { date: '2025-10-02', name: 'Dussehra', isRecurringYearly: false },
+  { date: '2025-10-20', name: 'Diwali', isRecurringYearly: false },
+  { date: '2025-10-21', name: 'Diwali (Day 2)', isRecurringYearly: false },
+  { date: '2025-11-05', name: 'Guru Nanak Jayanti', isRecurringYearly: false },
+  { date: '2025-12-25', name: 'Christmas', isRecurringYearly: true },
+  // 2026 Holidays
+  { date: '2026-01-26', name: 'Republic Day', isRecurringYearly: true },
+  { date: '2026-03-04', name: 'Holi', isRecurringYearly: false },
+  { date: '2026-04-03', name: 'Good Friday', isRecurringYearly: false },
+  { date: '2026-04-14', name: 'Ambedkar Jayanti', isRecurringYearly: true },
+  { date: '2026-05-01', name: 'May Day', isRecurringYearly: true },
+  { date: '2026-08-15', name: 'Independence Day', isRecurringYearly: true },
+  { date: '2026-08-16', name: 'Janmashtami', isRecurringYearly: false },
+  { date: '2026-10-02', name: 'Gandhi Jayanti', isRecurringYearly: true },
+  { date: '2026-10-19', name: 'Dussehra', isRecurringYearly: false },
+  { date: '2026-11-08', name: 'Diwali', isRecurringYearly: false },
+  { date: '2026-11-09', name: 'Diwali (Day 2)', isRecurringYearly: false },
+  { date: '2026-11-24', name: 'Guru Nanak Jayanti', isRecurringYearly: false },
+  { date: '2026-12-25', name: 'Christmas', isRecurringYearly: true },
+];
+
+// ============================================
+// DEFAULT INVOICE TEMPLATE
+// ============================================
+
+export const DEFAULT_INVOICE_TEMPLATE: InvoiceTemplate = {
+  showLogo: true,
+  showStudioAddress: true,
+  showStudioPhone: true,
+  showStudioEmail: true,
+  headerText: 'INVOICE',
+  footerText: 'Thank you for your business!',
+  termsText: 'Payment is due within 7 days of invoice date.',
+  accentColor: '#4F46E5',
+  currencySymbol: '₹',
+  showPaymentQR: false,
+  paymentQRLabel: 'Scan to Pay',
+};
+
+// Common currency symbols for quick reference
+export const CURRENCY_SYMBOLS = [
+  { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
+  { code: 'USD', symbol: '$', name: 'US Dollar' },
+  { code: 'EUR', symbol: '€', name: 'Euro' },
+  { code: 'GBP', symbol: '£', name: 'British Pound' },
+  { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
+  { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
+  { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
+  { code: 'AED', symbol: 'د.إ', name: 'UAE Dirham' },
+] as const;
+
+// ============================================
+// DEFAULT STUDIO SETTINGS
+// ============================================
+
+export const DEFAULT_STUDIO_SETTINGS: StudioSettings = {
+  studioName: 'My Yoga Studio',
+  currency: 'INR',
+  timezone: 'Asia/Kolkata',
+  workingHours: DEFAULT_WORKING_HOURS,
+  termsAndConditions: `
+# Terms and Conditions
+
+1. **Membership**: All memberships are non-transferable and non-refundable.
+2. **Cancellation**: Members may cancel their membership with 7 days notice.
+3. **Conduct**: Members are expected to maintain respectful behavior towards instructors and other members.
+4. **Property**: The studio is not responsible for any personal belongings left on premises.
+5. **Sessions**: Sessions run Monday to Friday. Weekend and public holiday sessions are not included.
+6. **Attendance**: Please arrive 10 minutes before your scheduled session.
+7. **Health**: Members must inform instructors of any injuries or health conditions before class.
+  `.trim(),
+  healthDisclaimer: `
+# Health & Medical Disclaimer
+
+By participating in yoga classes at this studio, you acknowledge and agree to the following:
+
+1. **Physical Activity**: Yoga involves physical activity that may be strenuous. You participate at your own risk.
+2. **Medical Clearance**: You confirm that you are physically fit and have no medical conditions that would prevent your participation.
+3. **Injuries**: You must inform the instructor of any injuries, surgeries, or medical conditions before each class.
+4. **Pregnancy**: If pregnant, you must inform the instructor and have medical clearance to participate.
+5. **Liability**: The studio and its instructors are not liable for any injuries sustained during classes.
+6. **Emergency Contact**: You have provided accurate emergency contact information.
+
+If you have any concerns about your ability to safely participate, please consult your physician before attending classes.
+  `.trim(),
+  renewalReminderDays: 7,
+  classReminderHours: 24,
+  taxRate: 0,
+  invoicePrefix: 'INV',
+  receiptPrefix: 'RCP',
+  trialClassEnabled: true,
+  maxTrialsPerPerson: 1,
+  holidays: DEFAULT_INDIAN_HOLIDAYS,
+  adminPassword: 'admin123',
+  invoiceTemplate: DEFAULT_INVOICE_TEMPLATE,
+};
+
+// ============================================
+// PAYMENT METHODS
+// ============================================
+
+export const PAYMENT_METHODS = [
+  { value: 'cash', label: 'Cash' },
+  { value: 'upi', label: 'UPI' },
+  { value: 'bank-transfer', label: 'Bank Transfer' },
+  { value: 'card', label: 'Card' },
+  { value: 'cheque', label: 'Cheque' },
+  { value: 'other', label: 'Other' },
+] as const;
+
+// ============================================
+// STATUS OPTIONS
+// ============================================
+
+export const MEMBER_STATUS_OPTIONS = [
+  { value: 'active', label: 'Active', color: 'green' },
+  { value: 'inactive', label: 'Inactive', color: 'gray' },
+  { value: 'trial', label: 'Trial', color: 'blue' },
+  { value: 'expired', label: 'Expired', color: 'red' },
+  { value: 'pending', label: 'Pending', color: 'yellow' },
+] as const;
+
+export const LEAD_STATUS_OPTIONS = [
+  { value: 'new', label: 'New', color: 'blue' },
+  { value: 'contacted', label: 'Contacted', color: 'purple' },
+  { value: 'trial-scheduled', label: 'Trial Scheduled', color: 'cyan' },
+  { value: 'trial-completed', label: 'Trial Completed', color: 'teal' },
+  { value: 'follow-up', label: 'Follow Up', color: 'yellow' },
+  { value: 'interested', label: 'Interested', color: 'green' },
+  { value: 'converted', label: 'Converted', color: 'emerald' },
+  { value: 'not-interested', label: 'Not Interested', color: 'gray' },
+  { value: 'lost', label: 'Lost', color: 'red' },
+] as const;
+
+export const LEAD_SOURCE_OPTIONS = [
+  { value: 'website', label: 'Website' },
+  { value: 'referral', label: 'Referral' },
+  { value: 'walk-in', label: 'Walk-in' },
+  { value: 'social-media', label: 'Social Media' },
+  { value: 'advertisement', label: 'Advertisement' },
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'phone-inquiry', label: 'Phone Inquiry' },
+  { value: 'other', label: 'Other' },
+] as const;
+
+export const SUBSCRIPTION_STATUS_OPTIONS = [
+  { value: 'active', label: 'Active', color: 'green' },
+  { value: 'expired', label: 'Expired', color: 'red' },
+  { value: 'cancelled', label: 'Cancelled', color: 'gray' },
+  { value: 'pending', label: 'Pending', color: 'yellow' },
+  { value: 'suspended', label: 'Suspended', color: 'orange' },
+] as const;
+
+export const INVOICE_STATUS_OPTIONS = [
+  { value: 'draft', label: 'Draft', color: 'gray' },
+  { value: 'sent', label: 'Sent', color: 'blue' },
+  { value: 'paid', label: 'Paid', color: 'green' },
+  { value: 'partially-paid', label: 'Partially Paid', color: 'yellow' },
+  { value: 'overdue', label: 'Overdue', color: 'red' },
+  { value: 'cancelled', label: 'Cancelled', color: 'gray' },
+] as const;
+
+// ============================================
+// GENDER OPTIONS
+// ============================================
+
+export const GENDER_OPTIONS = [
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+  { value: 'other', label: 'Other' },
+] as const;
+
+// ============================================
+// SESSION TYPES
+// ============================================
+
+export const SESSION_TYPE_OPTIONS = [
+  { value: 'offline', label: 'Offline (In-Studio)' },
+  { value: 'online', label: 'Online' },
+  { value: 'hybrid', label: 'Hybrid' },
+] as const;
+
+// ============================================
+// DAYS OF WEEK
+// ============================================
+
+export const DAYS_OF_WEEK = [
+  { value: 0, label: 'Sunday', short: 'Sun' },
+  { value: 1, label: 'Monday', short: 'Mon' },
+  { value: 2, label: 'Tuesday', short: 'Tue' },
+  { value: 3, label: 'Wednesday', short: 'Wed' },
+  { value: 4, label: 'Thursday', short: 'Thu' },
+  { value: 5, label: 'Friday', short: 'Fri' },
+  { value: 6, label: 'Saturday', short: 'Sat' },
+] as const;
+
+// Working days (Monday to Friday)
+export const WORKING_DAYS = [1, 2, 3, 4, 5];
+
+// ============================================
+// CURRENCY
+// ============================================
+
+export const CURRENCY_SYMBOL = '₹';
+export const CURRENCY_CODE = 'INR';
+
+export function formatCurrency(amount: number): string {
+  return `${CURRENCY_SYMBOL}${amount.toLocaleString('en-IN')}`;
+}
+
+// ============================================
+// VALIDATION
+// ============================================
+
+export const VALIDATION = {
+  phone: {
+    pattern: /^[6-9]\d{9}$/,
+    message: 'Please enter a valid 10-digit Indian mobile number',
+  },
+  email: {
+    pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+    message: 'Please enter a valid email address',
+  },
+  name: {
+    minLength: 2,
+    maxLength: 50,
+    message: 'Name must be between 2 and 50 characters',
+  },
+} as const;
+
+// ============================================
+// STORAGE KEYS
+// ============================================
+
+export const STORAGE_KEYS = {
+  // Core entities
+  MEMBERS: 'yoga_studio_members',
+  LEADS: 'yoga_studio_leads',
+  MEMBERSHIP_PLANS: 'yoga_studio_membership_plans',
+  SUBSCRIPTIONS: 'yoga_studio_subscriptions',
+  SESSION_SLOTS: 'yoga_studio_session_slots',
+  SLOT_SUBSCRIPTIONS: 'yoga_studio_slot_subscriptions',
+  INVOICES: 'yoga_studio_invoices',
+  PAYMENTS: 'yoga_studio_payments',
+  TRIAL_BOOKINGS: 'yoga_studio_trial_bookings',
+  ATTENDANCE: 'yoga_studio_attendance',
+
+  // Settings & Auth
+  SETTINGS: 'yoga_studio_settings',
+  AUTH: 'yoga_studio_auth',
+
+  // Legacy (kept for backward compatibility)
+  INSTRUCTORS: 'yoga_studio_instructors',
+  CLASSES: 'yoga_studio_classes',
+  SCHEDULES: 'yoga_studio_schedules',
+  BOOKINGS: 'yoga_studio_bookings',
+  TRIAL_REQUESTS: 'yoga_studio_trial_requests',
+  NOTIFICATIONS: 'yoga_studio_notifications',
+} as const;
+
+export type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];

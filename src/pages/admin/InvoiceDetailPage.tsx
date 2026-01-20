@@ -1,0 +1,288 @@
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Card, Button, StatusBadge, Alert } from '../../components/common';
+import { invoiceService, memberService, paymentService, subscriptionService, membershipPlanService, settingsService } from '../../services';
+import { formatCurrency } from '../../utils/formatUtils';
+import { formatDate } from '../../utils/dateUtils';
+import { downloadInvoicePDF, getInvoicePDFUrl } from '../../utils/pdfUtils';
+
+export function InvoiceDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [error, setError] = useState('');
+  const [downloading, setDownloading] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [loadingPdf, setLoadingPdf] = useState(true);
+
+  const invoice = id ? invoiceService.getById(id) : null;
+  const member = invoice ? memberService.getById(invoice.memberId) : null;
+  const payments = invoice ? paymentService.getByInvoice(invoice.id) : [];
+  const subscription = invoice?.subscriptionId
+    ? subscriptionService.getById(invoice.subscriptionId)
+    : null;
+  const plan = subscription
+    ? membershipPlanService.getById(subscription.planId)
+    : null;
+
+  const balance = invoice ? invoice.totalAmount - invoice.amountPaid : 0;
+
+  // Generate PDF preview on mount
+  useEffect(() => {
+    if (!invoice) return;
+
+    const generatePdf = async () => {
+      setLoadingPdf(true);
+      try {
+        const settings = settingsService.getOrDefault();
+        const url = await getInvoicePDFUrl({
+          invoice,
+          member,
+          subscription,
+          plan,
+          payments,
+          settings,
+        });
+        setPdfUrl(url);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to generate PDF preview');
+      } finally {
+        setLoadingPdf(false);
+      }
+    };
+
+    generatePdf();
+
+    // Cleanup URL on unmount
+    return () => {
+      if (pdfUrl) {
+        URL.revokeObjectURL(pdfUrl);
+      }
+    };
+  }, [invoice?.id]); // Re-generate when invoice changes
+
+  if (!invoice) {
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-xl font-semibold text-gray-900">Invoice not found</h2>
+        <p className="text-gray-600 mt-2">The invoice you're looking for doesn't exist.</p>
+        <Link to="/admin/invoices" className="text-indigo-600 hover:text-indigo-700 mt-4 inline-block">
+          ← Back to Invoices
+        </Link>
+      </div>
+    );
+  }
+
+  const handleDownloadPDF = async () => {
+    setDownloading(true);
+    setError('');
+    try {
+      const settings = settingsService.getOrDefault();
+      await downloadInvoicePDF({
+        invoice,
+        member,
+        subscription,
+        plan,
+        payments,
+        settings,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate PDF');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-start">
+        <div>
+          <Link to="/admin/invoices" className="text-sm text-gray-500 hover:text-gray-700">
+            ← Back to Invoices
+          </Link>
+          <h1 className="text-2xl font-bold text-gray-900 mt-2">
+            Invoice {invoice.invoiceNumber}
+          </h1>
+          <div className="flex items-center gap-2 mt-1">
+            <StatusBadge status={invoice.status} />
+            <span className="text-gray-500">•</span>
+            <span className="text-gray-600">{formatDate(invoice.invoiceDate)}</span>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          {invoice.status !== 'paid' && balance > 0 && (
+            <Link to="/admin/payments/record" state={{ invoiceId: invoice.id }}>
+              <Button>Record Payment</Button>
+            </Link>
+          )}
+          <Button variant="outline" onClick={handleDownloadPDF} loading={downloading}>
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Download PDF
+          </Button>
+        </div>
+      </div>
+
+      {error && (
+        <Alert variant="error" dismissible onDismiss={() => setError('')}>
+          {error}
+        </Alert>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* PDF Preview - Main Area */}
+        <div className="lg:col-span-2">
+          <Card title="Invoice Preview">
+            {loadingPdf ? (
+              <div className="flex items-center justify-center h-[800px] bg-gray-50 rounded-lg">
+                <div className="text-center">
+                  <svg className="animate-spin h-8 w-8 mx-auto text-indigo-600" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <p className="mt-2 text-gray-600">Generating PDF preview...</p>
+                </div>
+              </div>
+            ) : pdfUrl ? (
+              <iframe
+                src={pdfUrl}
+                className="w-full h-[800px] border border-gray-200 rounded-lg"
+                title="Invoice PDF Preview"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-[800px] bg-gray-50 rounded-lg">
+                <div className="text-center">
+                  <svg className="h-12 w-12 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p className="mt-2 text-gray-600">Failed to load PDF preview</p>
+                  <Button variant="outline" size="sm" className="mt-4" onClick={() => window.location.reload()}>
+                    Retry
+                  </Button>
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* Summary Sidebar */}
+        <div className="space-y-6">
+          <Card title="Summary">
+            <div className="space-y-4">
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-gray-600">Status</span>
+                  <StatusBadge status={invoice.status} />
+                </div>
+                <div className="text-center py-4">
+                  <p className="text-sm text-gray-500">Total Amount</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {formatCurrency(invoice.totalAmount)}
+                  </p>
+                </div>
+                {balance > 0 && (
+                  <div className="text-center py-2 bg-red-50 rounded-lg mt-2">
+                    <p className="text-sm text-red-600">Balance Due</p>
+                    <p className="text-xl font-bold text-red-600">
+                      {formatCurrency(balance)}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Invoice Date</span>
+                  <span className="text-gray-900">{formatDate(invoice.invoiceDate)}</span>
+                </div>
+                {invoice.dueDate && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Due Date</span>
+                    <span className="text-gray-900">{formatDate(invoice.dueDate)}</span>
+                  </div>
+                )}
+                {invoice.paidDate && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Paid Date</span>
+                    <span className="text-green-600">{formatDate(invoice.paidDate)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+
+          {/* Member Info */}
+          {member && (
+            <Card title="Member">
+              <div className="space-y-2">
+                <Link
+                  to={`/admin/members/${member.id}`}
+                  className="font-medium text-indigo-600 hover:text-indigo-700"
+                >
+                  {member.firstName} {member.lastName}
+                </Link>
+                <p className="text-sm text-gray-600">{member.email}</p>
+              </div>
+            </Card>
+          )}
+
+          {subscription && plan && (
+            <Card title="Subscription">
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm text-gray-500">Plan</p>
+                  <p className="font-medium text-gray-900">{plan.name}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Period</p>
+                  <p className="text-gray-900">
+                    {subscription.startDate} to {subscription.endDate}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Status</p>
+                  <StatusBadge status={subscription.status} />
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Payment History */}
+          <Card title="Payments">
+            {payments.length === 0 ? (
+              <p className="text-gray-500 text-center py-4 text-sm">No payments recorded</p>
+            ) : (
+              <div className="space-y-2">
+                {payments.map(payment => (
+                  <div
+                    key={payment.id}
+                    className="flex justify-between items-center p-3 bg-gray-50 rounded-lg text-sm"
+                  >
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {formatCurrency(payment.amount)}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {formatDate(payment.paymentDate)}
+                      </p>
+                    </div>
+                    <StatusBadge status={payment.status} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {balance > 0 && (
+            <Link to="/admin/payments/record" state={{ invoiceId: invoice.id }}>
+              <Button fullWidth>
+                Record Payment
+              </Button>
+            </Link>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

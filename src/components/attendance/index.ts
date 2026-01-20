@@ -1,0 +1,1 @@
+export { MemberAttendanceTile } from './MemberAttendanceTile';
