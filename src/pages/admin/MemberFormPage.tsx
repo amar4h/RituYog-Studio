@@ -18,7 +18,7 @@ export function MemberFormPage() {
     lastName: existingMember?.lastName || '',
     email: existingMember?.email || '',
     phone: existingMember?.phone || '',
-    dateOfBirth: existingMember?.dateOfBirth || '',
+    age: existingMember?.age?.toString() || '',
     gender: existingMember?.gender || '',
     address: existingMember?.address || '',
     emergencyContactName: existingMember?.emergencyContact?.name || '',
@@ -121,7 +121,7 @@ export function MemberFormPage() {
         lastName: formData.lastName.trim(),
         email: formData.email.trim().toLowerCase(),
         phone: formData.phone.replace(/\D/g, ''),
-        dateOfBirth: formData.dateOfBirth || undefined,
+        age: formData.age ? parseInt(formData.age, 10) : undefined,
         gender: formData.gender as Member['gender'] || undefined,
         address: formData.address.trim() || undefined,
         status: formData.status as Member['status'],
@@ -236,10 +236,13 @@ export function MemberFormPage() {
               required
             />
             <Input
-              label="Date of Birth"
-              type="date"
-              value={formData.dateOfBirth}
-              onChange={(e) => handleChange('dateOfBirth', e.target.value)}
+              label="Age"
+              type="number"
+              value={formData.age}
+              onChange={(e) => handleChange('age', e.target.value)}
+              placeholder="e.g., 35"
+              min="5"
+              max="100"
             />
             <Select
               label="Gender"
@@ -274,6 +277,7 @@ export function MemberFormPage() {
               { value: 'referral', label: 'Referral' },
               { value: 'online', label: 'Online' },
               { value: 'lead-conversion', label: 'Lead Conversion' },
+              { value: 'free-yoga-campaign', label: 'Free Yoga Campaign' },
             ]}
           />
           <p className="text-sm text-gray-500 mt-2">

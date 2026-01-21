@@ -174,10 +174,10 @@ export function MemberDetailPage() {
                 <dd className="mt-1 text-gray-900">{member.address}</dd>
               </div>
             )}
-            {member.dateOfBirth && (
+            {member.age && (
               <div>
-                <dt className="text-sm font-medium text-gray-500">Date of Birth</dt>
-                <dd className="mt-1 text-gray-900">{formatDate(member.dateOfBirth)}</dd>
+                <dt className="text-sm font-medium text-gray-500">Age</dt>
+                <dd className="mt-1 text-gray-900">{member.age} years</dd>
               </div>
             )}
             {member.emergencyContact && (
