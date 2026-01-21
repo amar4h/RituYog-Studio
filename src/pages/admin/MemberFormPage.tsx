@@ -154,7 +154,7 @@ export function MemberFormPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div>
         <Link to="/admin/members" className="text-sm text-gray-500 hover:text-gray-700">
@@ -201,10 +201,12 @@ export function MemberFormPage() {
         </Alert>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Basic Information */}
-        <Card title="Basic Information" className={errorCount > 0 ? 'ring-2 ring-red-200' : ''}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Left Column */}
+        <div className="space-y-4">
+          {/* Basic Information */}
+          <Card title="Basic Information" className={errorCount > 0 ? 'ring-2 ring-red-200' : ''}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
               label="First Name"
               value={formData.firstName}
@@ -255,146 +257,137 @@ export function MemberFormPage() {
                 { value: 'other', label: 'Other' },
               ]}
             />
-            <div className="md:col-span-2">
-              <Textarea
-                label="Address"
-                value={formData.address}
-                onChange={(e) => handleChange('address', e.target.value)}
-                rows={2}
+            <Textarea
+              label="Address"
+              value={formData.address}
+              onChange={(e) => handleChange('address', e.target.value)}
+              rows={2}
+            />
+            <Select
+              label="Status"
+              value={formData.status}
+              onChange={(e) => handleChange('status', e.target.value)}
+              options={[
+                { value: 'active', label: 'Active' },
+                { value: 'inactive', label: 'Inactive' },
+                { value: 'suspended', label: 'Suspended' },
+              ]}
+            />
+          </div>
+        </Card>
+
+          {/* Emergency Contact */}
+          <Card title="Emergency Contact">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Input
+                label="Contact Name"
+                value={formData.emergencyContactName}
+                onChange={(e) => handleChange('emergencyContactName', e.target.value)}
+              />
+              <Input
+                label="Phone"
+                value={formData.emergencyContactPhone}
+                onChange={(e) => handleChange('emergencyContactPhone', e.target.value)}
+              />
+              <Input
+                label="Relationship"
+                value={formData.emergencyContactRelationship}
+                onChange={(e) => handleChange('emergencyContactRelationship', e.target.value)}
+                placeholder="e.g., Spouse, Parent"
               />
             </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
 
-        {/* Source */}
-        <Card title="Member Source">
-          <Select
-            label="How did this member join?"
-            value={formData.source}
-            onChange={(e) => handleChange('source', e.target.value)}
-            options={[
-              { value: 'walk-in', label: 'Walk-in' },
-              { value: 'referral', label: 'Referral' },
-              { value: 'online', label: 'Online' },
-              { value: 'lead-conversion', label: 'Lead Conversion' },
-              { value: 'free-yoga-campaign', label: 'Free Yoga Campaign' },
-            ]}
-          />
-          <p className="text-sm text-gray-500 mt-2">
-            Session slot is assigned when creating a subscription.
-          </p>
-        </Card>
-
-        {/* Emergency Contact */}
-        <Card title="Emergency Contact">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Input
-              label="Contact Name"
-              value={formData.emergencyContactName}
-              onChange={(e) => handleChange('emergencyContactName', e.target.value)}
-            />
-            <Input
-              label="Contact Phone"
-              value={formData.emergencyContactPhone}
-              onChange={(e) => handleChange('emergencyContactPhone', e.target.value)}
-            />
-            <Input
-              label="Relationship"
-              value={formData.emergencyContactRelationship}
-              onChange={(e) => handleChange('emergencyContactRelationship', e.target.value)}
-              placeholder="e.g., Spouse, Parent"
-            />
-          </div>
-        </Card>
-
-        {/* Medical Conditions */}
-        <Card title="Medical Conditions">
-          <div className="space-y-4">
-            {medicalConditions.map((condition, index) => (
-              <div key={index} className="flex items-start gap-4 p-3 bg-red-50 rounded-lg">
-                <div className="flex-1">
-                  <p className="font-medium text-red-900">{condition.condition}</p>
-                  {condition.details && (
-                    <p className="text-sm text-red-700">{condition.details}</p>
-                  )}
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeMedicalCondition(index)}
-                >
-                  Remove
-                </Button>
+        {/* Right Column */}
+        <div className="space-y-4">
+          {/* Health Information */}
+          <Card title="Health Information">
+            {medicalConditions.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {medicalConditions.map((condition, index) => (
+                  <div key={index} className="flex items-center gap-1 px-2 py-1 bg-red-50 rounded text-sm">
+                    <span className="text-red-900">{condition.condition}</span>
+                    {condition.details && <span className="text-red-600 text-xs">({condition.details})</span>}
+                    <button
+                      type="button"
+                      onClick={() => removeMedicalCondition(index)}
+                      className="text-red-500 hover:text-red-700 ml-1"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
               </div>
-            ))}
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            )}
+            <div className="flex gap-2">
               <Input
-                label="Condition"
                 value={newCondition.condition}
                 onChange={(e) => setNewCondition(prev => ({ ...prev, condition: e.target.value }))}
-                placeholder="e.g., Back pain, Diabetes"
+                placeholder="Condition (e.g., Back pain)"
+                className="flex-1"
               />
               <Input
-                label="Details (optional)"
                 value={newCondition.details}
                 onChange={(e) => setNewCondition(prev => ({ ...prev, details: e.target.value }))}
-                placeholder="Additional details"
+                placeholder="Details (optional)"
+                className="flex-1"
               />
-              <Button type="button" variant="outline" onClick={addMedicalCondition}>
-                Add Condition
+              <Button type="button" variant="outline" size="sm" onClick={addMedicalCondition}>
+                Add
               </Button>
             </div>
+          </Card>
+
+          {/* Source */}
+          <Card title="Member Source">
+            <Select
+              label="How did this member join?"
+              value={formData.source}
+              onChange={(e) => handleChange('source', e.target.value)}
+              options={[
+                { value: 'walk-in', label: 'Walk-in' },
+                { value: 'referral', label: 'Referral' },
+                { value: 'online', label: 'Online' },
+                { value: 'lead-conversion', label: 'Lead Conversion' },
+                { value: 'free-yoga-camp', label: 'Free Yoga Camp' },
+              ]}
+            />
+            <p className="text-sm text-gray-500 mt-2">
+              Session slot is assigned when creating a subscription.
+            </p>
+          </Card>
+
+          {/* Consent */}
+          <Card title="Consent & Acknowledgements">
+            <div className="space-y-3">
+              <Checkbox
+                label="Terms and Conditions accepted"
+                checked={getConsentValue('terms-conditions')}
+                onChange={(e) => handleConsentChange('terms-conditions', e.target.checked)}
+              />
+              <Checkbox
+                label="Health disclaimer acknowledged"
+                checked={getConsentValue('health-disclaimer')}
+                onChange={(e) => handleConsentChange('health-disclaimer', e.target.checked)}
+              />
+              <Checkbox
+                label="Photo/video consent given"
+                checked={getConsentValue('photo-consent')}
+                onChange={(e) => handleConsentChange('photo-consent', e.target.checked)}
+              />
+            </div>
+          </Card>
+
+          {/* Submit */}
+          <div className="flex justify-end gap-4 pt-2">
+            <Link to="/admin/members">
+              <Button type="button" variant="outline">Cancel</Button>
+            </Link>
+            <Button type="submit" loading={loading}>
+              {isEditing ? 'Update Member' : 'Create Member'}
+            </Button>
           </div>
-        </Card>
-
-        {/* Consent Records */}
-        <Card title="Consent & Acknowledgements">
-          <div className="space-y-4">
-            <Checkbox
-              label="Terms & Conditions"
-              description="Member has read and agreed to the studio's terms and conditions"
-              checked={getConsentValue('terms-conditions')}
-              onChange={(e) => handleConsentChange('terms-conditions', e.target.checked)}
-            />
-            <Checkbox
-              label="Health Disclaimer"
-              description="Member acknowledges the health risks and has disclosed all relevant medical conditions"
-              checked={getConsentValue('health-disclaimer')}
-              onChange={(e) => handleConsentChange('health-disclaimer', e.target.checked)}
-            />
-            <Checkbox
-              label="Photo/Video Consent"
-              description="Member consents to photos/videos being taken during sessions for promotional purposes"
-              checked={getConsentValue('photo-consent')}
-              onChange={(e) => handleConsentChange('photo-consent', e.target.checked)}
-            />
-          </div>
-        </Card>
-
-        {/* Status */}
-        <Card title="Status">
-          <Select
-            label="Member Status"
-            value={formData.status}
-            onChange={(e) => handleChange('status', e.target.value)}
-            options={[
-              { value: 'active', label: 'Active' },
-              { value: 'inactive', label: 'Inactive' },
-              { value: 'suspended', label: 'Suspended' },
-            ]}
-          />
-        </Card>
-
-        {/* Submit */}
-        <div className="flex justify-end gap-4">
-          <Link to="/admin/members">
-            <Button type="button" variant="outline">Cancel</Button>
-          </Link>
-          <Button type="submit" loading={loading}>
-            {isEditing ? 'Update Member' : 'Create Member'}
-          </Button>
         </div>
       </form>
     </div>

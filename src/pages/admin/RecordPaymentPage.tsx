@@ -96,7 +96,7 @@ export function RecordPaymentPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div>
         <Link to="/admin/payments" className="text-sm text-gray-500 hover:text-gray-700">
@@ -114,10 +114,10 @@ export function RecordPaymentPage() {
         </Alert>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <form onSubmit={handleSubmit}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Main Form */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4">
             {/* Invoice Selection */}
             <Card title="Select Invoice">
               <Select
@@ -231,8 +231,8 @@ export function RecordPaymentPage() {
             </Card>
           </div>
 
-          {/* Summary Sidebar */}
-          <div className="space-y-6">
+          {/* Summary Sidebar - Sticky on desktop */}
+          <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
             <Card title="Payment Summary">
               <div className="space-y-4">
                 {selectedInvoice ? (
@@ -355,7 +355,7 @@ export function RecordPaymentPage() {
               </div>
             </Card>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               <Button
                 type="submit"
                 fullWidth
@@ -369,11 +369,10 @@ export function RecordPaymentPage() {
                   Cancel
                 </Button>
               </Link>
+              <p className="text-xs text-gray-500 text-center pt-1">
+                A receipt number will be automatically generated.
+              </p>
             </div>
-
-            <p className="text-xs text-gray-500 text-center">
-              A receipt number will be automatically generated.
-            </p>
           </div>
         </div>
       </form>

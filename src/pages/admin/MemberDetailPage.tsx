@@ -113,7 +113,7 @@ export function MemberDetailPage() {
   const daysRemaining = subscription ? getDaysRemaining(subscription.endDate) : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
@@ -152,7 +152,7 @@ export function MemberDetailPage() {
         </Alert>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Contact Info */}
         <Card title="Contact Information">
           <dl className="space-y-4">
@@ -378,95 +378,90 @@ export function MemberDetailPage() {
         </div>
       </Card>
 
-      {/* Payment History */}
-      <Card title="Payment History">
-        {payments.length === 0 ? (
-          <p className="text-gray-500 text-center py-4">No payments recorded</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Method</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Receipt</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {payments.slice(0, 5).map(payment => (
-                  <tr key={payment.id}>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {formatDate(payment.paymentDate)}
-                    </td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                      {formatCurrency(payment.amount)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 capitalize">
-                      {payment.paymentMethod}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {payment.receiptNumber || '-'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={payment.status} />
-                    </td>
+      {/* Payment & Invoice History - Side by side on xl screens */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        {/* Payment History */}
+        <Card title="Payment History">
+          {payments.length === 0 ? (
+            <p className="text-gray-500 text-center py-4">No payments recorded</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead>
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Method</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {payments.slice(0, 5).map(payment => (
+                    <tr key={payment.id}>
+                      <td className="px-3 py-2 text-sm text-gray-900">
+                        {formatDate(payment.paymentDate)}
+                      </td>
+                      <td className="px-3 py-2 text-sm font-medium text-gray-900">
+                        {formatCurrency(payment.amount)}
+                      </td>
+                      <td className="px-3 py-2 text-sm text-gray-600 capitalize">
+                        {payment.paymentMethod}
+                      </td>
+                      <td className="px-3 py-2">
+                        <StatusBadge status={payment.status} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
 
-      {/* Invoice History */}
-      <Card title="Invoice History">
-        {invoices.length === 0 ? (
-          <p className="text-gray-500 text-center py-4">No invoices generated</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Invoice #</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Paid</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {invoices.slice(0, 5).map(invoice => (
-                  <tr key={invoice.id}>
-                    <td className="px-4 py-3 text-sm font-mono text-gray-900">
-                      {invoice.invoiceNumber}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {formatDate(invoice.invoiceDate)}
-                    </td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                      {formatCurrency(invoice.totalAmount)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {formatCurrency(invoice.amountPaid)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={invoice.status} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link to={`/admin/invoices/${invoice.id}`}>
-                        <Button variant="ghost" size="sm">View</Button>
-                      </Link>
-                    </td>
+        {/* Invoice History */}
+        <Card title="Invoice History">
+          {invoices.length === 0 ? (
+            <p className="text-gray-500 text-center py-4">No invoices generated</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead>
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Invoice #</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="px-3 py-2"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {invoices.slice(0, 5).map(invoice => (
+                    <tr key={invoice.id}>
+                      <td className="px-3 py-2 text-sm font-mono text-gray-900">
+                        {invoice.invoiceNumber}
+                      </td>
+                      <td className="px-3 py-2 text-sm text-gray-600">
+                        {formatDate(invoice.invoiceDate)}
+                      </td>
+                      <td className="px-3 py-2 text-sm font-medium text-gray-900">
+                        {formatCurrency(invoice.totalAmount)}
+                      </td>
+                      <td className="px-3 py-2">
+                        <StatusBadge status={invoice.status} />
+                      </td>
+                      <td className="px-3 py-2">
+                        <Link to={`/admin/invoices/${invoice.id}`}>
+                          <Button variant="ghost" size="sm">View</Button>
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      </div>
 
       {/* Delete Confirmation */}
       <ConfirmDialog

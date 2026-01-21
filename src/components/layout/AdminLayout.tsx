@@ -8,9 +8,10 @@ export function AdminLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
 
-  // Close mobile menu on route change
+  // Close mobile menu and scroll to top on route change
   useEffect(() => {
     setMobileMenuOpen(false);
+    window.scrollTo(0, 0);
   }, [location.pathname]);
 
   // Close mobile menu on resize to desktop

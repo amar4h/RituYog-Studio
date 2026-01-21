@@ -1,9 +1,15 @@
+import { useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { settingsService } from '../../services';
 
 export function PublicLayout() {
   const settings = settingsService.getOrDefault();
   const location = useLocation();
+
+  // Scroll to top on route change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
 
   const isRegisterPage = location.pathname === '/register';
   const isBookTrialPage = location.pathname === '/book-trial';

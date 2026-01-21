@@ -180,7 +180,7 @@ export function SubscriptionFormPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <div>
         <Link to="/admin/subscriptions" className="text-sm text-gray-500 hover:text-gray-700">
@@ -214,92 +214,98 @@ export function SubscriptionFormPage() {
         </Alert>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <form onSubmit={handleSubmit}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Main Form */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Member Selection */}
-            <Card title="Member">
-              <Select
-                label="Select Member"
-                value={formData.memberId}
-                onChange={(e) => {
-                  const memberId = e.target.value;
-                  const member = members.find(m => m.id === memberId);
-                  // Auto-set slot if member has an assigned slot
-                  const slotId = member?.assignedSlotId || formData.slotId;
+          <div className="lg:col-span-2 space-y-4">
+            {/* Member & Dates */}
+            <Card title="Member & Dates">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <Select
+                  label="Member"
+                  value={formData.memberId}
+                  onChange={(e) => {
+                    const memberId = e.target.value;
+                    const member = members.find(m => m.id === memberId);
+                    // Auto-set slot if member has an assigned slot
+                    const slotId = member?.assignedSlotId || formData.slotId;
 
-                  // Auto-set start date if member has existing subscription
-                  let startDate = formData.startDate;
-                  if (memberId) {
-                    const allSubs = subscriptionService.getByMember(memberId);
-                    // Find the latest active or scheduled subscription
-                    const latestSub = allSubs
-                      .filter(s => ['active', 'scheduled', 'pending'].includes(s.status))
-                      .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime())[0];
-                    if (latestSub) {
-                      // Start day after the latest subscription ends
-                      startDate = addDays(latestSub.endDate, 1);
+                    // Auto-set start date if member has existing subscription
+                    let startDate = formData.startDate;
+                    if (memberId) {
+                      const allSubs = subscriptionService.getByMember(memberId);
+                      // Find the latest active or scheduled subscription
+                      const latestSub = allSubs
+                        .filter(s => ['active', 'scheduled', 'pending'].includes(s.status))
+                        .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime())[0];
+                      if (latestSub) {
+                        // Start day after the latest subscription ends
+                        startDate = addDays(latestSub.endDate, 1);
+                      }
                     }
-                  }
 
-                  setFormData(prev => ({ ...prev, memberId, slotId, startDate }));
-                }}
-                options={[
-                  { value: '', label: 'Choose a member...' },
-                  ...members.map(m => ({
-                    value: m.id,
-                    label: `${m.firstName} ${m.lastName} (${m.email})`,
-                  })),
-                ]}
-                required
-              />
-
-              {preselectedMemberId && selectedMember && (
-                <p className="text-xs text-gray-500 mt-2">
-                  Member pre-selected from lead conversion.
-                </p>
-              )}
+                    setFormData(prev => ({ ...prev, memberId, slotId, startDate }));
+                  }}
+                  options={[
+                    { value: '', label: 'Select...' },
+                    ...members.map(m => ({
+                      value: m.id,
+                      label: `${m.firstName} ${m.lastName}`,
+                    })),
+                  ]}
+                  required
+                />
+                <Input
+                  label="Start Date"
+                  type="date"
+                  value={formData.startDate}
+                  onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
+                  required
+                />
+                <Input
+                  label="End Date"
+                  type="date"
+                  value={endDate}
+                  disabled
+                />
+              </div>
 
               {members.length === 0 && !preselectedMemberId && (
-                <Alert variant="info" className="mt-4">
-                  No members available for new subscription. All existing members already have active subscriptions.
+                <Alert variant="info" className="mt-3">
+                  No members available. All existing members already have active subscriptions.
                 </Alert>
               )}
 
               {existingSubscription && (
-                <Alert variant="info" className="mt-4">
-                  This member has an active subscription until <strong>{existingSubscription.endDate}</strong>.
-                  The new subscription should start on <strong>{addDays(existingSubscription.endDate, 1)}</strong> to avoid overlap.
+                <Alert variant="info" className="mt-3">
+                  Active subscription until <strong>{existingSubscription.endDate}</strong>. Start date set to <strong>{addDays(existingSubscription.endDate, 1)}</strong>.
                 </Alert>
               )}
             </Card>
 
             {/* Plan Selection */}
             <Card title="Membership Plan">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 {plans.map(plan => (
                   <button
                     key={plan.id}
                     type="button"
                     onClick={() => setFormData(prev => ({ ...prev, planId: plan.id }))}
-                    className={`p-4 border-2 rounded-lg text-left transition-colors ${
+                    className={`p-2 border-2 rounded-lg text-left transition-colors ${
                       formData.planId === plan.id
                         ? 'border-indigo-500 bg-indigo-50'
                         : 'border-gray-200 hover:border-indigo-300'
                     }`}
                   >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-semibold text-gray-900">{plan.name}</p>
-                        <p className="text-sm text-gray-500">{plan.durationMonths} {plan.durationMonths === 1 ? 'month' : 'months'}</p>
-                      </div>
-                      <p className="text-lg font-bold text-indigo-600">
+                    <div className="flex justify-between items-start gap-1">
+                      <p className="font-semibold text-gray-900">{plan.name}</p>
+                      <p className="font-bold text-indigo-600 whitespace-nowrap">
                         {formatCurrency(plan.price)}
                       </p>
                     </div>
+                    <p className="text-xs text-gray-500 mt-1">{plan.durationMonths} {plan.durationMonths === 1 ? 'month' : 'months'}</p>
                     {plan.description && (
-                      <p className="text-sm text-gray-600 mt-2">{plan.description}</p>
+                      <p className="text-xs text-gray-600 mt-1">{plan.description}</p>
                     )}
                   </button>
                 ))}
@@ -318,14 +324,6 @@ export function SubscriptionFormPage() {
             {/* Session Slot Selection - Only show when member doesn't have an assigned slot */}
             {shouldShowSlotSelection ? (
               <Card title="Session Slot">
-                <p className="text-sm text-gray-600 mb-4">
-                  Select the session slot the member will attend. This slot will be assigned to the member for the duration of their subscription.
-                </p>
-                {preselectedSlotId && formData.slotId === preselectedSlotId && (
-                  <p className="text-xs text-indigo-600 mb-4">
-                    Slot pre-selected from trial booking.
-                  </p>
-                )}
                 <SlotSelector
                   selectedSlotId={formData.slotId}
                   onSelect={(slotId) => {
@@ -345,8 +343,8 @@ export function SubscriptionFormPage() {
                       setCapacityWarning('');
                     }
                   }}
-                  variant="cards"
-                  columns={2}
+                  variant="tiles"
+                  columns={4}
                   showCapacity
                   subscriptionStartDate={formData.startDate}
                   subscriptionEndDate={endDate}
@@ -396,72 +394,51 @@ export function SubscriptionFormPage() {
               )
             )}
 
-            {/* Subscription Details */}
-            <Card title="Subscription Details">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  label="Start Date"
-                  type="date"
-                  value={formData.startDate}
-                  onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
-                  required
-                />
-                <Input
-                  label="End Date"
-                  type="date"
-                  value={endDate}
-                  disabled
-                  helperText="Calculated based on plan duration"
-                />
-              </div>
-            </Card>
-
             {/* Discount */}
             <Card title="Discount (Optional)">
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Select
-                    label="Discount Type"
-                    value={formData.discountType}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      discountType: e.target.value as 'fixed' | 'percentage',
-                      discountValue: 0, // Reset value when type changes
-                    }))}
-                    options={[
-                      { value: 'percentage', label: 'Percentage (%)' },
-                      { value: 'fixed', label: 'Fixed Amount (₹)' },
-                    ]}
-                  />
-                  <Input
-                    label={formData.discountType === 'percentage' ? 'Discount (%)' : 'Discount Amount (₹)'}
-                    type="number"
-                    min={0}
-                    max={formData.discountType === 'percentage' ? 100 : originalAmount}
-                    value={formData.discountValue}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      discountValue: parseInt(e.target.value) || 0,
-                    }))}
-                  />
-                  <Input
-                    label="Discount Reason"
-                    value={formData.discountReason}
-                    onChange={(e) => setFormData(prev => ({ ...prev, discountReason: e.target.value }))}
-                    placeholder="e.g., Early bird, Referral"
-                  />
-                </div>
-                {formData.discountType === 'percentage' && formData.discountValue > 0 && selectedPlan && (
-                  <p className="text-sm text-gray-600">
-                    {formData.discountValue}% discount = {formatCurrency(discountAmount)} off
-                  </p>
-                )}
+              <div className="grid grid-cols-3 gap-2">
+                <Select
+                  label="Type"
+                  value={formData.discountType}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    discountType: e.target.value as 'fixed' | 'percentage',
+                    discountValue: 0, // Reset value when type changes
+                  }))}
+                  options={[
+                    { value: 'percentage', label: '%' },
+                    { value: 'fixed', label: '₹' },
+                  ]}
+                />
+                <Input
+                  label={formData.discountType === 'percentage' ? '%' : '₹'}
+                  type="number"
+                  min={0}
+                  max={formData.discountType === 'percentage' ? 100 : originalAmount}
+                  value={formData.discountValue}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    discountValue: parseInt(e.target.value) || 0,
+                  }))}
+                />
+                <Input
+                  label="Reason"
+                  value={formData.discountReason}
+                  onChange={(e) => setFormData(prev => ({ ...prev, discountReason: e.target.value }))}
+                  placeholder="e.g., Referral"
+                />
               </div>
+              {formData.discountType === 'percentage' && formData.discountValue > 0 && selectedPlan && (
+                <p className="text-xs text-gray-600 mt-2">
+                  {formData.discountValue}% = {formatCurrency(discountAmount)} off
+                </p>
+              )}
             </Card>
           </div>
 
-          {/* Summary Sidebar */}
-          <div className="space-y-6">
+          {/* Right Column - Sticky on desktop */}
+          <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+            {/* Summary */}
             <Card title="Summary">
               <div className="space-y-4">
                 {selectedMember && (
@@ -526,7 +503,7 @@ export function SubscriptionFormPage() {
               </div>
             </Card>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               <Button
                 type="submit"
                 fullWidth
@@ -540,11 +517,10 @@ export function SubscriptionFormPage() {
                   Cancel
                 </Button>
               </Link>
+              <p className="text-xs text-gray-500 text-center pt-1">
+                Creating a subscription will automatically generate an invoice.
+              </p>
             </div>
-
-            <p className="text-xs text-gray-500 text-center">
-              Creating a subscription will automatically generate an invoice.
-            </p>
           </div>
         </div>
       </form>

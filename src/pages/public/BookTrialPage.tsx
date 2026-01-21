@@ -377,7 +377,7 @@ export function BookTrialPage() {
         )}
 
         {step === 'form' && (
-          <form onSubmit={handleFormSubmit} className="space-y-6">
+          <form onSubmit={handleFormSubmit} className="space-y-4">
             {/* Personal Information */}
             <Card title="Personal Information">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -533,7 +533,7 @@ export function BookTrialPage() {
         )}
 
         {step === 'slots' && (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Step 1: Select Time Slot */}
             <Card title="Step 1: Select Time Slot">
               <p className="text-sm text-gray-600 mb-4">
