@@ -133,18 +133,30 @@ function remove<T extends BaseEntity>(key: string, id: string): boolean {
 // In API mode, all writes go to MySQL immediately
 // ============================================
 
-// Style element for global waiting cursor
+// CHANGE 3 (v1.0.2): Cursor state management for save operations
+// Uses a counter to handle multiple concurrent operations
 let waitingStyleElement: HTMLStyleElement | null = null;
+let pendingOperations = 0;
 
 /**
- * Set cursor to waiting state during synchronous operations.
- * Uses a <style> tag with !important to override all cursor styles,
- * and forces a reflow to ensure the cursor updates before blocking operations.
+ * CHANGE 3: Set cursor to waiting state during save operations.
+ * Uses a <style> tag with !important to override all cursor styles.
+ * Counter-based: cursor stays in wait state until ALL operations complete.
  */
 function setWaitingCursor(waiting: boolean): void {
   if (typeof document === 'undefined') return;
 
+  // Track pending operations to handle concurrent saves
   if (waiting) {
+    pendingOperations++;
+  } else {
+    pendingOperations = Math.max(0, pendingOperations - 1);
+  }
+
+  // Only update cursor if transitioning between states
+  const shouldShowWait = pendingOperations > 0;
+
+  if (shouldShowWait) {
     // Create and inject style element with global cursor override
     if (!waitingStyleElement) {
       waitingStyleElement = document.createElement('style');
@@ -152,9 +164,6 @@ function setWaitingCursor(waiting: boolean): void {
       document.head.appendChild(waitingStyleElement);
     }
     waitingStyleElement.textContent = '*, *::before, *::after { cursor: wait !important; }';
-
-    // Force reflow to ensure cursor updates before synchronous operation
-    document.body.offsetHeight;
   } else {
     // Remove the style to restore normal cursors
     if (waitingStyleElement) {
@@ -164,9 +173,11 @@ function setWaitingCursor(waiting: boolean): void {
 }
 
 /**
- * Perform an immediate API write operation
- * This is called synchronously but performs the API call
- * to ensure data consistency across browsers
+ * CHANGE 2 & 3 (v1.0.2): Perform API write operation with cursor feedback
+ * - Uses async fetch (sync XHR is deprecated and may fail silently)
+ * - Shows waiting cursor during operation
+ * - localStorage is written first for immediate UI responsiveness
+ * - API write happens asynchronously but reliably
  */
 function performApiWrite(operation: {
   type: 'create' | 'update' | 'delete';
@@ -193,29 +204,32 @@ function performApiWrite(operation: {
     method = 'DELETE';
   }
 
-  // Show waiting cursor during synchronous operation
+  // CHANGE 3: Show waiting cursor during API operation
   setWaitingCursor(true);
 
-  // Use synchronous XMLHttpRequest to ensure write completes before returning
-  // This blocks the UI briefly but ensures data consistency
-  const xhr = new XMLHttpRequest();
-  xhr.open(method, url, false); // false = synchronous
-  xhr.setRequestHeader('Content-Type', 'application/json');
-  xhr.setRequestHeader('X-API-Key', apiKey);
-
-  try {
-    console.log(`[API Write] ${operation.type} ${operation.endpoint}`, operation.id || '');
-    xhr.send(operation.data ? JSON.stringify(operation.data) : null);
-    console.log(`[API Write] Response: ${xhr.status}`, xhr.responseText?.substring(0, 200));
-    if (xhr.status >= 400) {
-      console.error('[API Write] Failed:', xhr.status, xhr.responseText);
-    }
-  } catch (error) {
-    console.error('[API Write] Network error:', error);
-  } finally {
-    // Restore normal cursor
-    setWaitingCursor(false);
-  }
+  // CHANGE 2: Use async fetch for reliable API writes (sync XHR is deprecated)
+  fetch(url, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': apiKey,
+    },
+    body: operation.data ? JSON.stringify(operation.data) : undefined,
+  })
+    .then(response => {
+      if (!response.ok) {
+        console.error(`[API Write] ${operation.type} ${operation.endpoint} failed:`, response.status);
+      } else {
+        console.log(`[API Write] ${operation.type} ${operation.endpoint} success`);
+      }
+    })
+    .catch(error => {
+      console.error('[API Write] Network error:', error);
+    })
+    .finally(() => {
+      // CHANGE 3: Restore cursor after operation completes
+      setWaitingCursor(false);
+    });
 }
 
 // Storage key to endpoint mapping
@@ -2045,39 +2059,44 @@ export const settingsService = {
     }
   },
 
+  // CHANGE 2 (v1.0.2): Persist settings to database via API
+  // Save to localStorage immediately for UI responsiveness, then sync to API
   save: (settings: StudioSettings): void => {
-    // Save to localStorage
+    // Save to localStorage for immediate availability
     localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
 
-    // Immediately write to API if in API mode (synchronous to ensure consistency)
+    // CHANGE 2: Sync to API if in API mode
+    // Using async fetch with proper error handling (not sync XHR which is deprecated)
     if (isApiMode()) {
       const baseUrl = import.meta.env.VITE_API_URL || '/api';
       const apiKey = import.meta.env.VITE_API_KEY || '';
 
-      // Show waiting cursor during synchronous operation
+      // CHANGE 3: Show waiting cursor during save
       setWaitingCursor(true);
 
-      // Use synchronous XMLHttpRequest to ensure write completes
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', `${baseUrl}/settings?action=save`, false); // false = synchronous
-      xhr.setRequestHeader('Content-Type', 'application/json');
-      xhr.setRequestHeader('X-API-Key', apiKey);
-
-      try {
-        console.log('[Settings] Sending to API...', { baseUrl, settingsKeys: Object.keys(settings) });
-        xhr.send(JSON.stringify(settings));
-        console.log('[Settings] API response:', xhr.status, xhr.responseText?.substring(0, 500));
-        if (xhr.status >= 400) {
-          console.error('[Settings] Failed to sync to API:', xhr.status, xhr.responseText);
-        } else {
-          console.log('[Settings] Successfully saved to API');
-        }
-      } catch (error) {
-        console.error('[Settings] Network error:', error);
-      } finally {
-        // Restore normal cursor
-        setWaitingCursor(false);
-      }
+      // Use async fetch but execute immediately (not awaited since this is sync method)
+      fetch(`${baseUrl}/settings?action=save`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': apiKey,
+        },
+        body: JSON.stringify(settings),
+      })
+        .then(response => {
+          if (!response.ok) {
+            console.error('[Settings] API save failed:', response.status);
+          } else {
+            console.log('[Settings] Successfully saved to API');
+          }
+        })
+        .catch(error => {
+          console.error('[Settings] Network error:', error);
+        })
+        .finally(() => {
+          // CHANGE 3: Restore cursor after save completes
+          setWaitingCursor(false);
+        });
     }
   },
 
@@ -2821,7 +2840,7 @@ export const notificationService = {
 // ATTENDANCE SERVICE
 // ============================================
 
-import { getWorkingDaysCountForSubscription } from '../utils/dateUtils';
+import { getWorkingDaysCountForSubscription, getWorkingDaysInRange } from '../utils/dateUtils';
 
 export const attendanceService = {
   // Basic CRUD - dual-mode (localStorage + API queue)
@@ -2938,7 +2957,10 @@ export const attendanceService = {
     return record;
   },
 
-  // Get member's attendance summary for a period
+  // CHANGE 1 (v1.0.2): Calculate totalWorkingDays based ONLY on selected period
+  // - DO NOT factor in member's membership start/end dates
+  // - totalWorkingDays = working days (Mon-Fri) in selected period MINUS holidays
+  // - This ensures consistent "X / Y" display across all members for same period
   getMemberSummaryForPeriod: (
     memberId: string,
     slotId: string,
@@ -2956,23 +2978,27 @@ export const attendanceService = {
     );
     const presentDays = memberRecords.length;
 
-    // Get member's subscriptions for this slot to calculate total working days
-    const subscriptions = subscriptionService.getByMember(memberId);
-    const slotSubscriptions = subscriptions.filter(s =>
-      s.slotId === slotId &&
-      ['active', 'expired'].includes(s.status) // Include expired for history
-    );
+    // CHANGE 1: Calculate working days based ONLY on selected period (not membership dates)
+    // Get holidays from settings to exclude them
+    const settings = settingsService.get();
+    const holidays = settings?.holidays || [];
 
-    // Calculate total working days across all subscriptions (avoiding double-counting)
-    let totalWorkingDays = 0;
-    for (const sub of slotSubscriptions) {
-      totalWorkingDays += getWorkingDaysCountForSubscription(
-        periodStart,
-        periodEnd,
-        sub.startDate,
-        sub.endDate
-      );
-    }
+    // Count working days (Mon-Fri) in the period, excluding holidays
+    const workingDays = getWorkingDaysInRange(periodStart, periodEnd);
+    const totalWorkingDays = workingDays.filter(date => {
+      // Exclude holidays - check both exact date and recurring yearly holidays
+      const isHoliday = holidays.some(h => {
+        if (h.date === date) return true;
+        // For recurring yearly holidays, check if month-day matches
+        if (h.isRecurringYearly) {
+          const holidayMonthDay = h.date.substring(5); // "MM-DD"
+          const dateMonthDay = date.substring(5);
+          return holidayMonthDay === dateMonthDay;
+        }
+        return false;
+      });
+      return !isHoliday;
+    }).length;
 
     return { presentDays, totalWorkingDays };
   },
