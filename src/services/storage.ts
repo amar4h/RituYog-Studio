@@ -2047,9 +2047,12 @@ export const trialBookingService = {
 
 // ============================================
 // SETTINGS SERVICE
+// In API mode: Database is the SINGLE source of truth
+// localStorage is only used as a cache, populated by syncFromApi on startup
 // ============================================
 
 export const settingsService = {
+  // Get settings - reads from localStorage cache (populated from DB on startup)
   get: (): StudioSettings | null => {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.SETTINGS);
@@ -2059,44 +2062,74 @@ export const settingsService = {
     }
   },
 
-  // CHANGE 2 (v1.0.2): Persist settings to database via API
-  // Save to localStorage immediately for UI responsiveness, then sync to API
+  // BLOCKING PRODUCTION BUG FIX: Settings MUST be saved to database
+  // This method now returns a Promise and WAITS for API response
+  // The SettingsPage MUST use saveAsync() instead for proper error handling
   save: (settings: StudioSettings): void => {
-    // Save to localStorage for immediate availability
+    // In localStorage mode, just save locally
+    if (!isApiMode()) {
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+      return;
+    }
+
+    // In API mode: Save to BOTH database AND localStorage cache
+    // Note: This is fire-and-forget - use saveAsync() for proper error handling
     localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
 
-    // CHANGE 2: Sync to API if in API mode
-    // Using async fetch with proper error handling (not sync XHR which is deprecated)
-    if (isApiMode()) {
-      const baseUrl = import.meta.env.VITE_API_URL || '/api';
-      const apiKey = import.meta.env.VITE_API_KEY || '';
+    const baseUrl = import.meta.env.VITE_API_URL || '/api';
+    const apiKey = import.meta.env.VITE_API_KEY || '';
 
-      // CHANGE 3: Show waiting cursor during save
-      setWaitingCursor(true);
+    setWaitingCursor(true);
 
-      // Use async fetch but execute immediately (not awaited since this is sync method)
-      fetch(`${baseUrl}/settings?action=save`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': apiKey,
-        },
-        body: JSON.stringify(settings),
+    fetch(`${baseUrl}/settings?action=save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey,
+      },
+      body: JSON.stringify(settings),
+    })
+      .then(response => {
+        if (!response.ok) {
+          console.error('[Settings] API save failed:', response.status);
+          throw new Error('Failed to save settings to database');
+        }
+        console.log('[Settings] Successfully saved to database');
       })
-        .then(response => {
-          if (!response.ok) {
-            console.error('[Settings] API save failed:', response.status);
-          } else {
-            console.log('[Settings] Successfully saved to API');
-          }
-        })
-        .catch(error => {
-          console.error('[Settings] Network error:', error);
-        })
-        .finally(() => {
-          // CHANGE 3: Restore cursor after save completes
-          setWaitingCursor(false);
-        });
+      .catch(error => {
+        console.error('[Settings] Save error:', error);
+      })
+      .finally(() => {
+        setWaitingCursor(false);
+      });
+  },
+
+  // ASYNC SAVE - Use this in SettingsPage for proper error handling
+  // This WAITS for the database save and throws on failure
+  saveAsync: async (settings: StudioSettings): Promise<void> => {
+    console.log('[Settings] saveAsync called, isApiMode:', isApiMode());
+
+    if (!isApiMode()) {
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+      return;
+    }
+
+    // Use the settingsApi from api.ts for consistency
+    setWaitingCursor(true);
+
+    try {
+      console.log('[Settings] Calling settingsApi.save()...');
+      const result = await settingsApi.save(settings);
+      console.log('[Settings] API response:', result);
+
+      // Update localStorage cache after successful DB save
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+      console.log('[Settings] Successfully saved to database and updated cache');
+    } catch (error) {
+      console.error('[Settings] API save failed:', error);
+      throw error;
+    } finally {
+      setWaitingCursor(false);
     }
   },
 
@@ -2104,10 +2137,24 @@ export const settingsService = {
     const existing = settingsService.get();
     if (existing) return existing;
 
+    // In API mode, don't auto-save defaults - they should come from DB
+    if (isApiMode()) {
+      return DEFAULT_STUDIO_SETTINGS;
+    }
+
     settingsService.save(DEFAULT_STUDIO_SETTINGS);
     return DEFAULT_STUDIO_SETTINGS;
   },
 
+  // ASYNC version that properly handles API mode
+  updatePartialAsync: async (updates: Partial<StudioSettings>): Promise<StudioSettings> => {
+    const current = settingsService.getOrDefault();
+    const updated = { ...current, ...updates };
+    await settingsService.saveAsync(updated);
+    return updated;
+  },
+
+  // Legacy sync version - use updatePartialAsync in SettingsPage instead
   updatePartial: (updates: Partial<StudioSettings>): StudioSettings => {
     const current = settingsService.getOrDefault();
     const updated = { ...current, ...updates };
@@ -2129,6 +2176,8 @@ export const settingsService = {
     save: async (settings: StudioSettings): Promise<void> => {
       if (isApiMode()) {
         await settingsApi.save(settings);
+        // Update localStorage cache
+        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
         return;
       }
       settingsService.save(settings);
@@ -2947,12 +2996,20 @@ export const attendanceService = {
       notes,
     });
 
+    console.log('[Attendance] Created new record:', { id: record.id, memberId, slotId, date, status });
+
     // Auto-increment classesAttended if marked present
     if (status === 'present') {
       memberService.update(memberId, {
         classesAttended: (member.classesAttended || 0) + 1
       });
+      console.log('[Attendance] Incremented classesAttended for member:', memberId);
     }
+
+    // Verify record was saved to localStorage
+    const allRecords = getAll<AttendanceRecord>(STORAGE_KEYS.ATTENDANCE);
+    const savedRecord = allRecords.find(r => r.id === record.id);
+    console.log('[Attendance] Verified record in localStorage:', savedRecord ? 'FOUND' : 'NOT FOUND');
 
     return record;
   },
@@ -2969,6 +3026,12 @@ export const attendanceService = {
   ): { presentDays: number; totalWorkingDays: number } => {
     // Get attendance records for this member and slot in the period
     const records = getAll<AttendanceRecord>(STORAGE_KEYS.ATTENDANCE);
+
+    // Debug: Log all records for this member
+    const allMemberRecords = records.filter(r => r.memberId === memberId && r.slotId === slotId);
+    console.log('[Attendance] All records for member:', memberId, allMemberRecords.map(r => ({ date: r.date, status: r.status })));
+    console.log('[Attendance] Period:', periodStart, 'to', periodEnd);
+
     const memberRecords = records.filter(r =>
       r.memberId === memberId &&
       r.slotId === slotId &&
@@ -2976,6 +3039,9 @@ export const attendanceService = {
       r.date <= periodEnd &&
       r.status === 'present'
     );
+
+    console.log('[Attendance] Records in period with present status:', memberRecords.length);
+
     const presentDays = memberRecords.length;
 
     // CHANGE 1: Calculate working days based ONLY on selected period (not membership dates)

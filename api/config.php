@@ -6,10 +6,15 @@
  * For Hostinger deployment, update these values in hPanel or create a .env file.
  */
 
+// CRITICAL: Suppress all PHP errors from being output as HTML
+// This MUST be at the very top to prevent breaking JSON responses
+ini_set('display_errors', 0);
+error_reporting(0);
+
 // Prevent direct access
 if (!defined('API_ACCESS')) {
     http_response_code(403);
-    die('Direct access forbidden');
+    die(json_encode(['error' => 'Direct access forbidden']));
 }
 
 // ============================================
@@ -60,12 +65,15 @@ define('DEBUG_MODE', ($_ENV['DEBUG_MODE'] ?? 'false') === 'true');
 // ERROR HANDLING
 // ============================================
 
+// ALWAYS keep display_errors off to prevent HTML in JSON responses
+// Errors are logged to the server error log instead
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+
 if (DEBUG_MODE) {
     error_reporting(E_ALL);
-    ini_set('display_errors', 1);
 } else {
     error_reporting(0);
-    ini_set('display_errors', 0);
 }
 
 // ============================================

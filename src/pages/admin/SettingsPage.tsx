@@ -73,15 +73,16 @@ export function SettingsPage() {
     setLoading('studio');
 
     try {
-      settingsService.updatePartial({
+      // Use async version that waits for database save
+      await settingsService.updatePartialAsync({
         studioName: studioData.studioName.trim(),
         address: studioData.address.trim() || undefined,
         phone: studioData.phone.trim() || undefined,
         email: studioData.email.trim() || undefined,
       });
-      setSuccess('Studio information updated successfully');
+      setSuccess('Studio information saved to database');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update settings');
+      setError(err instanceof Error ? err.message : 'Failed to save settings to database');
     } finally {
       setLoading(null);
     }
@@ -94,13 +95,13 @@ export function SettingsPage() {
     setLoading('terms');
 
     try {
-      settingsService.updatePartial({
+      await settingsService.updatePartialAsync({
         termsAndConditions: termsData.termsAndConditions.trim(),
         healthDisclaimer: termsData.healthDisclaimer.trim(),
       });
-      setSuccess('Terms and disclaimers updated successfully');
+      setSuccess('Terms and disclaimers saved to database');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update settings');
+      setError(err instanceof Error ? err.message : 'Failed to save settings to database');
     } finally {
       setLoading(null);
     }
@@ -113,12 +114,12 @@ export function SettingsPage() {
     setLoading('invoice-template');
 
     try {
-      settingsService.updatePartial({
+      await settingsService.updatePartialAsync({
         invoiceTemplate,
       });
-      setSuccess('Invoice template updated successfully');
+      setSuccess('Invoice template saved to database');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update invoice template');
+      setError(err instanceof Error ? err.message : 'Failed to save invoice template to database');
     } finally {
       setLoading(null);
     }
@@ -131,15 +132,15 @@ export function SettingsPage() {
     setLoading('invoice-numbering');
 
     try {
-      settingsService.updatePartial({
+      await settingsService.updatePartialAsync({
         invoicePrefix: invoiceNumbering.invoicePrefix.trim().toUpperCase() || 'INV',
         receiptPrefix: invoiceNumbering.receiptPrefix.trim().toUpperCase() || 'RCP',
         invoiceStartNumber: invoiceNumbering.invoiceStartNumber || 1,
         receiptStartNumber: invoiceNumbering.receiptStartNumber || 1,
       });
-      setSuccess('Invoice numbering settings updated successfully');
+      setSuccess('Invoice numbering settings saved to database');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update invoice numbering');
+      setError(err instanceof Error ? err.message : 'Failed to save invoice numbering to database');
     } finally {
       setLoading(null);
     }
@@ -200,14 +201,18 @@ export function SettingsPage() {
     setShowHolidayModal(true);
   };
 
-  const handleDeleteHoliday = (holidayDate: string) => {
+  const handleDeleteHoliday = async (holidayDate: string) => {
     const updatedHolidays = holidays.filter(h => h.date !== holidayDate);
     setHolidays(updatedHolidays);
-    settingsService.updatePartial({ holidays: updatedHolidays });
-    setSuccess('Holiday deleted successfully');
+    try {
+      await settingsService.updatePartialAsync({ holidays: updatedHolidays });
+      setSuccess('Holiday deleted and saved to database');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete holiday');
+    }
   };
 
-  const handleSaveHoliday = () => {
+  const handleSaveHoliday = async () => {
     if (!holidayForm.date || !holidayForm.name.trim()) {
       setError('Please fill in both date and holiday name');
       return;
@@ -236,9 +241,13 @@ export function SettingsPage() {
     }
 
     setHolidays(updatedHolidays);
-    settingsService.updatePartial({ holidays: updatedHolidays });
-    setShowHolidayModal(false);
-    setSuccess(editingHoliday ? 'Holiday updated successfully' : 'Holiday added successfully');
+    try {
+      await settingsService.updatePartialAsync({ holidays: updatedHolidays });
+      setShowHolidayModal(false);
+      setSuccess(editingHoliday ? 'Holiday updated and saved to database' : 'Holiday added and saved to database');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save holiday to database');
+    }
   };
 
   // Logo upload handlers
@@ -259,11 +268,15 @@ export function SettingsPage() {
     }
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const base64Data = event.target?.result as string;
       setLogoData(base64Data);
-      settingsService.updatePartial({ logoData: base64Data });
-      setSuccess('Logo uploaded successfully');
+      try {
+        await settingsService.updatePartialAsync({ logoData: base64Data });
+        setSuccess('Logo uploaded and saved to database');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to save logo to database');
+      }
     };
     reader.onerror = () => {
       setError('Failed to read logo file');
@@ -272,10 +285,14 @@ export function SettingsPage() {
     e.target.value = '';
   };
 
-  const handleRemoveLogo = () => {
+  const handleRemoveLogo = async () => {
     setLogoData(undefined);
-    settingsService.updatePartial({ logoData: undefined });
-    setSuccess('Logo removed successfully');
+    try {
+      await settingsService.updatePartialAsync({ logoData: undefined });
+      setSuccess('Logo removed and saved to database');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove logo');
+    }
   };
 
   // Payment QR code upload handler

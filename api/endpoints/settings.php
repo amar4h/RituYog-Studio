@@ -10,11 +10,29 @@ class SettingsHandler extends BaseHandler {
     protected array $jsonFields = ['working_hours', 'holidays', 'invoice_template'];
     protected array $boolFields = ['trial_class_enabled'];
 
+    // Valid columns in the studio_settings table (snake_case)
+    private array $validColumns = [
+        'studio_name', 'logo_url', 'logo_data', 'address', 'phone', 'email',
+        'website', 'whatsapp_business_number', 'currency', 'timezone',
+        'working_hours', 'terms_and_conditions', 'health_disclaimer',
+        'renewal_reminder_days', 'class_reminder_hours', 'tax_rate',
+        'invoice_prefix', 'receipt_prefix', 'invoice_start_number', 'receipt_start_number',
+        'trial_class_enabled', 'max_trials_per_person', 'holidays',
+        'admin_password', 'invoice_template'
+    ];
+
     /**
      * Override getAll to return single settings row
      */
-    public function getAll(): ?array {
-        return $this->get();
+    public function getAll(): array {
+        return $this->get() ?? [];
+    }
+
+    /**
+     * Health check for debugging
+     */
+    public function health(): array {
+        return ['status' => 'ok', 'table' => $this->table, 'php_version' => PHP_VERSION];
     }
 
     /**
@@ -29,7 +47,24 @@ class SettingsHandler extends BaseHandler {
      */
     public function save(): array {
         $data = getRequestBody();
+
+        if (empty($data)) {
+            throw new Exception('No data received in request body');
+        }
+
         $transformed = $this->transformToDb($data);
+
+        // Filter to only valid columns to avoid SQL errors
+        $filtered = [];
+        foreach ($transformed as $column => $value) {
+            if (in_array($column, $this->validColumns)) {
+                $filtered[$column] = $value;
+            }
+        }
+
+        if (empty($filtered)) {
+            throw new Exception('No valid settings fields to save. Keys received: ' . implode(', ', array_keys($transformed)));
+        }
 
         // Check if settings exist
         $existing = $this->get();
@@ -37,23 +72,22 @@ class SettingsHandler extends BaseHandler {
         if ($existing) {
             // Update existing
             $setParts = [];
-            foreach ($transformed as $column => $value) {
-                if ($column !== 'id') {
-                    $setParts[] = "$column = :$column";
-                }
+            foreach ($filtered as $column => $value) {
+                $setParts[] = "$column = :$column";
             }
-            $transformed['id'] = 1;
+            $filtered['id'] = 1;
 
             $sql = sprintf(
                 "UPDATE %s SET %s WHERE id = :id",
                 $this->table,
                 implode(', ', $setParts)
             );
-            $this->db->prepare($sql)->execute($transformed);
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($filtered);
         } else {
             // Insert new
-            $transformed['id'] = 1;
-            $columns = array_keys($transformed);
+            $filtered['id'] = 1;
+            $columns = array_keys($filtered);
             $placeholders = array_map(fn($col) => ':' . $col, $columns);
 
             $sql = sprintf(
@@ -62,7 +96,8 @@ class SettingsHandler extends BaseHandler {
                 implode(', ', $columns),
                 implode(', ', $placeholders)
             );
-            $this->db->prepare($sql)->execute($transformed);
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($filtered);
         }
 
         return $this->get();
@@ -140,7 +175,7 @@ class SettingsHandler extends BaseHandler {
     /**
      * Override update to use save
      */
-    public function update(string $id = null): array {
+    public function update(string $id): ?array {
         return $this->save();
     }
 }

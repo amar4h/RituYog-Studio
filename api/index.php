@@ -76,6 +76,7 @@ $validEndpoints = [
     'settings',
     'auth',
     'health',
+    'test',
 ];
 
 if (!in_array($endpoint, $validEndpoints)) {

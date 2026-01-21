@@ -1,0 +1,42 @@
+# Yoga Studio Management - Frontend .htaccess
+# For React SPA on Hostinger
+
+# Enable rewrite engine
+RewriteEngine On
+
+# Set the base directory
+RewriteBase /
+
+# If the request is for a real file or directory, serve it directly
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# For all other requests, serve index.html (React Router handles routing)
+RewriteRule ^ index.html [L]
+
+# Set correct MIME types for JavaScript modules
+<IfModule mod_mime.c>
+    AddType application/javascript .js
+    AddType application/javascript .mjs
+    AddType text/css .css
+</IfModule>
+
+# Enable CORS for assets (if needed)
+<IfModule mod_headers.c>
+    <FilesMatch "\.(js|css|woff2?|ttf|eot|svg|png|jpg|jpeg|gif|ico)$">
+        Header set Access-Control-Allow-Origin "*"
+    </FilesMatch>
+</IfModule>
+
+# Cache static assets
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>
