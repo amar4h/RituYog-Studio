@@ -2,6 +2,7 @@ import { RouteObject, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoute';
 import { AdminLayout } from '../components/layout/AdminLayout';
 import { PublicLayout } from '../components/layout/PublicLayout';
+import { ErrorPage } from '../components/common/ErrorPage';
 
 // Public pages
 import { LoginPage } from '../pages/public/LoginPage';
@@ -27,6 +28,7 @@ const InvoiceDetailPage = lazy(() => import('../pages/admin/InvoiceDetailPage').
 const PaymentListPage = lazy(() => import('../pages/admin/PaymentListPage').then(m => ({ default: m.PaymentListPage })));
 const RecordPaymentPage = lazy(() => import('../pages/admin/RecordPaymentPage').then(m => ({ default: m.RecordPaymentPage })));
 const SettingsPage = lazy(() => import('../pages/admin/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const NotificationsPage = lazy(() => import('../pages/admin/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
 
 // Public pages - lazy loaded
 const HomePage = lazy(() => import('../pages/public/HomePage').then(m => ({ default: m.HomePage })));
@@ -43,11 +45,13 @@ export const routes: RouteObject[] = [
   {
     path: '/login',
     element: <LoginPage />,
+    errorElement: <ErrorPage />,
   },
 
   // Public routes
   {
     element: <PublicLayout />,
+    errorElement: <ErrorPage />,
     children: [
       {
         path: '/register',
@@ -71,9 +75,11 @@ export const routes: RouteObject[] = [
   // Admin routes (protected)
   {
     element: <ProtectedRoute />,
+    errorElement: <ErrorPage />,
     children: [
       {
         element: <AdminLayout />,
+        errorElement: <ErrorPage />,
         children: [
           // Dashboard
           {
@@ -243,6 +249,16 @@ export const routes: RouteObject[] = [
             element: (
               <SuspenseWrapper>
                 <SettingsPage />
+              </SuspenseWrapper>
+            ),
+          },
+
+          // Notifications
+          {
+            path: '/admin/notifications',
+            element: (
+              <SuspenseWrapper>
+                <NotificationsPage />
               </SuspenseWrapper>
             ),
           },

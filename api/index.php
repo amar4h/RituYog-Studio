@@ -73,6 +73,7 @@ $validEndpoints = [
     'payments',
     'attendance',
     'attendance-locks',
+    'notification-logs',
     'trials',
     'settings',
     'auth',

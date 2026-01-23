@@ -3,7 +3,7 @@
  * Phase 1: Core Operations
  */
 
-import type { SessionSlot, MembershipPlan, StudioSettings, WeeklyAvailability, InvoiceTemplate } from '../types';
+import type { SessionSlot, MembershipPlan, StudioSettings, WeeklyAvailability, InvoiceTemplate, WhatsAppTemplates } from '../types';
 
 // ============================================
 // SESSION SLOTS (Fixed 4 slots)
@@ -140,18 +140,22 @@ export const DEFAULT_INDIAN_HOLIDAYS = [
   { date: '2025-10-21', name: 'Diwali (Day 2)', isRecurringYearly: false },
   { date: '2025-11-05', name: 'Guru Nanak Jayanti', isRecurringYearly: false },
   { date: '2025-12-25', name: 'Christmas', isRecurringYearly: true },
-  // 2026 Holidays
+
+  // 2026 Holidays (India Public Holidays)
   { date: '2026-01-26', name: 'Republic Day', isRecurringYearly: true },
+  { date: '2026-02-27', name: 'Maha Shivaratri', isRecurringYearly: false },
   { date: '2026-03-04', name: 'Holi', isRecurringYearly: false },
+  { date: '2026-03-21', name: 'Eid ul-Fitr', isRecurringYearly: false },
   { date: '2026-04-03', name: 'Good Friday', isRecurringYearly: false },
-  { date: '2026-04-14', name: 'Ambedkar Jayanti', isRecurringYearly: true },
   { date: '2026-05-01', name: 'May Day', isRecurringYearly: true },
   { date: '2026-08-15', name: 'Independence Day', isRecurringYearly: true },
   { date: '2026-08-16', name: 'Janmashtami', isRecurringYearly: false },
   { date: '2026-10-02', name: 'Gandhi Jayanti', isRecurringYearly: true },
+  { date: '2026-10-17', name: 'Karwa Chauth', isRecurringYearly: false },
   { date: '2026-10-19', name: 'Dussehra', isRecurringYearly: false },
-  { date: '2026-11-08', name: 'Diwali', isRecurringYearly: false },
-  { date: '2026-11-09', name: 'Diwali (Day 2)', isRecurringYearly: false },
+  { date: '2026-10-29', name: 'Dhanteras', isRecurringYearly: false },
+  { date: '2026-11-01', name: 'Diwali', isRecurringYearly: false },
+  { date: '2026-11-04', name: 'Bhai Dooj', isRecurringYearly: false },
   { date: '2026-11-24', name: 'Guru Nanak Jayanti', isRecurringYearly: false },
   { date: '2026-12-25', name: 'Christmas', isRecurringYearly: true },
 ];
@@ -172,6 +176,115 @@ export const DEFAULT_INVOICE_TEMPLATE: InvoiceTemplate = {
   currencySymbol: '₹',
   showPaymentQR: false,
   paymentQRLabel: 'Scan to Pay',
+};
+
+// ============================================
+// DEFAULT WHATSAPP MESSAGE TEMPLATES
+// ============================================
+
+export const DEFAULT_WHATSAPP_TEMPLATES: WhatsAppTemplates = {
+  renewalReminders: [
+    {
+      name: 'With Discount Info',
+      template: `Hi {memberName} Namaste 🌸
+
+This is a gentle reminder that your yoga membership is nearing expiry 🙏
+
+Please find your current membership details below 👇
+
+🧘‍♀️ Plan Amount: ₹{payableAmount}
+📅 Expiry Date: {expiryDate}
+💰 Current Discount: {discountAmount}
+
+✨ Important: If you renew your membership without any gap, you will be able to continue at the same plan amount and enjoy your existing discount 😊
+
+Please feel free to reply here if you'd like help with renewal or have any questions 🌿
+We'd love to continue practicing with you 🧘‍♀️💚
+
+Warm regards,
+RituYog ✨
+
+_This is an automated message. Reply STOP to opt-out._`,
+    },
+    {
+      name: 'Simple Reminder',
+      template: `Hi {memberName} Namaste 🌸
+
+This is a gentle reminder that your yoga membership is nearing expiry 🙏
+
+Please find your current membership details below 👇
+
+🧘‍♀️ Membership Amount: ₹{payableAmount}
+📅 Expiry Date: {expiryDate}
+
+Please feel free to reply here if you'd like help with renewal or have any questions 🌿
+We'd love to continue practicing with you 🧘‍♀️💚
+
+Warm regards,
+RituYog ✨
+
+_This is an automated message. Reply STOP to opt-out._`,
+    },
+    {
+      name: 'Urgent Reminder',
+      template: 'Hi {memberName}, your membership expires in just {daysRemaining} days ({expiryDate}). Don\'t miss your yoga practice! Renew now to continue enjoying your classes. - {studioName}\n\n_This is an automated message. Reply STOP to opt-out._',
+    },
+  ],
+  classReminder: {
+    name: 'Class Reminder',
+    template: 'Hi {memberName}, reminder: Your yoga class is {classDate} at {classTime}. See you! - {studioName}\n\n_This is an automated message. Reply STOP to opt-out._',
+  },
+  paymentConfirmation: {
+    name: 'Payment Confirmation',
+    template: 'Hi {memberName}, we received your payment of {amount} for {planName}. Thank you! - {studioName}\n\n_This is an automated message. Reply STOP to opt-out._',
+  },
+  leadFollowUps: [
+    {
+      name: 'Trial Invitation',
+      template: 'Hi {leadName}, thank you for your interest in {studioName}! We\'d love to have you try a class. Would you like to book a free trial session? Call us at {studioPhone}.\n\n_This is an automated message. Reply STOP to opt-out._',
+    },
+    {
+      name: 'Check-in Message',
+      template: 'Hi {leadName}, this is {studioName} checking in! We noticed you were interested in joining us. Do you have any questions about our yoga classes? We\'re happy to help! Reply or call {studioPhone}.\n\n_This is an automated message. Reply STOP to opt-out._',
+    },
+  ],
+};
+
+// Available placeholders for WhatsApp templates
+export const WHATSAPP_PLACEHOLDERS = {
+  member: [
+    { key: '{memberName}', description: 'Member full name' },
+    { key: '{memberFirstName}', description: 'Member first name' },
+    { key: '{memberPhone}', description: 'Member phone number' },
+    { key: '{memberEmail}', description: 'Member email' },
+  ],
+  subscription: [
+    { key: '{planName}', description: 'Current plan name' },
+    { key: '{startDate}', description: 'Subscription start date' },
+    { key: '{expiryDate}', description: 'Subscription expiry date' },
+    { key: '{daysRemaining}', description: 'Days until expiry' },
+    { key: '{discountAmount}', description: 'Discount amount' },
+    { key: '{payableAmount}', description: 'Total payable amount' },
+  ],
+  class: [
+    { key: '{classTime}', description: 'Session time' },
+    { key: '{slotName}', description: 'Slot display name' },
+    { key: '{classDate}', description: 'Class date' },
+  ],
+  payment: [
+    { key: '{amount}', description: 'Payment amount' },
+    { key: '{paymentDate}', description: 'Payment date' },
+    { key: '{invoiceNumber}', description: 'Invoice number' },
+  ],
+  lead: [
+    { key: '{leadName}', description: 'Lead full name' },
+    { key: '{leadPhone}', description: 'Lead phone number' },
+  ],
+  studio: [
+    { key: '{studioName}', description: 'Studio name' },
+    { key: '{studioPhone}', description: 'Studio phone' },
+    { key: '{studioWebsite}', description: 'Studio website' },
+  ],
 };
 
 // Common currency symbols for quick reference
@@ -230,6 +343,7 @@ If you have any concerns about your ability to safely participate, please consul
   holidays: DEFAULT_INDIAN_HOLIDAYS,
   adminPassword: 'admin123',
   invoiceTemplate: DEFAULT_INVOICE_TEMPLATE,
+  whatsappTemplates: DEFAULT_WHATSAPP_TEMPLATES,
 };
 
 // ============================================
@@ -382,6 +496,7 @@ export const STORAGE_KEYS = {
   TRIAL_BOOKINGS: 'yoga_studio_trial_bookings',
   ATTENDANCE: 'yoga_studio_attendance',
   ATTENDANCE_LOCKS: 'yoga_studio_attendance_locks',
+  NOTIFICATION_LOGS: 'yoga_studio_notification_logs',
 
   // Settings & Auth
   SETTINGS: 'yoga_studio_settings',

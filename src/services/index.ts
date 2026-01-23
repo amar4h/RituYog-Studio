@@ -28,6 +28,7 @@ export {
   backupService,
   attendanceService,
   attendanceLockService,
+  notificationLogService,
   initializeStorage,
   seedDemoData,
   resetAndSeedData,
@@ -38,3 +39,6 @@ export {
 
 // Re-export storage mode utilities for consumers
 export { isApiMode, getStorageMode, setStorageMode } from './api';
+
+// Re-export WhatsApp service
+export { whatsappService } from './whatsapp';

@@ -12,3 +12,5 @@ export { LoadingSpinner, PageLoading, SkeletonCard, SkeletonTable } from './Load
 export { EmptyState, EmptyIcons } from './EmptyState';
 export { Checkbox, Radio, RadioGroup } from './Checkbox';
 export { SlotSelector } from './SlotSelector';
+export { ErrorPage } from './ErrorPage';
+export { WhatsAppTemplateModal } from './WhatsAppTemplateModal';

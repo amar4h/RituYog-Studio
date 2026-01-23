@@ -7,7 +7,7 @@ require_once __DIR__ . '/BaseHandler.php';
 
 class SettingsHandler extends BaseHandler {
     protected string $table = 'studio_settings';
-    protected array $jsonFields = ['working_hours', 'holidays', 'invoice_template'];
+    protected array $jsonFields = ['working_hours', 'holidays', 'invoice_template', 'whatsapp_templates'];
     protected array $boolFields = ['trial_class_enabled'];
 
     // Valid columns in the studio_settings table (snake_case)
@@ -18,7 +18,7 @@ class SettingsHandler extends BaseHandler {
         'renewal_reminder_days', 'class_reminder_hours', 'tax_rate',
         'invoice_prefix', 'receipt_prefix', 'invoice_start_number', 'receipt_start_number',
         'trial_class_enabled', 'max_trials_per_person', 'holidays',
-        'admin_password', 'invoice_template'
+        'admin_password', 'invoice_template', 'whatsapp_templates'
     ];
 
     /**
@@ -141,6 +141,28 @@ class SettingsHandler extends BaseHandler {
         );
 
         return $this->getInvoiceTemplate();
+    }
+
+    /**
+     * Get WhatsApp templates
+     */
+    public function getWhatsappTemplates(): ?array {
+        $settings = $this->get();
+        return $settings['whatsappTemplates'] ?? null;
+    }
+
+    /**
+     * Update WhatsApp templates
+     */
+    public function updateWhatsappTemplates(): array {
+        $templates = getRequestBody();
+
+        $this->execute(
+            "UPDATE {$this->table} SET whatsapp_templates = :templates WHERE id = 1",
+            ['templates' => json_encode($templates)]
+        );
+
+        return $this->getWhatsappTemplates();
     }
 
     /**

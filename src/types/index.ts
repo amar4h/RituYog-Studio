@@ -369,6 +369,24 @@ export interface Payment extends BaseEntity {
 }
 
 // ============================================
+// WHATSAPP MESSAGE TEMPLATES
+// ============================================
+
+export type NotificationType = 'renewal-reminder' | 'class-reminder' | 'payment-confirmation' | 'lead-followup';
+
+export interface WhatsAppMessageTemplate {
+  name: string;
+  template: string; // With placeholders like {memberName}, {expiryDate}
+}
+
+export interface WhatsAppTemplates {
+  renewalReminders: WhatsAppMessageTemplate[];  // Array of templates (3 options)
+  classReminder: WhatsAppMessageTemplate;
+  paymentConfirmation: WhatsAppMessageTemplate;
+  leadFollowUps: WhatsAppMessageTemplate[];  // Array of templates (2 options)
+}
+
+// ============================================
 // INVOICE TEMPLATE
 // ============================================
 
@@ -443,6 +461,9 @@ export interface StudioSettings {
 
   // Invoice Template
   invoiceTemplate?: InvoiceTemplate;
+
+  // WhatsApp Message Templates
+  whatsappTemplates?: WhatsAppTemplates;
 }
 
 // ============================================
@@ -594,12 +615,17 @@ export interface TrialRequest extends BaseEntity {
 }
 
 export interface NotificationLog extends BaseEntity {
-  memberId: string;
-  type: 'renewal-reminder' | 'class-reminder' | 'payment-due' | 'welcome' | 'custom';
-  channel: 'whatsapp' | 'email' | 'sms';
+  type: NotificationType;
+  recipientType: 'member' | 'lead';
+  recipientId: string;
+  recipientName: string;
+  recipientPhone: string;
   message: string;
-  status: 'pending' | 'sent' | 'failed';
+  status: 'pending' | 'sent' | 'cancelled';
   sentAt?: string;
+  // Legacy fields (kept for backward compatibility)
+  memberId?: string;
+  channel?: 'whatsapp' | 'email' | 'sms';
   error?: string;
 }
 

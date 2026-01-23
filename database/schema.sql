@@ -416,6 +416,29 @@ CREATE TABLE attendance_locks (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================
+-- NOTIFICATION LOGS (WhatsApp message tracking)
+-- ============================================
+CREATE TABLE notification_logs (
+    id VARCHAR(36) PRIMARY KEY,
+    type ENUM('renewal-reminder', 'class-reminder', 'payment-confirmation', 'lead-followup') NOT NULL,
+    recipient_type ENUM('member', 'lead') NOT NULL,
+    recipient_id VARCHAR(36) NOT NULL,
+    recipient_name VARCHAR(255) NOT NULL,
+    recipient_phone VARCHAR(20) NOT NULL,
+    message TEXT NOT NULL,
+    status ENUM('pending', 'sent', 'cancelled') NOT NULL DEFAULT 'pending',
+    sent_at DATETIME NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_type (type),
+    INDEX idx_status (status),
+    INDEX idx_recipient (recipient_type, recipient_id),
+    INDEX idx_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
 -- STUDIO SETTINGS
 -- ============================================
 CREATE TABLE studio_settings (
@@ -463,6 +486,9 @@ CREATE TABLE studio_settings (
 
     -- Invoice Template (JSON)
     invoice_template JSON NULL,
+
+    -- WhatsApp Message Templates (JSON)
+    whatsapp_templates JSON NULL,
 
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 

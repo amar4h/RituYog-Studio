@@ -2,8 +2,68 @@ import { useState, FormEvent, useRef } from 'react';
 import { Card, Button, Input, Textarea, Alert, Modal } from '../../components/common';
 import { settingsService, authService, backupService } from '../../services';
 import { formatDate } from '../../utils/dateUtils';
-import type { Holiday, InvoiceTemplate } from '../../types';
-import { DEFAULT_INVOICE_TEMPLATE, CURRENCY_SYMBOLS } from '../../constants';
+import type { Holiday, InvoiceTemplate, WhatsAppTemplates } from '../../types';
+import { DEFAULT_INVOICE_TEMPLATE, CURRENCY_SYMBOLS, DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_PLACEHOLDERS } from '../../constants';
+
+// Tab definitions
+type SettingsTab = 'studio' | 'invoices' | 'whatsapp' | 'holidays' | 'legal' | 'security';
+
+const SETTINGS_TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
+  {
+    id: 'studio',
+    label: 'Studio',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      </svg>
+    ),
+  },
+  {
+    id: 'invoices',
+    label: 'Invoices',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'whatsapp',
+    label: 'WhatsApp',
+    icon: (
+      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+      </svg>
+    ),
+  },
+  {
+    id: 'holidays',
+    label: 'Holidays',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'legal',
+    label: 'Legal',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'security',
+    label: 'Security',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+      </svg>
+    ),
+  },
+];
 
 // Extend default template with new QR fields for migration
 const getDefaultTemplate = (): InvoiceTemplate => ({
@@ -16,6 +76,9 @@ export function SettingsPage() {
   const settings = settingsService.getOrDefault();
   const logoInputRef = useRef<HTMLInputElement>(null);
   const qrCodeInputRef = useRef<HTMLInputElement>(null);
+
+  // Active tab state
+  const [activeTab, setActiveTab] = useState<SettingsTab>('studio');
 
   const [studioData, setStudioData] = useState({
     studioName: settings.studioName,
@@ -61,6 +124,32 @@ export function SettingsPage() {
     date: '',
     name: '',
     isRecurringYearly: false,
+  });
+
+  // WhatsApp templates state - with migration from old structure
+  const [whatsappTemplates, setWhatsappTemplates] = useState<WhatsAppTemplates>(() => {
+    const saved = settings.whatsappTemplates;
+    if (!saved) return DEFAULT_WHATSAPP_TEMPLATES;
+
+    // Migrate old structure (single objects) to new structure (arrays)
+    // Old: renewalReminder (object), leadFollowUp (object)
+    // New: renewalReminders (array), leadFollowUps (array)
+    const oldSaved = saved as any;
+
+    return {
+      renewalReminders: Array.isArray(saved.renewalReminders)
+        ? saved.renewalReminders
+        : oldSaved.renewalReminder
+          ? [oldSaved.renewalReminder]
+          : DEFAULT_WHATSAPP_TEMPLATES.renewalReminders,
+      classReminder: saved.classReminder || DEFAULT_WHATSAPP_TEMPLATES.classReminder,
+      paymentConfirmation: saved.paymentConfirmation || DEFAULT_WHATSAPP_TEMPLATES.paymentConfirmation,
+      leadFollowUps: Array.isArray(saved.leadFollowUps)
+        ? saved.leadFollowUps
+        : oldSaved.leadFollowUp
+          ? [oldSaved.leadFollowUp]
+          : DEFAULT_WHATSAPP_TEMPLATES.leadFollowUps,
+    };
   });
 
   const [error, setError] = useState('');
@@ -122,6 +211,24 @@ export function SettingsPage() {
       setSuccess('Invoice template saved to database');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save invoice template to database');
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleSaveWhatsAppTemplates = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setLoading('whatsapp-templates');
+
+    try {
+      await settingsService.updatePartialAsync({
+        whatsappTemplates,
+      });
+      setSuccess('WhatsApp templates saved to database');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save WhatsApp templates to database');
     } finally {
       setLoading(null);
     }
@@ -378,10 +485,30 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header with Tab Navigation */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-600">Manage your studio settings and preferences</p>
+        <p className="text-gray-600 mb-4">Manage your studio settings and preferences</p>
+
+        {/* Tab Navigation */}
+        <div className="border-b border-gray-200">
+          <nav className="flex space-x-1 overflow-x-auto pb-px" aria-label="Settings tabs">
+            {SETTINGS_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+                  activeTab === tab.id
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
       </div>
 
       {error && (
@@ -396,6 +523,8 @@ export function SettingsPage() {
         </Alert>
       )}
 
+      {/* Studio Tab */}
+      {activeTab === 'studio' && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Studio Information */}
         <Card title="Studio Information">
@@ -511,7 +640,11 @@ export function SettingsPage() {
           </div>
         </Card>
       </div>
+      )}
 
+      {/* Invoices Tab */}
+      {activeTab === 'invoices' && (
+      <>
       {/* Invoice Numbering */}
       <Card title="Invoice & Receipt Numbering">
         <p className="text-sm text-gray-600 mb-4">
@@ -822,7 +955,267 @@ export function SettingsPage() {
           </div>
         </form>
       </Card>
+      </>
+      )}
 
+      {/* WhatsApp Tab */}
+      {activeTab === 'whatsapp' && (
+      <Card title="WhatsApp Message Templates">
+        <p className="text-sm text-gray-600 mb-4">
+          Customize message templates for WhatsApp notifications. Use placeholders like <code className="px-1 py-0.5 bg-gray-100 rounded text-xs">{'{memberName}'}</code> that will be replaced with actual values when sending.
+        </p>
+
+        <form onSubmit={handleSaveWhatsAppTemplates} className="space-y-6">
+          {/* Renewal Reminders (Multiple) */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Renewal Reminders <span className="text-gray-500 font-normal">({whatsappTemplates.renewalReminders.length} templates)</span>
+            </label>
+            <div className="space-y-4">
+              {whatsappTemplates.renewalReminders.map((template, index) => (
+                <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="inline-flex items-center justify-center w-6 h-6 text-xs font-medium bg-indigo-100 text-indigo-700 rounded-full">
+                      {index + 1}
+                    </span>
+                    <Input
+                      value={template.name}
+                      onChange={(e) => setWhatsappTemplates(prev => {
+                        const newTemplates = [...prev.renewalReminders];
+                        newTemplates[index] = { ...newTemplates[index], name: e.target.value };
+                        return { ...prev, renewalReminders: newTemplates };
+                      })}
+                      placeholder="Template name"
+                      className="flex-1"
+                    />
+                  </div>
+                  <Textarea
+                    value={template.template}
+                    onChange={(e) => setWhatsappTemplates(prev => {
+                      const newTemplates = [...prev.renewalReminders];
+                      newTemplates[index] = { ...newTemplates[index], template: e.target.value };
+                      return { ...prev, renewalReminders: newTemplates };
+                    })}
+                    rows={8}
+                    placeholder="Hi {memberName}, your {planName} membership expires on {expiryDate}..."
+                  />
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              Available: {WHATSAPP_PLACEHOLDERS.member.map(p => p.key).join(', ')}, {WHATSAPP_PLACEHOLDERS.subscription.map(p => p.key).join(', ')}, {WHATSAPP_PLACEHOLDERS.studio.map(p => p.key).join(', ')}
+            </p>
+          </div>
+
+          {/* Class Reminder (Single) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Class Reminder
+            </label>
+            <Textarea
+              value={whatsappTemplates.classReminder.template}
+              onChange={(e) => setWhatsappTemplates(prev => ({
+                ...prev,
+                classReminder: { ...prev.classReminder, template: e.target.value }
+              }))}
+              rows={5}
+              placeholder="Hi {memberName}, reminder: Your yoga class is {classDate} at {classTime}..."
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Available: {WHATSAPP_PLACEHOLDERS.member.map(p => p.key).join(', ')}, {WHATSAPP_PLACEHOLDERS.class.map(p => p.key).join(', ')}, {WHATSAPP_PLACEHOLDERS.studio.map(p => p.key).join(', ')}
+            </p>
+          </div>
+
+          {/* Payment Confirmation (Single) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Payment Confirmation
+            </label>
+            <Textarea
+              value={whatsappTemplates.paymentConfirmation.template}
+              onChange={(e) => setWhatsappTemplates(prev => ({
+                ...prev,
+                paymentConfirmation: { ...prev.paymentConfirmation, template: e.target.value }
+              }))}
+              rows={5}
+              placeholder="Hi {memberName}, we received your payment of {amount}..."
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Available: {WHATSAPP_PLACEHOLDERS.member.map(p => p.key).join(', ')}, {WHATSAPP_PLACEHOLDERS.payment.map(p => p.key).join(', ')}, {WHATSAPP_PLACEHOLDERS.studio.map(p => p.key).join(', ')}
+            </p>
+          </div>
+
+          {/* Lead Follow-ups (Multiple) */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Lead Follow-ups <span className="text-gray-500 font-normal">({whatsappTemplates.leadFollowUps.length} templates)</span>
+            </label>
+            <div className="space-y-4">
+              {whatsappTemplates.leadFollowUps.map((template, index) => (
+                <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="inline-flex items-center justify-center w-6 h-6 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                      {index + 1}
+                    </span>
+                    <Input
+                      value={template.name}
+                      onChange={(e) => setWhatsappTemplates(prev => {
+                        const newTemplates = [...prev.leadFollowUps];
+                        newTemplates[index] = { ...newTemplates[index], name: e.target.value };
+                        return { ...prev, leadFollowUps: newTemplates };
+                      })}
+                      placeholder="Template name"
+                      className="flex-1"
+                    />
+                  </div>
+                  <Textarea
+                    value={template.template}
+                    onChange={(e) => setWhatsappTemplates(prev => {
+                      const newTemplates = [...prev.leadFollowUps];
+                      newTemplates[index] = { ...newTemplates[index], template: e.target.value };
+                      return { ...prev, leadFollowUps: newTemplates };
+                    })}
+                    rows={6}
+                    placeholder="Hi {leadName}, thank you for your interest in {studioName}..."
+                  />
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              Available: {WHATSAPP_PLACEHOLDERS.lead.map(p => p.key).join(', ')}, {WHATSAPP_PLACEHOLDERS.studio.map(p => p.key).join(', ')}
+            </p>
+          </div>
+
+          <div className="flex gap-3 items-center">
+            <Button type="submit" loading={loading === 'whatsapp-templates'}>
+              Save Templates
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setWhatsappTemplates(DEFAULT_WHATSAPP_TEMPLATES)}
+            >
+              Reset to Default
+            </Button>
+            {success === 'WhatsApp templates saved to database' && (
+              <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Saved!
+              </span>
+            )}
+          </div>
+        </form>
+      </Card>
+      )}
+
+      {/* Holidays Tab */}
+      {activeTab === 'holidays' && (
+      <Card
+        title="Studio Holidays"
+        actions={
+          <Button size="sm" onClick={handleAddHoliday}>
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Holiday
+          </Button>
+        }
+      >
+        <p className="text-sm text-gray-600 mb-4">
+          Configure public holidays and days when the studio is closed. Trial bookings will not be available on these days.
+          The list includes default Indian public holidays for 2025 and 2026.
+        </p>
+
+        {Object.keys(holidaysByYear).length === 0 ? (
+          <p className="text-gray-500 text-center py-4">No holidays configured</p>
+        ) : (
+          <div className="space-y-4">
+            {Object.keys(holidaysByYear).sort().map(year => (
+              <div key={year}>
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">{year} ({holidaysByYear[year].length} holidays)</h4>
+                <div className="space-y-2">
+                  {holidaysByYear[year].map((holiday, index) => (
+                    <div
+                      key={`${holiday.date}-${index}`}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    >
+                      <div>
+                        <span className="font-medium text-gray-900">{holiday.name}</span>
+                        <span className="text-gray-500 ml-2 text-sm">
+                          {formatDate(holiday.date)}
+                        </span>
+                        {holiday.isRecurringYearly && (
+                          <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">
+                            Recurring
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEditHoliday(holiday)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDeleteHoliday(holiday.date)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+      )}
+
+      {/* Legal Tab */}
+      {activeTab === 'legal' && (
+      <Card title="Terms & Disclaimers">
+        <form onSubmit={handleSaveTerms} className="space-y-4">
+          <Textarea
+            label="Terms and Conditions"
+            value={termsData.termsAndConditions}
+            onChange={(e) => setTermsData(prev => ({ ...prev, termsAndConditions: e.target.value }))}
+            rows={8}
+            helperText="These terms will be shown to members during registration (supports Markdown)"
+          />
+          <Textarea
+            label="Health Disclaimer"
+            value={termsData.healthDisclaimer}
+            onChange={(e) => setTermsData(prev => ({ ...prev, healthDisclaimer: e.target.value }))}
+            rows={6}
+            helperText="Health-related disclaimer for yoga practice (supports Markdown)"
+          />
+          <div className="flex gap-3 items-center">
+            <Button type="submit" loading={loading === 'terms'}>
+              Save Terms
+            </Button>
+            {success === 'Terms and disclaimers saved to database' && (
+              <span className="text-sm text-green-600 font-medium flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Saved!
+              </span>
+            )}
+          </div>
+        </form>
+      </Card>
+      )}
+
+      {/* Security Tab */}
+      {activeTab === 'security' && (
+      <>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Change Password */}
         <Card title="Change Password">
@@ -865,104 +1258,6 @@ export function SettingsPage() {
           </form>
         </Card>
       </div>
-
-      {/* Holiday Management */}
-      <Card
-        title="Studio Holidays"
-        actions={
-          <Button size="sm" onClick={handleAddHoliday}>
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Add Holiday
-          </Button>
-        }
-      >
-        <p className="text-sm text-gray-600 mb-4">
-          Configure public holidays and days when the studio is closed. Trial bookings will not be available on these days.
-        </p>
-
-        {Object.keys(holidaysByYear).length === 0 ? (
-          <p className="text-gray-500 text-center py-4">No holidays configured</p>
-        ) : (
-          <div className="space-y-4">
-            {Object.keys(holidaysByYear).sort().map(year => (
-              <div key={year}>
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">{year}</h4>
-                <div className="space-y-2">
-                  {holidaysByYear[year].map(holiday => (
-                    <div
-                      key={holiday.date}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                    >
-                      <div>
-                        <span className="font-medium text-gray-900">{holiday.name}</span>
-                        <span className="text-gray-500 ml-2 text-sm">
-                          {formatDate(holiday.date)}
-                        </span>
-                        {holiday.isRecurringYearly && (
-                          <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">
-                            Recurring
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleEditHoliday(holiday)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDeleteHoliday(holiday.date)}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
-
-      {/* Terms & Conditions */}
-      <Card title="Terms & Disclaimers">
-        <form onSubmit={handleSaveTerms} className="space-y-4">
-          <Textarea
-            label="Terms and Conditions"
-            value={termsData.termsAndConditions}
-            onChange={(e) => setTermsData(prev => ({ ...prev, termsAndConditions: e.target.value }))}
-            rows={6}
-            helperText="These terms will be shown to members during registration (supports Markdown)"
-          />
-          <Textarea
-            label="Health Disclaimer"
-            value={termsData.healthDisclaimer}
-            onChange={(e) => setTermsData(prev => ({ ...prev, healthDisclaimer: e.target.value }))}
-            rows={4}
-            helperText="Health-related disclaimer for yoga practice (supports Markdown)"
-          />
-          <div className="flex gap-3 items-center">
-            <Button type="submit" loading={loading === 'terms'}>
-              Save Terms
-            </Button>
-            {success === 'Terms and disclaimers updated successfully' && (
-              <span className="text-sm text-green-600 font-medium flex items-center gap-1">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Saved!
-              </span>
-            )}
-          </div>
-        </form>
-      </Card>
 
       {/* Data Management */}
       <Card title="Data Management">
@@ -1007,14 +1302,16 @@ export function SettingsPage() {
       <Card title="About">
         <div className="space-y-2 text-sm text-gray-600">
           <p><strong>Application:</strong> Yoga Studio Management</p>
-          <p><strong>Version:</strong> 1.0.0</p>
-          <p><strong>Storage:</strong> Local Browser Storage</p>
+          <p><strong>Version:</strong> 1.0.4</p>
+          <p><strong>Storage:</strong> Local Browser Storage / API</p>
           <p className="text-xs mt-4">
-            All data is stored locally in your browser. Data will persist as long as
-            you don't clear your browser data. Regular backups are recommended.
+            Data is stored locally in your browser and synced to the database when using API mode.
+            Regular backups are recommended.
           </p>
         </div>
       </Card>
+      </>
+      )}
 
       {/* Holiday Modal */}
       <Modal

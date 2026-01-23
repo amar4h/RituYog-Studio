@@ -8,6 +8,7 @@ import {
   subscriptionService,
   paymentService,
   slotService,
+  settingsService,
 } from '../../services';
 import { getToday, getCurrentMonthRange } from '../../utils/dateUtils';
 
@@ -34,6 +35,26 @@ export function DashboardPage() {
 
   // Calculate slot utilization
   const today = getToday();
+
+  // Calculate pending notifications
+  const settings = settingsService.getOrDefault();
+  const renewalReminderDays = settings.renewalReminderDays || 7;
+
+  // Members needing renewal reminders (expiring within reminder window, not yet renewed)
+  const renewalReminders = expiringSubscriptions.filter(sub => {
+    const daysLeft = getDaysRemaining(sub.endDate);
+    return daysLeft <= renewalReminderDays && daysLeft >= 0;
+  });
+
+  // Leads needing follow-up (pending leads older than 2 days)
+  const twoBusinessDaysAgo = new Date();
+  twoBusinessDaysAgo.setDate(twoBusinessDaysAgo.getDate() - 2);
+  const leadsNeedingFollowUp = leads.filter(lead => {
+    const createdAt = new Date(lead.createdAt);
+    return createdAt < twoBusinessDaysAgo;
+  });
+
+  const totalPendingNotifications = renewalReminders.length + leadsNeedingFollowUp.length;
 
   const slotUtilization = slots.map(slot => {
     // Get all membership subscriptions for this slot
@@ -120,6 +141,38 @@ export function DashboardPage() {
           color="green"
         />
       </div>
+
+      {/* Pending Notifications Alert */}
+      {totalPendingNotifications > 0 && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-100 rounded-lg">
+                <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-semibold text-indigo-900">Pending Notifications</h3>
+                <p className="text-sm text-indigo-700">
+                  {renewalReminders.length > 0 && (
+                    <span>{renewalReminders.length} renewal reminder{renewalReminders.length !== 1 ? 's' : ''}</span>
+                  )}
+                  {renewalReminders.length > 0 && leadsNeedingFollowUp.length > 0 && ' • '}
+                  {leadsNeedingFollowUp.length > 0 && (
+                    <span>{leadsNeedingFollowUp.length} lead follow-up{leadsNeedingFollowUp.length !== 1 ? 's' : ''}</span>
+                  )}
+                </p>
+              </div>
+            </div>
+            <Link to="/admin/notifications">
+              <Button variant="primary" size="sm">
+                Send Messages
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Slot utilization and expiring members */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
