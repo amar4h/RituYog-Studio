@@ -15,15 +15,6 @@ class InvoicesHandler extends BaseHandler {
      */
     public function create(): array {
         $data = getRequestBody();
-
-        // DEBUG: Log incoming data
-        error_log("Invoice create - memberId received: " . ($data['memberId'] ?? 'NULL'));
-        error_log("Invoice create - full data: " . json_encode($data));
-
-        // Check if member exists in database
-        $memberCheck = $this->queryOne("SELECT id FROM members WHERE id = :id", ['id' => $data['memberId'] ?? '']);
-        error_log("Invoice create - member exists in DB: " . ($memberCheck ? 'YES' : 'NO'));
-
         $data['id'] = $data['id'] ?? generateUUID();
 
         // Ensure items is a valid array before processing
