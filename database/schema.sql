@@ -399,6 +399,23 @@ CREATE TABLE attendance_records (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================
+-- ATTENDANCE LOCKS (for per-day per-slot lock/unlock)
+-- ============================================
+CREATE TABLE attendance_locks (
+    date DATE NOT NULL,
+    slot_id VARCHAR(36) NOT NULL,
+    is_locked BOOLEAN NOT NULL DEFAULT TRUE,
+    locked_by VARCHAR(255) NULL,
+    locked_at DATETIME NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (date, slot_id),
+    FOREIGN KEY (slot_id) REFERENCES session_slots(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
 -- STUDIO SETTINGS
 -- ============================================
 CREATE TABLE studio_settings (

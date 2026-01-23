@@ -641,3 +641,11 @@ export interface MemberAttendanceSummary {
   totalWorkingDays: number;  // Working days when member had active subscription
   attendanceRate: number;    // Percentage (0-100)
 }
+
+// Attendance lock record - stores the locked state for a specific date
+// Key format in storage: date string (YYYY-MM-DD) -> boolean (true = locked)
+export interface AttendanceLockRecord {
+  date: string;              // YYYY-MM-DD format
+  isLocked: boolean;
+  lockedAt?: string;         // ISO timestamp when lock state was changed
+}

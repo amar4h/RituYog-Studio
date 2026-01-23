@@ -24,16 +24,24 @@ export function MemberAttendanceTile({
     <button
       onClick={onToggle}
       disabled={disabled}
-      title={`${member.firstName} ${member.lastName} - ${presentDays}/${totalWorkingDays} days present`}
+      title={`${member.firstName} ${member.lastName} - ${presentDays}/${totalWorkingDays} days present${disabled ? ' (locked)' : ''}`}
       className={`
-        p-2 rounded-lg border-2 transition-all duration-150 text-center
-        ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:shadow-md active:scale-95'}
+        relative p-2 rounded-lg border-2 transition-all duration-150 text-center
+        ${disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:shadow-md active:scale-95'}
         ${isPresent
-          ? 'bg-green-100 border-green-400 hover:bg-green-200'
-          : 'bg-red-100 border-red-400 hover:bg-red-200'
+          ? 'bg-green-100 border-green-400'
+          : 'bg-red-100 border-red-400'
         }
+        ${!disabled && isPresent ? 'hover:bg-green-200' : ''}
+        ${!disabled && !isPresent ? 'hover:bg-red-200' : ''}
       `}
     >
+      {/* Lock indicator when disabled - transparent background, visible icon */}
+      {disabled && (
+        <div className="absolute top-0 right-0.5">
+          <span className="text-[10px]">🔒</span>
+        </div>
+      )}
       {/* Compact layout: Avatar + Name inline */}
       <div className="flex items-center gap-2 mb-1">
         <div

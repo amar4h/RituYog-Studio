@@ -381,6 +381,7 @@ export const STORAGE_KEYS = {
   PAYMENTS: 'yoga_studio_payments',
   TRIAL_BOOKINGS: 'yoga_studio_trial_bookings',
   ATTENDANCE: 'yoga_studio_attendance',
+  ATTENDANCE_LOCKS: 'yoga_studio_attendance_locks',
 
   // Settings & Auth
   SETTINGS: 'yoga_studio_settings',

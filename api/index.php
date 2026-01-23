@@ -72,6 +72,7 @@ $validEndpoints = [
     'invoices',
     'payments',
     'attendance',
+    'attendance-locks',
     'trials',
     'settings',
     'auth',
@@ -92,8 +93,20 @@ if (!file_exists($handlerFile)) {
 require_once $handlerFile;
 
 // Execute action
-$handlerClass = ucfirst($endpoint) . 'Handler';
+// Convert hyphenated endpoint names to PascalCase class names
+// e.g., "attendance-locks" -> "AttendanceLocksHandler"
+$handlerClass = str_replace('-', '', ucwords($endpoint, '-')) . 'Handler';
+
+// Debug: Show what class we're looking for
+if (DEBUG_MODE && isset($_GET['debug'])) {
+    error_log("Looking for class: $handlerClass");
+    error_log("Defined classes: " . implode(', ', get_declared_classes()));
+}
+
 if (!class_exists($handlerClass)) {
+    if (DEBUG_MODE) {
+        errorResponse("Handler class not found: $handlerClass. File: $handlerFile. Classes defined: " . implode(', ', array_filter(get_declared_classes(), fn($c) => stripos($c, 'Handler') !== false)), 500);
+    }
     errorResponse('Handler class not found', 500);
 }
 

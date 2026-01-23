@@ -126,6 +126,13 @@ export function RegisterPage() {
         },
       ];
 
+      // Handle 'personal-training' special case - store in notes instead of preferredSlotId
+      // (preferredSlotId has FK constraint to session_slots table)
+      const isPersonalTraining = formData.preferredSlotId === 'personal-training';
+      const notesWithPreference = isPersonalTraining
+        ? `[Preferred: Personal Training] ${formData.notes.trim()}`.trim()
+        : formData.notes.trim() || undefined;
+
       leadService.create({
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
@@ -133,8 +140,8 @@ export function RegisterPage() {
         phone: formData.phone.replace(/\D/g, ''),
         status: 'new',
         source: 'online',
-        preferredSlotId: formData.preferredSlotId || undefined,
-        notes: formData.notes.trim() || undefined,
+        preferredSlotId: isPersonalTraining ? undefined : (formData.preferredSlotId || undefined),
+        notes: notesWithPreference,
         medicalConditions,
         consentRecords,
       });
@@ -167,7 +174,7 @@ export function RegisterPage() {
                 <Button fullWidth>Book a Trial Session</Button>
               </Link>
               <Link to="/">
-                <Button variant="outline" fullWidth>Back to Home</Button>
+                <Button variant="outline" fullWidth>Studio App Home</Button>
               </Link>
             </div>
           </div>
@@ -247,10 +254,13 @@ export function RegisterPage() {
                   value: slot.id,
                   label: `${slot.displayName} (${slot.startTime} - ${slot.endTime})`,
                 })),
+                { value: 'personal-training', label: 'Personal Training' },
               ]}
             />
             <p className="text-sm text-gray-500 mt-2">
-              Sessions are held Monday to Friday. Select your preferred timing.
+              {formData.preferredSlotId === 'personal-training'
+                ? 'Our team will contact you to discuss your preferred schedule and training requirements.'
+                : 'Sessions are held Monday to Friday. Select your preferred timing.'}
             </p>
           </Card>
 

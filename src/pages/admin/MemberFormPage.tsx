@@ -371,11 +371,6 @@ export function MemberFormPage() {
                 checked={getConsentValue('health-disclaimer')}
                 onChange={(e) => handleConsentChange('health-disclaimer', e.target.checked)}
               />
-              <Checkbox
-                label="Photo/video consent given"
-                checked={getConsentValue('photo-consent')}
-                onChange={(e) => handleConsentChange('photo-consent', e.target.checked)}
-              />
             </div>
           </Card>
 

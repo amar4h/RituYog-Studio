@@ -1,9 +1,9 @@
 import { useState, useCallback, useMemo } from 'react';
 import { Card, Button, Alert, SlotSelector } from '../../components/common';
 import { MemberAttendanceTile } from '../../components/attendance';
-import { slotService, attendanceService } from '../../services';
+import { slotService, attendanceService, attendanceLockService } from '../../services';
 import { getToday, getMonthStart, getMonthEnd, formatDate } from '../../utils/dateUtils';
-import { parseISO, isWeekend, addDays, subDays, format, startOfMonth, endOfMonth, isAfter } from 'date-fns';
+import { parseISO, isWeekend, addDays, subDays, format, startOfMonth, endOfMonth, isAfter, isBefore } from 'date-fns';
 
 // ============================================
 // PERIOD PRESETS CONFIGURATION
@@ -116,6 +116,33 @@ export function AttendancePage() {
   // Check if selected date is a weekend
   const isWeekendDay = isWeekend(parseISO(selectedDate));
 
+  // Check attendance lock/marking rules for selected date+slot
+  const attendanceCheck = useMemo(() => {
+    if (!selectedSlotId) return { allowed: false, reason: 'No slot selected' };
+    return attendanceLockService.canMarkAttendance(selectedDate, selectedSlotId);
+  }, [selectedDate, selectedSlotId, refreshKey]);
+
+  const isLocked = !attendanceCheck.allowed && attendanceCheck.reason === 'Attendance for this session is locked';
+  const isFutureDate = !attendanceCheck.allowed && attendanceCheck.reason === 'Cannot mark attendance for future dates';
+  const isTooOld = !attendanceCheck.allowed && attendanceCheck.reason === 'Cannot mark attendance for more than 3 days in the past';
+
+  // Check if date is within the editable range (today or up to 3 days ago)
+  const isEditableDate = useMemo(() => {
+    const todayDate = parseISO(today);
+    const selectedDateObj = parseISO(selectedDate);
+    const daysDiff = Math.floor((todayDate.getTime() - selectedDateObj.getTime()) / (1000 * 60 * 60 * 24));
+    return daysDiff >= 0 && daysDiff <= 3;
+  }, [selectedDate, today]);
+
+  // Handle lock toggle for current slot
+  const handleToggleLock = useCallback(() => {
+    if (!selectedSlotId) return;
+    const newLockState = attendanceLockService.toggleLock(selectedDate, selectedSlotId);
+    setSuccess(newLockState ? 'Session locked' : 'Session unlocked');
+    setRefreshKey(k => k + 1);
+    setTimeout(() => setSuccess(''), 2000);
+  }, [selectedDate, selectedSlotId]);
+
   // Get attendance data for the selected slot and date
   const attendanceData = selectedSlotId && !isWeekendDay
     ? attendanceService.getSlotAttendanceWithMembers(selectedSlotId, selectedDate, periodStart, periodEnd)
@@ -127,6 +154,12 @@ export function AttendancePage() {
 
   // Handle marking attendance
   const handleToggleAttendance = useCallback((memberId: string, currentlyPresent: boolean) => {
+    // Pre-check if marking is allowed
+    if (!attendanceCheck.allowed) {
+      setError(attendanceCheck.reason || 'Cannot mark attendance');
+      return;
+    }
+
     try {
       setError('');
       const newStatus = currentlyPresent ? 'absent' : 'present';
@@ -137,7 +170,7 @@ export function AttendancePage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to mark attendance');
     }
-  }, [selectedSlotId, selectedDate]);
+  }, [selectedSlotId, selectedDate, attendanceCheck]);
 
   // Handle period preset selection
   const handlePresetSelect = (presetId: string) => {
@@ -167,9 +200,15 @@ export function AttendancePage() {
   };
 
   const handleNextDay = () => {
+    // Prevent navigating to future dates
+    if (selectedDate >= today) return;
     const date = parseISO(selectedDate);
     const newDate = addDays(date, 1);
-    setSelectedDate(format(newDate, 'yyyy-MM-dd'));
+    const newDateStr = format(newDate, 'yyyy-MM-dd');
+    // Only allow if not in future
+    if (newDateStr <= today) {
+      setSelectedDate(newDateStr);
+    }
   };
 
   const handleToday = () => {
@@ -226,12 +265,16 @@ export function AttendancePage() {
             <input
               type="date"
               value={selectedDate}
+              max={today}
               onChange={(e) => setSelectedDate(e.target.value)}
               className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-indigo-500 w-32 sm:w-auto"
             />
             <button
               onClick={handleNextDay}
-              className="p-1.5 rounded border border-gray-300 hover:bg-gray-100 text-sm"
+              disabled={selectedDate >= today}
+              className={`p-1.5 rounded border border-gray-300 text-sm ${
+                selectedDate >= today ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'
+              }`}
             >
               ▶
             </button>
@@ -241,6 +284,31 @@ export function AttendancePage() {
             >
               Today
             </button>
+            {/* Lock/Unlock Button - only shown for editable dates */}
+            {isEditableDate && !isWeekendDay && (
+              <button
+                onClick={handleToggleLock}
+                className={`p-1.5 rounded border text-sm transition-colors ${
+                  isLocked
+                    ? 'bg-red-50 border-red-300 text-red-600 hover:bg-red-100'
+                    : 'bg-green-50 border-green-300 text-green-600 hover:bg-green-100'
+                }`}
+                title={isLocked ? 'Click to unlock attendance for this day' : 'Click to lock attendance for this day'}
+              >
+                {isLocked ? '🔒' : '🔓'}
+              </button>
+            )}
+            {/* Status indicators for non-editable dates */}
+            {isFutureDate && (
+              <span className="text-xs text-gray-400 px-2 py-1 bg-gray-50 rounded" title="Cannot mark attendance for future dates">
+                Future
+              </span>
+            )}
+            {isTooOld && (
+              <span className="text-xs text-gray-400 px-2 py-1 bg-gray-50 rounded" title="Cannot mark attendance for dates older than 3 days">
+                Too old
+              </span>
+            )}
           </div>
 
           <div className="hidden sm:block h-6 w-px bg-gray-300" />
@@ -336,6 +404,7 @@ export function AttendancePage() {
                   presentDays={presentDays}
                   totalWorkingDays={totalWorkingDays}
                   onToggle={() => handleToggleAttendance(member.id, isPresent)}
+                  disabled={!attendanceCheck.allowed}
                 />
               ))}
             </div>

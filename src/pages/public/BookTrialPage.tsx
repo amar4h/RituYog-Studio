@@ -325,7 +325,7 @@ export function BookTrialPage() {
             </div>
 
             <Link to="/">
-              <Button fullWidth>Back to Home</Button>
+              <Button fullWidth>Studio App Home</Button>
             </Link>
           </div>
         </Card>

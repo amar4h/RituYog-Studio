@@ -129,10 +129,15 @@ export function Sidebar({ collapsed = false, mobileOpen = false, onToggle, onMob
         w-64
       `}
     >
-      {/* Logo */}
+      {/* Logo - Clickable to open studio website in new tab */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800">
         {!collapsed && (
-          <div className="flex items-center gap-2">
+          <a
+            href={settings.website || '#'}
+            onClick={(e) => { if (!settings.website) e.preventDefault(); }}
+            className={`flex items-center gap-2 ${settings.website ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
+            title={settings.website ? `Visit ${settings.studioName} website` : undefined}
+          >
             {settings.logoData ? (
               <img
                 src={settings.logoData}
@@ -149,21 +154,29 @@ export function Sidebar({ collapsed = false, mobileOpen = false, onToggle, onMob
             <span className="text-lg font-bold text-indigo-400 truncate max-w-[140px]">
               {settings.studioName}
             </span>
-          </div>
+          </a>
         )}
-        {collapsed && settings.logoData && (
-          <img
-            src={settings.logoData}
-            alt={settings.studioName}
-            className="w-8 h-8 object-contain rounded mx-auto"
-          />
-        )}
-        {collapsed && !settings.logoData && (
-          <div className="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center mx-auto">
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-            </svg>
-          </div>
+        {collapsed && (
+          <a
+            href={settings.website || '#'}
+            onClick={(e) => { if (!settings.website) e.preventDefault(); }}
+            className={`mx-auto ${settings.website ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
+            title={settings.website ? `Visit ${settings.studioName} website` : undefined}
+          >
+            {settings.logoData ? (
+              <img
+                src={settings.logoData}
+                alt={settings.studioName}
+                className="w-8 h-8 object-contain rounded"
+              />
+            ) : (
+              <div className="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+              </div>
+            )}
+          </a>
         )}
         {/* Mobile close button */}
         <button

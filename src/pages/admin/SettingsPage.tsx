@@ -22,6 +22,7 @@ export function SettingsPage() {
     address: settings.address || '',
     phone: settings.phone || '',
     email: settings.email || '',
+    website: settings.website || '',
   });
 
   // Invoice numbering state
@@ -79,6 +80,7 @@ export function SettingsPage() {
         address: studioData.address.trim() || undefined,
         phone: studioData.phone.trim() || undefined,
         email: studioData.email.trim() || undefined,
+        website: studioData.website.trim() || undefined,
       });
       setSuccess('Studio information saved to database');
     } catch (err) {
@@ -420,6 +422,16 @@ export function SettingsPage() {
               value={studioData.email}
               onChange={(e) => setStudioData(prev => ({ ...prev, email: e.target.value }))}
             />
+            <Input
+              label="Website URL"
+              type="url"
+              value={studioData.website}
+              onChange={(e) => setStudioData(prev => ({ ...prev, website: e.target.value }))}
+              placeholder="https://www.example.com"
+            />
+            <p className="text-xs text-gray-500 -mt-2">
+              Clicking the logo in the sidebar will open this website in a new tab.
+            </p>
             <div className="flex gap-3 items-center">
               <Button type="submit" loading={loading === 'studio'}>
                 Save Changes

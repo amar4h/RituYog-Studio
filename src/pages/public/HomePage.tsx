@@ -9,7 +9,12 @@ export function HomePage() {
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <div className="flex items-center gap-3">
+          <a
+            href={settings.website || '#'}
+            onClick={(e) => { if (!settings.website) e.preventDefault(); }}
+            className={`flex items-center gap-3 ${settings.website ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
+            title={settings.website ? `Visit ${settings.studioName} website` : undefined}
+          >
             {settings.logoData ? (
               <img
                 src={settings.logoData}
@@ -24,7 +29,7 @@ export function HomePage() {
               </div>
             )}
             <h1 className="text-2xl font-bold text-indigo-600">{settings.studioName}</h1>
-          </div>
+          </a>
           <Link
             to="/login"
             className="text-sm text-gray-600 hover:text-indigo-600 transition-colors"

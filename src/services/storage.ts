@@ -477,6 +477,13 @@ export const leadService = {
     );
   },
 
+  // Get all unconverted leads (excludes leads with status 'converted')
+  // Use this for the Leads list page to not show converted leads
+  getUnconverted: (): Lead[] => {
+    const leads = getAll<Lead>(STORAGE_KEYS.LEADS);
+    return leads.filter(l => l.status !== 'converted');
+  },
+
   getForFollowUp: (): Lead[] => {
     const leads = getAll<Lead>(STORAGE_KEYS.LEADS);
     const today = new Date().toISOString().split('T')[0];
@@ -625,6 +632,17 @@ export const leadService = {
       return leads.filter(l =>
         ['new', 'contacted', 'trial-scheduled', 'follow-up', 'interested'].includes(l.status)
       );
+    },
+
+    // Get all unconverted leads (excludes leads with status 'converted')
+    getUnconverted: async (): Promise<Lead[]> => {
+      if (isApiMode()) {
+        // In API mode, filter on server or get all and filter
+        const leads = await leadsApi.getAll() as Lead[];
+        return leads.filter(l => l.status !== 'converted');
+      }
+      const leads = getAll<Lead>(STORAGE_KEYS.LEADS);
+      return leads.filter(l => l.status !== 'converted');
     },
 
     getForFollowUp: async (): Promise<Lead[]> => {
@@ -2944,14 +2962,26 @@ export const attendanceService = {
     const slot = slotService.getById(slotId);
     if (!slot) throw new Error('Slot not found');
 
-    // Validate date is not more than 3 days in the past
+    // Validate date constraints
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const attendanceDate = new Date(date);
     attendanceDate.setHours(0, 0, 0, 0);
     const daysDiff = Math.floor((today.getTime() - attendanceDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    // CRITICAL: Block future dates - attendance can ONLY be marked for today or past
+    if (daysDiff < 0) {
+      throw new Error('Cannot mark attendance for future dates');
+    }
+
+    // Existing rule: Cannot mark attendance more than 3 days in the past
     if (daysDiff > 3) {
       throw new Error('Cannot mark attendance for more than 3 days in the past');
+    }
+
+    // Check if the day+slot is locked (respects both stored and default lock state)
+    if (attendanceLockService.getEffectiveLockState(date, slotId)) {
+      throw new Error('Attendance for this session is locked');
     }
 
     // Check for existing record
@@ -3243,6 +3273,148 @@ export const attendanceService = {
 };
 
 // ============================================
+// ATTENDANCE LOCK SERVICE
+// Manages per-day lock/unlock state for attendance marking
+// Lock state persists across browser/device changes via localStorage
+// ============================================
+
+interface AttendanceLockState {
+  [key: string]: boolean; // "date:slotId" -> isLocked
+}
+
+// Helper to create composite key
+const makeLockKey = (date: string, slotId: string): string => `${date}:${slotId}`;
+
+export const attendanceLockService = {
+  // Get all lock states
+  getAll: (): AttendanceLockState => {
+    const data = localStorage.getItem(STORAGE_KEYS.ATTENDANCE_LOCKS);
+    return data ? JSON.parse(data) : {};
+  },
+
+  // Save all lock states
+  saveAll: (state: AttendanceLockState): void => {
+    localStorage.setItem(STORAGE_KEYS.ATTENDANCE_LOCKS, JSON.stringify(state));
+  },
+
+  // Check if a specific date+slot is locked
+  isLocked: (date: string, slotId: string): boolean => {
+    const state = attendanceLockService.getAll();
+    const key = makeLockKey(date, slotId);
+    return state[key] === true;
+  },
+
+  // Set lock state for a date+slot (with API sync)
+  setLocked: (date: string, slotId: string, locked: boolean): void => {
+    // Update localStorage first for immediate UI responsiveness
+    const state = attendanceLockService.getAll();
+    const key = makeLockKey(date, slotId);
+    state[key] = locked;
+    attendanceLockService.saveAll(state);
+
+    // Sync to API if in API mode
+    if (isApiMode()) {
+      const baseUrl = import.meta.env.VITE_API_URL || '/api';
+      const apiKey = import.meta.env.VITE_API_KEY || '';
+
+      setWaitingCursor(true);
+      fetch(`${baseUrl}/attendance-locks?action=setLock`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': apiKey,
+        },
+        body: JSON.stringify({ date, slotId, isLocked: locked }),
+      })
+        .then(response => {
+          if (!response.ok) {
+            console.error('[API Write] attendance-locks setLock failed:', response.status);
+          } else {
+            console.log('[API Write] attendance-locks setLock success');
+          }
+        })
+        .catch(error => {
+          console.error('[API Write] attendance-locks network error:', error);
+        })
+        .finally(() => {
+          setWaitingCursor(false);
+        });
+    }
+  },
+
+  // Toggle lock state for a date+slot (with API sync)
+  // IMPORTANT: Use getEffectiveLockState (not isLocked) to include default states
+  toggleLock: (date: string, slotId: string): boolean => {
+    const currentState = attendanceLockService.getEffectiveLockState(date, slotId);
+    const newState = !currentState;
+    attendanceLockService.setLocked(date, slotId, newState);
+    return newState;
+  },
+
+  // Get default lock state for a date based on business rules:
+  // - Current day: default UNLOCKED
+  // - Previous 1-3 days: default LOCKED
+  // - Future dates: N/A (blocked by validation anyway)
+  getDefaultLockState: (date: string): boolean => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const targetDate = new Date(date);
+    targetDate.setHours(0, 0, 0, 0);
+    const daysDiff = Math.floor((today.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Current day (daysDiff === 0): default UNLOCKED
+    if (daysDiff === 0) {
+      return false;
+    }
+
+    // Previous 1-3 days: default LOCKED
+    if (daysDiff >= 1 && daysDiff <= 3) {
+      return true;
+    }
+
+    // Future or older than 3 days: locked by default (shouldn't be editable anyway)
+    return true;
+  },
+
+  // Get effective lock state for date+slot (returns stored value if exists, else default)
+  getEffectiveLockState: (date: string, slotId: string): boolean => {
+    const state = attendanceLockService.getAll();
+    const key = makeLockKey(date, slotId);
+    if (key in state) {
+      return state[key];
+    }
+    return attendanceLockService.getDefaultLockState(date);
+  },
+
+  // Check if attendance can be marked for a date+slot
+  // Combines date validation rules with lock state
+  canMarkAttendance: (date: string, slotId: string): { allowed: boolean; reason?: string } => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const targetDate = new Date(date);
+    targetDate.setHours(0, 0, 0, 0);
+    const daysDiff = Math.floor((today.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Block future dates
+    if (daysDiff < 0) {
+      return { allowed: false, reason: 'Cannot mark attendance for future dates' };
+    }
+
+    // Block dates older than 3 days
+    if (daysDiff > 3) {
+      return { allowed: false, reason: 'Cannot mark attendance for more than 3 days in the past' };
+    }
+
+    // Check lock state for this specific slot
+    if (attendanceLockService.getEffectiveLockState(date, slotId)) {
+      return { allowed: false, reason: 'Attendance for this session is locked' };
+    }
+
+    return { allowed: true };
+  },
+};
+
+// ============================================
 // DATA SYNC FROM API TO LOCALSTORAGE
 // Enables existing sync methods to work with API data
 // ============================================
@@ -3272,6 +3444,7 @@ export async function syncFromApi(): Promise<void> {
       payments,
       attendance,
       settings,
+      attendanceLocks,
     ] = await Promise.all([
       membersApi.getAll().catch(() => []),
       leadsApi.getAll().catch(() => []),
@@ -3282,6 +3455,10 @@ export async function syncFromApi(): Promise<void> {
       paymentsApi.getAll().catch(() => []),
       attendanceApi.getAll().catch(() => []),
       settingsApi.get().catch(() => null),
+      // Fetch attendance locks
+      fetch(`${import.meta.env.VITE_API_URL || '/api'}/attendance-locks`, {
+        headers: { 'X-API-Key': import.meta.env.VITE_API_KEY || '' },
+      }).then(r => r.json()).catch(() => ({})),
     ]);
 
     // Also fetch membership plans separately
@@ -3306,6 +3483,11 @@ export async function syncFromApi(): Promise<void> {
 
     if (settings) {
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+    }
+
+    // Store attendance locks
+    if (attendanceLocks && typeof attendanceLocks === 'object') {
+      localStorage.setItem(STORAGE_KEYS.ATTENDANCE_LOCKS, JSON.stringify(attendanceLocks));
     }
 
     // Mark sync as completed

@@ -27,6 +27,7 @@ export {
   authService,
   backupService,
   attendanceService,
+  attendanceLockService,
   initializeStorage,
   seedDemoData,
   resetAndSeedData,

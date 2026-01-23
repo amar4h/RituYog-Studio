@@ -14,10 +14,12 @@ export function LeadListPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const allLeads = leadService.getAll();
+  // Use getUnconverted() to exclude converted leads from the list
+  // This ensures leads that have been converted to members don't appear
+  const allLeads = leadService.getUnconverted();
   const slots = slotService.getActive();
 
-  // Filter leads
+  // Filter leads (converted leads already excluded by getUnconverted)
   const leads = allLeads.filter(lead => {
     const matchesSearch = !search ||
       `${lead.firstName} ${lead.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
