@@ -11,6 +11,70 @@ class InvoicesHandler extends BaseHandler {
     protected array $boolFields = [];
 
     /**
+     * Override create to ensure items is properly formatted
+     */
+    public function create(): array {
+        $data = getRequestBody();
+
+        // DEBUG: Log incoming data
+        error_log("Invoice create - memberId received: " . ($data['memberId'] ?? 'NULL'));
+        error_log("Invoice create - full data: " . json_encode($data));
+
+        // Check if member exists in database
+        $memberCheck = $this->queryOne("SELECT id FROM members WHERE id = :id", ['id' => $data['memberId'] ?? '']);
+        error_log("Invoice create - member exists in DB: " . ($memberCheck ? 'YES' : 'NO'));
+
+        $data['id'] = $data['id'] ?? generateUUID();
+
+        // Ensure items is a valid array before processing
+        if (!isset($data['items']) || !is_array($data['items'])) {
+            $data['items'] = [];
+        }
+
+        // Clean items array - ensure all values are properly typed
+        $cleanItems = [];
+        foreach ($data['items'] as $item) {
+            $cleanItems[] = [
+                'description' => (string)($item['description'] ?? ''),
+                'quantity' => (int)($item['quantity'] ?? 1),
+                'unitPrice' => (float)($item['unitPrice'] ?? 0),
+                'total' => (float)($item['total'] ?? 0),
+            ];
+        }
+        $data['items'] = $cleanItems;
+
+        // Use parent's create logic but with cleaned data
+        $transformed = $this->transformToDb($data);
+
+        // Get valid columns from the table
+        $validColumns = $this->getTableColumns();
+
+        // Filter out invalid columns and remove created_at/updated_at (auto-managed)
+        $filtered = [];
+        foreach ($transformed as $column => $value) {
+            if (in_array($column, $validColumns) && !in_array($column, ['created_at', 'updated_at'])) {
+                $filtered[$column] = $value;
+            }
+        }
+
+        // Build insert query
+        $columns = array_keys($filtered);
+        $placeholders = array_map(fn($col) => ':' . $col, $columns);
+
+        $sql = sprintf(
+            "INSERT INTO %s (%s) VALUES (%s)",
+            $this->table,
+            implode(', ', $columns),
+            implode(', ', $placeholders)
+        );
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($filtered);
+
+        return $this->getById($data['id']);
+    }
+
+    /**
      * Get invoices by member
      */
     public function getByMember(): array {
@@ -75,11 +139,19 @@ class InvoicesHandler extends BaseHandler {
         $settings = $this->queryOne("SELECT * FROM studio_settings WHERE id = 1");
         $prefix = $settings['invoicePrefix'] ?? 'INV';
 
-        // Count existing invoices
-        $stmt = $this->db->query("SELECT COUNT(*) as count FROM {$this->table}");
-        $count = (int) $stmt->fetch()['count'];
+        // Find the highest invoice number (extract numeric part after prefix)
+        // SUBSTRING starts at position after "INV-" (prefix length + 2 for the dash)
+        $prefixLen = strlen($prefix) + 2;
+        $stmt = $this->db->prepare(
+            "SELECT MAX(CAST(SUBSTRING(invoice_number, {$prefixLen}) AS UNSIGNED)) as max_num
+             FROM {$this->table}
+             WHERE invoice_number LIKE :pattern"
+        );
+        $stmt->execute(['pattern' => $prefix . '-%']);
+        $result = $stmt->fetch();
+        $maxNum = (int) ($result['max_num'] ?? 0);
 
-        $nextNumber = str_pad($count + 1, 5, '0', STR_PAD_LEFT);
+        $nextNumber = str_pad($maxNum + 1, 5, '0', STR_PAD_LEFT);
         return ['invoiceNumber' => $prefix . '-' . $nextNumber];
     }
 

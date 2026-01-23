@@ -22,7 +22,8 @@ export function formatCurrencyCompact(amount: number): string {
   return formatCurrency(amount);
 }
 
-export function parseCurrency(value: string): number {
+export function parseCurrency(value: string | undefined | null): number {
+  if (!value) return 0;
   // Remove currency symbol and commas
   const cleaned = value.replace(/[₹,\s]/g, '');
   const parsed = parseFloat(cleaned);
@@ -33,7 +34,8 @@ export function parseCurrency(value: string): number {
 // PHONE NUMBER FORMATTING
 // ============================================
 
-export function formatPhone(phone: string): string {
+export function formatPhone(phone: string | undefined | null): string {
+  if (!phone) return '';
   // Format 10-digit Indian phone number
   const cleaned = phone.replace(/\D/g, '');
   if (cleaned.length === 10) {
@@ -45,7 +47,8 @@ export function formatPhone(phone: string): string {
   return phone;
 }
 
-export function formatPhoneWithCountryCode(phone: string): string {
+export function formatPhoneWithCountryCode(phone: string | undefined | null): string {
+  if (!phone) return '';
   const cleaned = phone.replace(/\D/g, '');
   if (cleaned.length === 10) {
     return `+91 ${cleaned.slice(0, 5)} ${cleaned.slice(5)}`;
@@ -53,7 +56,8 @@ export function formatPhoneWithCountryCode(phone: string): string {
   return formatPhone(phone);
 }
 
-export function getWhatsAppLink(phone: string, message?: string): string {
+export function getWhatsAppLink(phone: string | undefined | null, message?: string): string {
+  if (!phone) return '';
   const cleaned = phone.replace(/\D/g, '');
   const fullNumber = cleaned.length === 10 ? `91${cleaned}` : cleaned;
   const baseUrl = `https://wa.me/${fullNumber}`;
@@ -145,7 +149,8 @@ export function formatDuration(minutes: number): string {
 // STATUS FORMATTING
 // ============================================
 
-export function formatStatus(status: string): string {
+export function formatStatus(status: string | undefined | null): string {
+  if (!status) return '';
   return status
     .replace(/-/g, ' ')
     .replace(/_/g, ' ')

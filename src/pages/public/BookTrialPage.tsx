@@ -175,6 +175,8 @@ export function BookTrialPage() {
   };
 
   const handleBookTrial = async () => {
+    setSubmitError(''); // Clear previous error
+
     if (!leadId || !selectedSlotId || !selectedDate) {
       setSubmitError('Please select a time slot and date');
       return;
@@ -704,11 +706,22 @@ export function BookTrialPage() {
               </Card>
             )}
 
+            {/* Inline error for immediate visibility */}
+            {submitError && (
+              <Alert variant="error" className="animate-pulse">
+                {submitError}
+              </Alert>
+            )}
+
             <div className="flex gap-4">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setStep('form')}
+                onClick={() => {
+                  setStep('form');
+                  setSubmitError('');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
               >
                 Back
               </Button>

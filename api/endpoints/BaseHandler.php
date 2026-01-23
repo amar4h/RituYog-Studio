@@ -50,8 +50,19 @@ abstract class BaseHandler {
 
         $transformed = $this->transformToDb($data);
 
+        // Get valid columns from the table
+        $validColumns = $this->getTableColumns();
+
+        // Filter out invalid columns and remove created_at/updated_at (auto-managed)
+        $filtered = [];
+        foreach ($transformed as $column => $value) {
+            if (in_array($column, $validColumns) && !in_array($column, ['created_at', 'updated_at'])) {
+                $filtered[$column] = $value;
+            }
+        }
+
         // Build insert query
-        $columns = array_keys($transformed);
+        $columns = array_keys($filtered);
         $placeholders = array_map(fn($col) => ':' . $col, $columns);
 
         $sql = sprintf(
@@ -62,9 +73,19 @@ abstract class BaseHandler {
         );
 
         $stmt = $this->db->prepare($sql);
-        $stmt->execute($transformed);
+        $stmt->execute($filtered);
 
         return $this->getById($data['id']);
+    }
+
+    /**
+     * Get table column names
+     */
+    protected function getTableColumns(): array {
+        $sql = "DESCRIBE {$this->table}";
+        $stmt = $this->db->query($sql);
+        $columns = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+        return $columns;
     }
 
     /**
@@ -80,12 +101,20 @@ abstract class BaseHandler {
 
         $transformed = $this->transformToDb($data);
 
-        // Remove created_at from update
-        unset($transformed['created_at']);
+        // Get valid columns from the table
+        $validColumns = $this->getTableColumns();
+
+        // Filter out invalid columns and auto-managed columns
+        $filtered = [];
+        foreach ($transformed as $column => $value) {
+            if (in_array($column, $validColumns) && !in_array($column, ['created_at', 'updated_at'])) {
+                $filtered[$column] = $value;
+            }
+        }
 
         // Build update query
         $setParts = [];
-        foreach ($transformed as $column => $value) {
+        foreach ($filtered as $column => $value) {
             if ($column !== 'id') {
                 $setParts[] = "$column = :$column";
             }
@@ -98,7 +127,7 @@ abstract class BaseHandler {
         );
 
         $stmt = $this->db->prepare($sql);
-        $stmt->execute($transformed);
+        $stmt->execute($filtered);
 
         return $this->getById($id);
     }
@@ -154,9 +183,24 @@ abstract class BaseHandler {
         foreach ($data as $key => $value) {
             $snakeKey = $this->camelToSnake($key);
 
-            // Encode JSON fields
-            if (in_array($snakeKey, $this->jsonFields) && !is_string($value)) {
-                $value = json_encode($value, JSON_UNESCAPED_UNICODE);
+            // Encode JSON fields - always encode for MariaDB compatibility
+            if (in_array($snakeKey, $this->jsonFields)) {
+                // If already a string, validate it's valid JSON and re-encode
+                if (is_string($value)) {
+                    $decoded = json_decode($value, true);
+                    // If invalid JSON string, treat as empty array
+                    $value = json_encode($decoded ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                } elseif (is_null($value)) {
+                    // Default to empty array for null values
+                    $value = '[]';
+                } else {
+                    // Encode arrays/objects
+                    $value = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                }
+                // Ensure we never have false (encoding error)
+                if ($value === false) {
+                    $value = '[]';
+                }
             }
 
             // Convert boolean to int for database

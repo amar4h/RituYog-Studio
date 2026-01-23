@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons } from '../../components/common';
-import { subscriptionService, memberService, membershipPlanService } from '../../services';
+import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Modal, ConfirmDialog, Alert } from '../../components/common';
+import { subscriptionService, memberService, membershipPlanService, invoiceService, slotService } from '../../services';
 import { formatCurrency } from '../../utils/formatUtils';
 import { formatDate, getDaysRemaining } from '../../utils/dateUtils';
 import type { MembershipSubscription } from '../../types';
@@ -11,6 +11,22 @@ export function SubscriptionListPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [paymentFilter, setPaymentFilter] = useState<string>('');
+
+  // Edit modal state
+  const [editingSubscription, setEditingSubscription] = useState<MembershipSubscription | null>(null);
+  const [editStartDate, setEditStartDate] = useState('');
+  const [editEndDate, setEditEndDate] = useState('');
+  const [editError, setEditError] = useState('');
+  const [editSuccess, setEditSuccess] = useState('');
+
+  // Delete confirmation state
+  const [deletingSubscription, setDeletingSubscription] = useState<MembershipSubscription | null>(null);
+
+  // Loading state for invoice creation
+  const [creatingInvoiceFor, setCreatingInvoiceFor] = useState<string | null>(null);
+
+  // Force re-render after updates
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const allSubscriptions = subscriptionService.getAll();
   const plans = membershipPlanService.getAll();
@@ -104,20 +120,146 @@ export function SubscriptionListPage() {
     {
       key: 'actions',
       header: '',
-      render: (sub) => (
-        <div className="flex gap-2 justify-end">
-          {sub.invoiceId && (
-            <Link to={`/admin/invoices/${sub.invoiceId}`}>
-              <Button variant="ghost" size="sm">Invoice</Button>
-            </Link>
-          )}
-          <Link to={`/admin/members/${sub.memberId}`}>
-            <Button variant="outline" size="sm">View</Button>
-          </Link>
+      render: (sub) => {
+        // Check if invoice actually exists, not just if invoiceId is set
+        const invoice = sub.invoiceId ? invoiceService.getById(sub.invoiceId) : null;
+        return (
+          <div className="flex gap-2 justify-end">
+            {invoice ? (
+              <Link to={`/admin/invoices/${sub.invoiceId}`}>
+                <Button variant="ghost" size="sm">Invoice</Button>
+              </Link>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleCreateInvoice(sub)}
+                disabled={creatingInvoiceFor === sub.id}
+              >
+                {creatingInvoiceFor === sub.id ? 'Creating...' : 'Create Invoice'}
+              </Button>
+            )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setEditingSubscription(sub);
+              setEditStartDate(sub.startDate);
+              setEditEndDate(sub.endDate);
+              setEditError('');
+            }}
+          >
+            Edit
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => setDeletingSubscription(sub)}
+          >
+            Delete
+          </Button>
         </div>
-      ),
+        );
+      },
     },
   ];
+
+  // Handle edit subscription dates
+  const handleEditSave = () => {
+    if (!editingSubscription) return;
+
+    if (!editStartDate || !editEndDate) {
+      setEditError('Both start and end dates are required');
+      return;
+    }
+
+    if (editStartDate > editEndDate) {
+      setEditError('Start date cannot be after end date');
+      return;
+    }
+
+    try {
+      subscriptionService.update(editingSubscription.id, {
+        startDate: editStartDate,
+        endDate: editEndDate,
+      });
+      setEditingSubscription(null);
+      setEditSuccess('Subscription dates updated successfully');
+      setRefreshKey(k => k + 1);
+      setTimeout(() => setEditSuccess(''), 3000);
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Failed to update subscription');
+    }
+  };
+
+  // Handle delete subscription
+  const handleDelete = () => {
+    if (!deletingSubscription) return;
+
+    try {
+      subscriptionService.delete(deletingSubscription.id);
+      setDeletingSubscription(null);
+      setEditSuccess('Subscription deleted successfully');
+      setRefreshKey(k => k + 1);
+      setTimeout(() => setEditSuccess(''), 3000);
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Failed to delete subscription');
+    }
+  };
+
+  // Handle create invoice for subscription without one
+  const handleCreateInvoice = async (sub: MembershipSubscription) => {
+    setCreatingInvoiceFor(sub.id);
+    document.body.style.cursor = 'wait';
+
+    try {
+      const plan = membershipPlanService.getById(sub.planId);
+      const slot = slotService.getById(sub.slotId);
+
+      if (!plan) {
+        setEditError('Plan not found for this subscription');
+        return;
+      }
+
+      // Use async method to wait for API response and catch errors
+      // Generate invoice number from database to avoid duplicates
+      const invoiceNumber = await invoiceService.async.generateInvoiceNumber();
+      const invoice = await invoiceService.async.create({
+        invoiceNumber,
+        invoiceType: 'membership',
+        memberId: sub.memberId,
+        amount: sub.originalAmount,
+        discount: sub.discountAmount,
+        discountReason: sub.discountReason,
+        totalAmount: sub.payableAmount,
+        amountPaid: 0,
+        invoiceDate: new Date().toISOString().split('T')[0],
+        dueDate: sub.startDate,
+        status: 'sent',
+        items: [
+          {
+            description: `${plan.name} Membership (${plan.durationMonths} ${plan.durationMonths === 1 ? 'month' : 'months'})${slot ? ` - ${slot.displayName}` : ''}`,
+            quantity: 1,
+            unitPrice: sub.originalAmount,
+            total: sub.originalAmount,
+          },
+        ],
+        subscriptionId: sub.id,
+      });
+
+      // Update subscription with invoice ID (also use async to ensure it persists)
+      await subscriptionService.async.update(sub.id, { invoiceId: invoice.id });
+
+      setEditSuccess('Invoice created successfully');
+      setRefreshKey(k => k + 1);
+      setTimeout(() => setEditSuccess(''), 3000);
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Failed to create invoice');
+    } finally {
+      setCreatingInvoiceFor(null);
+      document.body.style.cursor = '';
+    }
+  };
 
   // Stats
   const activeCount = allSubscriptions.filter(s => s.status === 'active').length;
@@ -128,7 +270,21 @@ export function SubscriptionListPage() {
     .reduce((sum, s) => sum + s.payableAmount, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" key={refreshKey}>
+      {/* Success message */}
+      {editSuccess && (
+        <Alert variant="success" dismissible onDismiss={() => setEditSuccess('')}>
+          {editSuccess}
+        </Alert>
+      )}
+
+      {/* Error message */}
+      {editError && (
+        <Alert variant="error" dismissible onDismiss={() => setEditError('')}>
+          {editError}
+        </Alert>
+      )}
+
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -235,6 +391,84 @@ export function SubscriptionListPage() {
           />
         </Card>
       )}
+
+      {/* Edit Subscription Modal */}
+      <Modal
+        isOpen={!!editingSubscription}
+        onClose={() => setEditingSubscription(null)}
+        title="Edit Subscription Dates"
+      >
+        {editingSubscription && (
+          <div className="space-y-4">
+            <p className="text-gray-600">
+              Editing subscription for{' '}
+              <span className="font-semibold">
+                {(() => {
+                  const member = memberService.getById(editingSubscription.memberId);
+                  return member ? `${member.firstName} ${member.lastName}` : 'Unknown';
+                })()}
+              </span>
+            </p>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={editStartDate}
+                  onChange={(e) => setEditStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  value={editEndDate}
+                  onChange={(e) => setEditEndDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+            </div>
+
+            {editError && (
+              <Alert variant="error" dismissible onDismiss={() => setEditError('')}>
+                {editError}
+              </Alert>
+            )}
+
+            <div className="flex gap-3 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setEditingSubscription(null)}
+                fullWidth
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleEditSave} fullWidth>
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        isOpen={!!deletingSubscription}
+        onClose={() => setDeletingSubscription(null)}
+        onConfirm={handleDelete}
+        title="Delete Subscription"
+        message={`Are you sure you want to delete this subscription? This action cannot be undone.${
+          deletingSubscription?.invoiceId ? ' The associated invoice will NOT be deleted.' : ''
+        }`}
+        confirmLabel="Delete"
+        variant="danger"
+      />
     </div>
   );
 }

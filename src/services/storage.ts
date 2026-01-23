@@ -1237,7 +1237,12 @@ export const subscriptionService = {
 
     update: async (id: string, data: Partial<MembershipSubscription>): Promise<MembershipSubscription | null> => {
       if (isApiMode()) {
-        return subscriptionsApi.update(id, data as Partial<MembershipSubscription>) as Promise<MembershipSubscription | null>;
+        const updated = await subscriptionsApi.update(id, data as Partial<MembershipSubscription>) as MembershipSubscription | null;
+        // Also update localStorage for UI consistency
+        if (updated) {
+          update<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS, id, data);
+        }
+        return updated;
       }
       return update<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS, id, data);
     },
@@ -1648,14 +1653,24 @@ export const invoiceService = {
 
     create: async (data: Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>): Promise<Invoice> => {
       if (isApiMode()) {
-        return invoicesApi.create(data as Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>) as Promise<Invoice>;
+        const invoice = await invoicesApi.create(data as Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>) as Invoice;
+        // Also save to localStorage for UI consistency
+        const invoices = getAll<Invoice>(STORAGE_KEYS.INVOICES);
+        invoices.push(invoice);
+        saveAll(STORAGE_KEYS.INVOICES, invoices);
+        return invoice;
       }
       return create<Invoice>(STORAGE_KEYS.INVOICES, data);
     },
 
     update: async (id: string, data: Partial<Invoice>): Promise<Invoice | null> => {
       if (isApiMode()) {
-        return invoicesApi.update(id, data as Partial<Invoice>) as Promise<Invoice | null>;
+        const updated = await invoicesApi.update(id, data as Partial<Invoice>) as Invoice | null;
+        // Also update localStorage for UI consistency
+        if (updated) {
+          update<Invoice>(STORAGE_KEYS.INVOICES, id, data);
+        }
+        return updated;
       }
       return update<Invoice>(STORAGE_KEYS.INVOICES, id, data);
     },

@@ -38,6 +38,3 @@ export {
 
 // Re-export storage mode utilities for consumers
 export { isApiMode, getStorageMode, setStorageMode } from './api';
-
-// Export Supabase services separately for future use or manual migration
-export * as supabase from './supabaseStorage';

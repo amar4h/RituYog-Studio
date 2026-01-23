@@ -121,6 +121,7 @@ export function LeadDetailPage() {
     if (lead?.preferredSlotId) {
       setSelectedSlotId(lead.preferredSlotId);
     }
+    setError(''); // Clear any previous errors
     setShowConvertModal(true);
   };
 
@@ -178,7 +179,7 @@ export function LeadDetailPage() {
         </div>
       </div>
 
-      {error && (
+      {error && !showConvertModal && (
         <Alert variant="error" dismissible onDismiss={() => setError('')}>
           {error}
         </Alert>
@@ -687,6 +688,13 @@ export function LeadDetailPage() {
               Convert & Activate Subscription
             </Button>
           </div>
+
+          {/* Inline error shown below buttons for immediate visibility */}
+          {error && (
+            <Alert variant="error" dismissible onDismiss={() => setError('')} className="mt-4">
+              {error}
+            </Alert>
+          )}
         </div>
       </Modal>
 
