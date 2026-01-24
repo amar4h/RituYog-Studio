@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Button } from '../../components/common';
 import { formatCurrency } from '../../utils/formatUtils';
@@ -13,6 +14,8 @@ import {
 import { getToday, getCurrentMonthRange } from '../../utils/dateUtils';
 
 export function DashboardPage() {
+  const [showAllExpiring, setShowAllExpiring] = useState(false);
+
   // Get data for stats
   const members = memberService.getAll();
   const activeMembers = members.filter(m => m.status === 'active');
@@ -24,10 +27,13 @@ export function DashboardPage() {
   const allSubscriptions = subscriptionService.getAll();
 
   // Filter out members who already have a scheduled/future renewal subscription
-  const expiringSubscriptions = allExpiringSubscriptions.filter(expiring => {
-    // Use hasPendingRenewal which checks for future subscriptions (scheduled or active with future start)
-    return !subscriptionService.hasPendingRenewal(expiring.memberId);
-  });
+  // and sort by expiry date (earliest first)
+  const expiringSubscriptions = allExpiringSubscriptions
+    .filter(expiring => {
+      // Use hasPendingRenewal which checks for future subscriptions (scheduled or active with future start)
+      return !subscriptionService.hasPendingRenewal(expiring.memberId);
+    })
+    .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
 
   // Calculate revenue
   const { start, end } = getCurrentMonthRange();
@@ -41,9 +47,33 @@ export function DashboardPage() {
   const renewalReminderDays = settings.renewalReminderDays || 7;
 
   // Members needing renewal reminders (expiring within reminder window, not yet renewed)
+  // Also filter out members who have already renewed (have newer active subscription)
   const renewalReminders = expiringSubscriptions.filter(sub => {
     const daysLeft = getDaysRemaining(sub.endDate);
-    return daysLeft <= renewalReminderDays && daysLeft >= 0;
+    if (daysLeft > renewalReminderDays || daysLeft < 0) return false;
+
+    // Check if member has a newer active subscription (already renewed)
+    const allMemberSubs = subscriptionService.getByMember(sub.memberId);
+    const hasNewerActiveSub = allMemberSubs.some(s =>
+      s.id !== sub.id &&
+      s.status === 'active' &&
+      new Date(s.endDate) > new Date(sub.endDate)
+    );
+    return !hasNewerActiveSub;
+  });
+
+  // Recently expired subscriptions (last 7 days) that haven't renewed
+  const expiredSubscriptions = subscriptionService.getRecentlyExpired(7).filter(sub => {
+    // Check if member has a pending renewal
+    if (subscriptionService.hasPendingRenewal(sub.memberId)) return false;
+
+    // Check if member has any active subscription (already renewed)
+    const allMemberSubs = subscriptionService.getByMember(sub.memberId);
+    const hasActiveSub = allMemberSubs.some(s =>
+      s.id !== sub.id &&
+      s.status === 'active'
+    );
+    return !hasActiveSub;
   });
 
   // Leads needing follow-up (pending leads older than 2 days)
@@ -54,7 +84,7 @@ export function DashboardPage() {
     return createdAt < twoBusinessDaysAgo;
   });
 
-  const totalPendingNotifications = renewalReminders.length + leadsNeedingFollowUp.length;
+  const totalPendingNotifications = renewalReminders.length + expiredSubscriptions.length + leadsNeedingFollowUp.length;
 
   const slotUtilization = slots.map(slot => {
     // Get all membership subscriptions for this slot
@@ -156,9 +186,13 @@ export function DashboardPage() {
                 <h3 className="font-semibold text-indigo-900">Pending Notifications</h3>
                 <p className="text-sm text-indigo-700">
                   {renewalReminders.length > 0 && (
-                    <span>{renewalReminders.length} renewal reminder{renewalReminders.length !== 1 ? 's' : ''}</span>
+                    <span>{renewalReminders.length} expiring soon</span>
                   )}
-                  {renewalReminders.length > 0 && leadsNeedingFollowUp.length > 0 && ' • '}
+                  {renewalReminders.length > 0 && expiredSubscriptions.length > 0 && ' • '}
+                  {expiredSubscriptions.length > 0 && (
+                    <span>{expiredSubscriptions.length} recently expired</span>
+                  )}
+                  {(renewalReminders.length > 0 || expiredSubscriptions.length > 0) && leadsNeedingFollowUp.length > 0 && ' • '}
                   {leadsNeedingFollowUp.length > 0 && (
                     <span>{leadsNeedingFollowUp.length} lead follow-up{leadsNeedingFollowUp.length !== 1 ? 's' : ''}</span>
                   )}
@@ -209,34 +243,30 @@ export function DashboardPage() {
               No memberships expiring in the next 7 days
             </p>
           ) : (
-            <div className="space-y-3">
-              {expiringSubscriptions.slice(0, 5).map(subscription => {
+            <div className="space-y-2">
+              {(showAllExpiring ? expiringSubscriptions : expiringSubscriptions.slice(0, 5)).map(subscription => {
                 const member = memberService.getById(subscription.memberId);
                 const daysLeft = getDaysRemaining(subscription.endDate);
                 const slot = slots.find(s => s.id === subscription.slotId);
                 return (
                   <div
                     key={subscription.id}
-                    className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg"
+                    className="flex items-center gap-2 px-3 py-2 bg-yellow-50 rounded-lg"
                   >
-                    <div className="flex-1 min-w-0">
-                      <Link
-                        to={`/admin/members/${subscription.memberId}`}
-                        className="font-medium text-gray-900 hover:text-indigo-600"
-                      >
-                        {member?.firstName} {member?.lastName}
-                      </Link>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
-                          daysLeft <= 2 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
-                        }`}>
-                          {daysLeft === 0 ? 'Expires today' : `${daysLeft}d left`}
-                        </span>
-                        {slot && (
-                          <span className="text-xs text-gray-500">{slot.displayName}</span>
-                        )}
-                      </div>
-                    </div>
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium whitespace-nowrap ${
+                      daysLeft <= 2 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {daysLeft === 0 ? 'Today' : `${daysLeft}d`}
+                    </span>
+                    <Link
+                      to={`/admin/members/${subscription.memberId}`}
+                      className="font-medium text-gray-900 hover:text-indigo-600 truncate flex-1 min-w-0"
+                    >
+                      {member?.firstName} {member?.lastName}
+                    </Link>
+                    {slot && (
+                      <span className="text-xs text-gray-500 whitespace-nowrap">{slot.displayName}</span>
+                    )}
                     <Link
                       to="/admin/subscriptions/new"
                       state={{
@@ -254,9 +284,14 @@ export function DashboardPage() {
                 );
               })}
               {expiringSubscriptions.length > 5 && (
-                <p className="text-center text-sm text-gray-500 pt-2">
-                  +{expiringSubscriptions.length - 5} more expiring
-                </p>
+                <button
+                  onClick={() => setShowAllExpiring(!showAllExpiring)}
+                  className="w-full text-center text-sm text-indigo-600 hover:text-indigo-800 font-medium pt-2 cursor-pointer"
+                >
+                  {showAllExpiring
+                    ? 'Show less'
+                    : `+${expiringSubscriptions.length - 5} more expiring`}
+                </button>
               )}
             </div>
           )}

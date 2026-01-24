@@ -26,6 +26,7 @@ interface TemplateSelectionContext {
     recipientId: string;
     recipientType: 'member' | 'lead';
     details: string;
+    isExpired?: boolean;
     member?: Member;
     lead?: Lead;
     subscription?: MembershipSubscription;
@@ -36,6 +37,7 @@ interface TemplateSelectionContext {
 export function NotificationsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('pending');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [logsVersion, setLogsVersion] = useState(0); // Triggers re-render when logs change
 
   // Template selection modal state (single send)
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
@@ -51,12 +53,37 @@ export function NotificationsPage() {
   const slots = slotService.getActive();
   const plans = membershipPlanService.getAll();
 
-  // Get all expiring subscriptions
+  // Get all expiring subscriptions (not yet expired)
   const allExpiringSubscriptions = subscriptionService.getExpiringSoon(renewalReminderDays);
 
-  // Filter out members who already have a pending renewal
+  // Filter out members who already have a pending renewal OR have renewed (newer active subscription)
   const expiringSubscriptions = allExpiringSubscriptions.filter(expiring => {
-    return !subscriptionService.hasPendingRenewal(expiring.memberId);
+    // Check if member has a pending renewal
+    if (subscriptionService.hasPendingRenewal(expiring.memberId)) return false;
+
+    // Check if member has a newer active subscription (already renewed)
+    const allMemberSubs = subscriptionService.getByMember(expiring.memberId);
+    const hasNewerActiveSub = allMemberSubs.some(sub =>
+      sub.id !== expiring.id &&
+      sub.status === 'active' &&
+      new Date(sub.endDate) > new Date(expiring.endDate)
+    );
+    return !hasNewerActiveSub;
+  });
+
+  // Get recently expired subscriptions (last 7 days)
+  const allExpiredSubscriptions = subscriptionService.getRecentlyExpired(7);
+  const expiredSubscriptions = allExpiredSubscriptions.filter(expired => {
+    // Check if member has a pending renewal
+    if (subscriptionService.hasPendingRenewal(expired.memberId)) return false;
+
+    // Check if member has any active subscription (already renewed)
+    const allMemberSubs = subscriptionService.getByMember(expired.memberId);
+    const hasActiveSub = allMemberSubs.some(sub =>
+      sub.id !== expired.id &&
+      sub.status === 'active'
+    );
+    return !hasActiveSub;
   });
 
   // Get pending leads (older than 2 days, not converted)
@@ -68,8 +95,8 @@ export function NotificationsPage() {
     return createdAt < twoBusinessDaysAgo && lead.status !== 'converted';
   });
 
-  // Get notification logs
-  const allLogs = notificationLogService.getAll();
+  // Get notification logs (re-fetch when logsVersion changes)
+  const allLogs = useMemo(() => notificationLogService.getAll(), [logsVersion]);
   const pendingLogs = allLogs.filter(log => log.status === 'pending');
   const sentLogs = allLogs.filter(log => log.status === 'sent');
 
@@ -83,6 +110,7 @@ export function NotificationsPage() {
       recipientId: string;
       recipientType: 'member' | 'lead';
       details: string;
+      isExpired?: boolean; // True if membership has already expired
       // Data needed for template generation
       member?: Member;
       lead?: Lead;
@@ -90,30 +118,59 @@ export function NotificationsPage() {
       plan?: MembershipPlan;
     }[] = [];
 
-    // Renewal reminders
-    expiringSubscriptions.forEach(sub => {
-      const member = memberService.getById(sub.memberId);
-      const plan = plans.find(p => p.id === sub.planId);
-      const slot = slots.find(s => s.id === sub.slotId);
-      if (member) {
-        const daysLeft = getDaysRemaining(sub.endDate);
-        const defaultPlan = { id: '', name: 'Unknown Plan', type: 'monthly' as const, price: 0, durationMonths: 1, isActive: true, allowedSessionTypes: ['offline' as const], createdAt: '', updatedAt: '' };
+    const defaultPlan = { id: '', name: 'Unknown Plan', type: 'monthly' as const, price: 0, durationMonths: 1, isActive: true, allowedSessionTypes: ['offline' as const], createdAt: '', updatedAt: '' };
 
-        notifications.push({
-          id: `renewal-${sub.id}`,
-          type: 'renewal-reminder',
-          recipientName: `${member.firstName} ${member.lastName}`,
-          recipientPhone: member.phone,
-          recipientId: member.id,
-          recipientType: 'member',
-          details: `Expires ${formatDate(sub.endDate)} (${daysLeft}d) • ${slot?.displayName || ''}`,
-          // Store data for template generation
-          member,
-          subscription: sub,
-          plan: plan || defaultPlan,
-        });
-      }
-    });
+    // Renewal reminders (expiring soon) - sorted by expiry date (nearest first)
+    [...expiringSubscriptions]
+      .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime())
+      .forEach(sub => {
+        const member = memberService.getById(sub.memberId);
+        const plan = plans.find(p => p.id === sub.planId);
+        const slot = slots.find(s => s.id === sub.slotId);
+        if (member) {
+          const daysLeft = getDaysRemaining(sub.endDate);
+
+          notifications.push({
+            id: `renewal-${sub.id}`,
+            type: 'renewal-reminder',
+            recipientName: `${member.firstName} ${member.lastName}`,
+            recipientPhone: member.phone,
+            recipientId: member.id,
+            recipientType: 'member',
+            details: `Expires ${formatDate(sub.endDate)} (${daysLeft}d) • ${slot?.displayName || ''}`,
+            isExpired: false,
+            member,
+            subscription: sub,
+            plan: plan || defaultPlan,
+          });
+        }
+      });
+
+    // Expired reminders (expired in last 7 days) - sorted by most recently expired first
+    [...expiredSubscriptions]
+      .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime())
+      .forEach(sub => {
+        const member = memberService.getById(sub.memberId);
+        const plan = plans.find(p => p.id === sub.planId);
+        const slot = slots.find(s => s.id === sub.slotId);
+        if (member) {
+          const daysAgo = Math.abs(getDaysRemaining(sub.endDate));
+
+          notifications.push({
+            id: `expired-${sub.id}`,
+            type: 'renewal-reminder',
+            recipientName: `${member.firstName} ${member.lastName}`,
+            recipientPhone: member.phone,
+            recipientId: member.id,
+            recipientType: 'member',
+            details: `Expired ${formatDate(sub.endDate)} (${daysAgo}d ago) • ${slot?.displayName || ''}`,
+            isExpired: true,
+            member,
+            subscription: sub,
+            plan: plan || defaultPlan,
+          });
+        }
+      });
 
     // Lead follow-ups
     pendingLeads.forEach(lead => {
@@ -133,7 +190,7 @@ export function NotificationsPage() {
     });
 
     return notifications;
-  }, [expiringSubscriptions, pendingLeads, plans, slots]);
+  }, [expiringSubscriptions, expiredSubscriptions, pendingLeads, plans, slots]);
 
   // Handle send WhatsApp - open template selection modal
   const handleSendWhatsApp = (notification: typeof pendingNotifications[0]) => {
@@ -147,11 +204,13 @@ export function NotificationsPage() {
     if (!notification) return '';
 
     if (notification.type === 'renewal-reminder' && notification.member && notification.subscription && notification.plan) {
+      // Map filtered index to actual template index
+      const actualIndex = getActualTemplateIndex(templateIndex);
       const result = whatsappService.generateRenewalReminder({
         member: notification.member,
         subscription: notification.subscription,
         plan: notification.plan,
-        templateIndex,
+        templateIndex: actualIndex,
       });
 
       // Log the notification when link is generated
@@ -192,17 +251,35 @@ export function NotificationsPage() {
   };
 
   // Get templates for current notification type
+  // For renewal reminders: expired members get template #3 only, expiring members get #1 and #2
   const getTemplatesForNotification = () => {
     const notification = templateContext.notification;
     if (!notification) return [];
 
     if (notification.type === 'renewal-reminder') {
-      return whatsappService.getRenewalReminderTemplates();
+      const allTemplates = whatsappService.getRenewalReminderTemplates();
+      if (notification.isExpired) {
+        // Expired members: only template #3 (index 2)
+        return allTemplates.slice(2, 3);
+      } else {
+        // Expiring members: templates #1 and #2 (index 0 and 1)
+        return allTemplates.slice(0, 2);
+      }
     }
     if (notification.type === 'lead-followup') {
       return whatsappService.getLeadFollowUpTemplates();
     }
     return [];
+  };
+
+  // Get the actual template index to use (maps filtered index to real index)
+  const getActualTemplateIndex = (filteredIndex: number): number => {
+    const notification = templateContext.notification;
+    if (notification?.type === 'renewal-reminder' && notification.isExpired) {
+      // Expired members use template #3 (index 2)
+      return 2;
+    }
+    return filteredIndex;
   };
 
   // Get modal title based on notification type
@@ -211,7 +288,7 @@ export function NotificationsPage() {
     if (!notification) return 'Select Template';
 
     if (notification.type === 'renewal-reminder') {
-      return 'Send Renewal Reminder';
+      return notification.isExpired ? 'Send Expiry Reminder' : 'Send Renewal Reminder';
     }
     if (notification.type === 'lead-followup') {
       return 'Send Follow-up Message';
@@ -222,11 +299,13 @@ export function NotificationsPage() {
   // Handle mark as sent
   const handleMarkSent = (id: string) => {
     notificationLogService.markSent(id);
+    setLogsVersion(v => v + 1); // Trigger re-render
   };
 
   // Handle cancel
   const handleCancel = (id: string) => {
     notificationLogService.cancel(id);
+    setLogsVersion(v => v + 1); // Trigger re-render
   };
 
   // Toggle selection
@@ -357,10 +436,12 @@ export function NotificationsPage() {
   };
 
   // Get badge color for notification type
-  const getTypeBadge = (type: NotificationType) => {
+  const getTypeBadge = (type: NotificationType, isExpired?: boolean) => {
     switch (type) {
       case 'renewal-reminder':
-        return <Badge variant="warning">Renewal</Badge>;
+        return isExpired
+          ? <Badge variant="error">Expired</Badge>
+          : <Badge variant="warning">Renewal</Badge>;
       case 'class-reminder':
         return <Badge variant="info">Class</Badge>;
       case 'payment-confirmation':
@@ -423,16 +504,40 @@ export function NotificationsPage() {
               )}
             </div>
 
-            {/* Renewal Reminders Section */}
-            {pendingNotifications.filter(n => n.type === 'renewal-reminder').length > 0 && (
+            {/* Renewal Reminders Section (Expiring Soon) */}
+            {pendingNotifications.filter(n => n.type === 'renewal-reminder' && !n.isExpired).length > 0 && (
               <div>
                 <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                   <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
-                  Renewal Reminders ({pendingNotifications.filter(n => n.type === 'renewal-reminder').length})
+                  Expiring Soon ({pendingNotifications.filter(n => n.type === 'renewal-reminder' && !n.isExpired).length})
                 </h4>
                 <div className="space-y-2">
                   {pendingNotifications
-                    .filter(n => n.type === 'renewal-reminder')
+                    .filter(n => n.type === 'renewal-reminder' && !n.isExpired)
+                    .map(notification => (
+                      <NotificationRow
+                        key={notification.id}
+                        notification={notification}
+                        isSelected={selectedIds.has(notification.id)}
+                        onToggle={() => toggleSelection(notification.id)}
+                        onSend={() => handleSendWhatsApp(notification)}
+                        getTypeBadge={getTypeBadge}
+                      />
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Expired Reminders Section (Expired in last 7 days) */}
+            {pendingNotifications.filter(n => n.type === 'renewal-reminder' && n.isExpired).length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                  Recently Expired ({pendingNotifications.filter(n => n.type === 'renewal-reminder' && n.isExpired).length})
+                </h4>
+                <div className="space-y-2">
+                  {pendingNotifications
+                    .filter(n => n.type === 'renewal-reminder' && n.isExpired)
                     .map(notification => (
                       <NotificationRow
                         key={notification.id}
@@ -564,6 +669,7 @@ export function NotificationsPage() {
         onClose={() => {
           setTemplateModalOpen(false);
           setTemplateContext({ notification: null });
+          setLogsVersion(v => v + 1); // Refresh logs after modal closes
         }}
         templates={getTemplatesForNotification()}
         title={getTemplateModalTitle()}
@@ -577,6 +683,7 @@ export function NotificationsPage() {
         onClose={() => {
           setBulkTemplateModalOpen(false);
           setBulkNotificationType(null);
+          setLogsVersion(v => v + 1); // Refresh logs after modal closes
         }}
         templates={getBulkTemplates()}
         title={getBulkModalTitle()}
@@ -598,11 +705,12 @@ interface NotificationRowProps {
     recipientId: string;
     recipientType: 'member' | 'lead';
     details: string;
+    isExpired?: boolean;
   };
   isSelected: boolean;
   onToggle: () => void;
   onSend: () => void;
-  getTypeBadge: (type: NotificationType) => React.ReactNode;
+  getTypeBadge: (type: NotificationType, isExpired?: boolean) => React.ReactNode;
 }
 
 function NotificationRow({ notification, isSelected, onToggle, onSend, getTypeBadge }: NotificationRowProps) {
@@ -624,7 +732,7 @@ function NotificationRow({ notification, isSelected, onToggle, onSend, getTypeBa
             <Link to={detailLink} className="font-medium text-gray-900 hover:text-indigo-600">
               {notification.recipientName}
             </Link>
-            {getTypeBadge(notification.type)}
+            {getTypeBadge(notification.type, notification.isExpired)}
           </div>
           <p className="text-xs text-gray-500">
             {notification.recipientPhone} • {notification.details}

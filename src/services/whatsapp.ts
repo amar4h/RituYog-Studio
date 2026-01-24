@@ -5,7 +5,7 @@
  * Semi-manual approach: generates pre-filled message links, admin clicks to send.
  */
 
-import { settingsService } from './storage';
+import { settingsService, membershipPlanService } from './storage';
 import { DEFAULT_WHATSAPP_TEMPLATES } from '../constants';
 import type {
   Member,
@@ -109,6 +109,16 @@ export function generateRenewalReminder(data: RenewalReminderData): { phone: str
 
   const daysRemaining = differenceInDays(parseISO(subscription.endDate), new Date());
 
+  // Get active plan prices for monthly and quarterly
+  const allPlans = membershipPlanService.getActive();
+  const monthlyPlan = allPlans.find(p => p.type === 'monthly');
+  const quarterlyPlan = allPlans.find(p => p.type === 'quarterly');
+
+  // Calculate discount percentage
+  const discountPercent = subscription.originalAmount > 0
+    ? Math.round((subscription.discountAmount / subscription.originalAmount) * 100)
+    : 0;
+
   const placeholders: Record<string, string> = {
     memberName: `${member.firstName} ${member.lastName}`,
     memberFirstName: member.firstName,
@@ -120,6 +130,10 @@ export function generateRenewalReminder(data: RenewalReminderData): { phone: str
     daysRemaining: daysRemaining.toString(),
     discountAmount: formatAmount(subscription.discountAmount),
     payableAmount: formatAmount(subscription.payableAmount),
+    currentDiscount: formatAmount(subscription.discountAmount),
+    discountPercent: `${discountPercent}%`,
+    monthlyPlanPrice: monthlyPlan ? formatAmount(monthlyPlan.price) : 'N/A',
+    quarterlyPlanPrice: quarterlyPlan ? formatAmount(quarterlyPlan.price) : 'N/A',
     ...studioInfo,
   };
 

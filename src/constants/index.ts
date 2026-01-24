@@ -265,6 +265,10 @@ export const WHATSAPP_PLACEHOLDERS = {
     { key: '{daysRemaining}', description: 'Days until expiry' },
     { key: '{discountAmount}', description: 'Discount amount' },
     { key: '{payableAmount}', description: 'Total payable amount' },
+    { key: '{currentDiscount}', description: 'Current subscription discount' },
+    { key: '{discountPercent}', description: 'Discount percentage (e.g., 10%)' },
+    { key: '{monthlyPlanPrice}', description: 'Active monthly plan price' },
+    { key: '{quarterlyPlanPrice}', description: 'Active quarterly plan price' },
   ],
   class: [
     { key: '{classTime}', description: 'Session time' },

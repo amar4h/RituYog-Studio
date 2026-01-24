@@ -809,6 +809,23 @@ export const subscriptionService = {
     );
   },
 
+  // Get subscriptions that expired within the last N days
+  getRecentlyExpired: (daysBack: number = 7): MembershipSubscription[] => {
+    const subscriptions = getAll<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS);
+    const today = new Date();
+    const pastDate = new Date();
+    pastDate.setDate(pastDate.getDate() - daysBack);
+
+    const todayStr = today.toISOString().split('T')[0];
+    const pastStr = pastDate.toISOString().split('T')[0];
+
+    return subscriptions.filter(s =>
+      (s.status === 'active' || s.status === 'expired') &&
+      s.endDate < todayStr &&
+      s.endDate >= pastStr
+    );
+  },
+
   hasActiveSubscription: (memberId: string): boolean => {
     return subscriptionService.getActiveMemberSubscription(memberId) !== null;
   },
@@ -2535,9 +2552,14 @@ export function seedDemoData(): void {
   // CREATE MEMBERS WITH EXPIRING SUBSCRIPTIONS (for testing renewal)
   // ============================================
   const expiringMembers = [
-    { firstName: 'Sanjay', lastName: 'Chopra', email: 'sanjay.chopra@email.com', phone: '9876543240', gender: 'male' as const, daysToExpiry: 3 },
-    { firstName: 'Lakshmi', lastName: 'Pillai', email: 'lakshmi.pillai@email.com', phone: '9876543241', gender: 'female' as const, daysToExpiry: 5 },
-    { firstName: 'Manoj', lastName: 'Tiwari', email: 'manoj.tiwari@email.com', phone: '9876543242', gender: 'male' as const, daysToExpiry: 7 },
+    { firstName: 'Sanjay', lastName: 'Chopra', email: 'sanjay.chopra@email.com', phone: '9876543240', gender: 'male' as const, daysToExpiry: 1 },
+    { firstName: 'Lakshmi', lastName: 'Pillai', email: 'lakshmi.pillai@email.com', phone: '9876543241', gender: 'female' as const, daysToExpiry: 2 },
+    { firstName: 'Manoj', lastName: 'Tiwari', email: 'manoj.tiwari@email.com', phone: '9876543242', gender: 'male' as const, daysToExpiry: 3 },
+    { firstName: 'Rekha', lastName: 'Desai', email: 'rekha.desai@email.com', phone: '9876543243', gender: 'female' as const, daysToExpiry: 4 },
+    { firstName: 'Vinod', lastName: 'Saxena', email: 'vinod.saxena@email.com', phone: '9876543244', gender: 'male' as const, daysToExpiry: 5 },
+    { firstName: 'Geeta', lastName: 'Malhotra', email: 'geeta.malhotra@email.com', phone: '9876543245', gender: 'female' as const, daysToExpiry: 6 },
+    { firstName: 'Rakesh', lastName: 'Agarwal', email: 'rakesh.agarwal@email.com', phone: '9876543246', gender: 'male' as const, daysToExpiry: 7 },
+    { firstName: 'Nisha', lastName: 'Kapoor', email: 'nisha.kapoor@email.com', phone: '9876543247', gender: 'female' as const, daysToExpiry: 7 },
   ];
 
   expiringMembers.forEach((memberData, index) => {
@@ -2609,6 +2631,90 @@ export function seedDemoData(): void {
       slotId: slot.id,
       startDate: expStart,
       isActive: true,
+      isException: false,
+    });
+  });
+
+  // ============================================
+  // CREATE MEMBERS WITH EXPIRED SUBSCRIPTIONS (for testing expired notifications)
+  // ============================================
+  const expiredMembers = [
+    { firstName: 'Ajay', lastName: 'Verma', email: 'ajay.verma@email.com', phone: '9876543250', gender: 'male' as const, daysAgoExpired: 1 },
+    { firstName: 'Sunita', lastName: 'Rao', email: 'sunita.rao@email.com', phone: '9876543251', gender: 'female' as const, daysAgoExpired: 2 },
+    { firstName: 'Deepak', lastName: 'Joshi', email: 'deepak.joshi@email.com', phone: '9876543252', gender: 'male' as const, daysAgoExpired: 4 },
+    { firstName: 'Kavita', lastName: 'Nair', email: 'kavita.nair@email.com', phone: '9876543253', gender: 'female' as const, daysAgoExpired: 5 },
+    { firstName: 'Rahul', lastName: 'Pandey', email: 'rahul.pandey@email.com', phone: '9876543254', gender: 'male' as const, daysAgoExpired: 7 },
+  ];
+
+  expiredMembers.forEach((memberData, index) => {
+    const slot = slots[index % slots.length];
+
+    // Calculate dates so subscription expired X days ago
+    const expiryDate = new Date(now);
+    expiryDate.setDate(expiryDate.getDate() - memberData.daysAgoExpired);
+    const expEndDate = expiryDate.toISOString().split('T')[0];
+
+    // Start date was 30 days before expiry (monthly plan)
+    const expStartDate = new Date(expiryDate);
+    expStartDate.setDate(expStartDate.getDate() - 30);
+    const expStart = expStartDate.toISOString().split('T')[0];
+
+    const member = memberService.create({
+      firstName: memberData.firstName,
+      lastName: memberData.lastName,
+      email: memberData.email,
+      phone: memberData.phone,
+      gender: memberData.gender,
+      status: 'active',
+      source: 'walk-in',
+      assignedSlotId: slot.id,
+      classesAttended: Math.floor(Math.random() * 20) + 15,
+      medicalConditions: [],
+      consentRecords: [],
+    });
+
+    // Create subscription with expired status
+    const subscription = subscriptionService.create({
+      memberId: member.id,
+      planId: monthlyPlan.id,
+      slotId: slot.id,
+      startDate: expStart,
+      endDate: expEndDate,
+      originalAmount: monthlyPlan.price,
+      discountAmount: 0,
+      payableAmount: monthlyPlan.price,
+      status: 'expired',
+      isExtension: false,
+      paymentStatus: 'paid',
+    });
+
+    // Create paid invoice
+    invoiceService.create({
+      invoiceNumber: invoiceService.generateInvoiceNumber(),
+      invoiceType: 'membership',
+      memberId: member.id,
+      amount: monthlyPlan.price,
+      discount: 0,
+      totalAmount: monthlyPlan.price,
+      amountPaid: monthlyPlan.price,
+      invoiceDate: expStart,
+      dueDate: expStart,
+      status: 'paid',
+      items: [{
+        description: `${monthlyPlan.name} Membership - ${slot.displayName}`,
+        quantity: 1,
+        unitPrice: monthlyPlan.price,
+        total: monthlyPlan.price,
+      }],
+      subscriptionId: subscription.id,
+    });
+
+    // Create slot subscription (inactive since expired)
+    slotSubscriptionService.create({
+      memberId: member.id,
+      slotId: slot.id,
+      startDate: expStart,
+      isActive: false,
       isException: false,
     });
   });
@@ -3612,6 +3718,7 @@ export async function syncFromApi(): Promise<void> {
       attendance,
       settings,
       attendanceLocks,
+      notificationLogs,
     ] = await Promise.all([
       membersApi.getAll().catch(() => []),
       leadsApi.getAll().catch(() => []),
@@ -3626,6 +3733,10 @@ export async function syncFromApi(): Promise<void> {
       fetch(`${import.meta.env.VITE_API_URL || '/api'}/attendance-locks`, {
         headers: { 'X-API-Key': import.meta.env.VITE_API_KEY || '' },
       }).then(r => r.json()).catch(() => ({})),
+      // Fetch notification logs
+      fetch(`${import.meta.env.VITE_API_URL || '/api'}/notification-logs`, {
+        headers: { 'X-API-Key': import.meta.env.VITE_API_KEY || '' },
+      }).then(r => r.json()).catch(() => []),
     ]);
 
     // Also fetch membership plans separately
@@ -3655,6 +3766,11 @@ export async function syncFromApi(): Promise<void> {
     // Store attendance locks
     if (attendanceLocks && typeof attendanceLocks === 'object') {
       localStorage.setItem(STORAGE_KEYS.ATTENDANCE_LOCKS, JSON.stringify(attendanceLocks));
+    }
+
+    // Store notification logs
+    if (Array.isArray(notificationLogs)) {
+      localStorage.setItem(STORAGE_KEYS.NOTIFICATION_LOGS, JSON.stringify(notificationLogs));
     }
 
     // Mark sync as completed
