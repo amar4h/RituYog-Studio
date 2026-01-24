@@ -265,7 +265,14 @@ export function DashboardPage() {
                       {member?.firstName} {member?.lastName}
                     </Link>
                     {slot && (
-                      <span className="text-xs text-gray-500 whitespace-nowrap">{slot.displayName}</span>
+                      <span className="text-xs text-gray-500 whitespace-nowrap">
+                        {(() => {
+                          const [h, m] = slot.startTime.split(':').map(Number);
+                          const hour = h % 12 || 12;
+                          const ampm = h >= 12 ? 'PM' : 'AM';
+                          return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`;
+                        })()}
+                      </span>
                     )}
                     <Link
                       to="/admin/subscriptions/new"
