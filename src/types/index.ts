@@ -304,6 +304,7 @@ export interface InvoiceItem {
   quantity: number;
   unitPrice: number;
   total: number;
+  cost?: number; // Internal cost per unit for profit calculation (not shown on invoice)
 }
 
 export interface Invoice extends BaseEntity {
@@ -464,6 +465,10 @@ export interface StudioSettings {
 
   // WhatsApp Message Templates
   whatsappTemplates?: WhatsAppTemplates;
+
+  // Dashboard Display Preferences
+  dashboardShowRevenue?: boolean;   // Default toggle state for revenue tile
+  dashboardShowChart?: boolean;     // Default toggle state for chart
 }
 
 // ============================================

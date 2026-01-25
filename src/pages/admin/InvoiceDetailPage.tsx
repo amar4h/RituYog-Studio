@@ -1,18 +1,26 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { Card, Button, StatusBadge, Alert } from '../../components/common';
+import { Card, Button, StatusBadge, Alert, Modal } from '../../components/common';
 import { invoiceService, memberService, paymentService, subscriptionService, membershipPlanService, settingsService, whatsappService } from '../../services';
 import { formatCurrency } from '../../utils/formatUtils';
 import { formatDate } from '../../utils/dateUtils';
-import { downloadInvoicePDF, getInvoicePDFUrl } from '../../utils/pdfUtils';
+import { downloadInvoicePDF, getInvoicePDFUrl, generateInvoicePDF } from '../../utils/pdfUtils';
 
 export function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [downloading, setDownloading] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loadingPdf, setLoadingPdf] = useState(true);
+
+  // Check if Web Share API with files is supported
+  const canShareFiles = typeof navigator !== 'undefined' &&
+    navigator.share !== undefined &&
+    navigator.canShare !== undefined;
 
   const invoice = id ? invoiceService.getById(id) : null;
   const member = invoice ? memberService.getById(invoice.memberId) : null;
@@ -92,6 +100,70 @@ export function InvoiceDetailPage() {
     }
   };
 
+  const handleSharePDF = async () => {
+    if (!canShareFiles) {
+      setError('Sharing is not supported on this device');
+      return;
+    }
+
+    setSharing(true);
+    setError('');
+    try {
+      const settings = settingsService.getOrDefault();
+      const blob = await generateInvoicePDF({
+        invoice,
+        member,
+        subscription,
+        plan,
+        payments,
+        settings,
+      });
+
+      const file = new File([blob], `${invoice.invoiceNumber}.pdf`, {
+        type: 'application/pdf',
+      });
+
+      // Check if can share this file
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `Invoice ${invoice.invoiceNumber}`,
+          text: member
+            ? `Invoice for ${member.firstName} ${member.lastName} - ${formatCurrency(invoice.totalAmount)}`
+            : `Invoice ${invoice.invoiceNumber}`,
+        });
+      } else {
+        setError('File sharing is not supported on this device');
+      }
+    } catch (err) {
+      // User cancelled share is not an error
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
+      setError(err instanceof Error ? err.message : 'Failed to share PDF');
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const handleDelete = () => {
+    try {
+      // Delete associated payments first
+      payments.forEach(payment => {
+        paymentService.delete(payment.id);
+      });
+
+      // Delete the invoice
+      invoiceService.delete(invoice.id);
+
+      // Navigate back to invoices list
+      navigate('/admin/invoices');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete invoice');
+      setShowDeleteModal(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -151,11 +223,25 @@ export function InvoiceDetailPage() {
               Send Reminder
             </a>
           )}
+          {canShareFiles && (
+            <Button variant="outline" onClick={handleSharePDF} loading={sharing}>
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              Share
+            </Button>
+          )}
           <Button variant="outline" onClick={handleDownloadPDF} loading={downloading}>
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
             Download PDF
+          </Button>
+          <Button variant="danger" onClick={() => setShowDeleteModal(true)}>
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Delete
           </Button>
         </div>
       </div>
@@ -163,6 +249,11 @@ export function InvoiceDetailPage() {
       {error && (
         <Alert variant="error" dismissible onDismiss={() => setError('')}>
           {error}
+        </Alert>
+      )}
+      {success && (
+        <Alert variant="success" dismissible onDismiss={() => setSuccess('')}>
+          {success}
         </Alert>
       )}
 
@@ -319,6 +410,40 @@ export function InvoiceDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete Invoice"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-600">
+            Are you sure you want to delete invoice{' '}
+            <span className="font-semibold text-gray-900">
+              {invoice.invoiceNumber}
+            </span>
+            ?
+          </p>
+          {payments.length > 0 && (
+            <p className="text-amber-600 text-sm">
+              This invoice has {payments.length} payment(s) recorded. They will also be deleted.
+            </p>
+          )}
+          <p className="text-sm text-red-600">
+            This action cannot be undone.
+          </p>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleDelete}>
+              Delete Invoice
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

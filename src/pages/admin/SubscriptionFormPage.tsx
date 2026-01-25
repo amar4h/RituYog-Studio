@@ -75,14 +75,32 @@ export function SubscriptionFormPage() {
   const monthlyPlan = plans.find(p => p.type === 'monthly');
   const initialPlanId = preselectedPlanId || monthlyPlan?.id || '';
 
+  // For renewals, auto-apply discount from previous subscription
+  const getInitialDiscount = () => {
+    if (existingOrExpiredSubscription && existingOrExpiredSubscription.discountAmount > 0) {
+      return {
+        discountType: 'fixed' as 'fixed' | 'percentage',
+        discountValue: existingOrExpiredSubscription.discountAmount,
+        discountReason: existingOrExpiredSubscription.discountReason || '',
+      };
+    }
+    return {
+      discountType: 'percentage' as 'fixed' | 'percentage',
+      discountValue: 0,
+      discountReason: '',
+    };
+  };
+
+  const initialDiscount = getInitialDiscount();
+
   const [formData, setFormData] = useState({
     memberId: preselectedMemberId || '',
     planId: initialPlanId,
     slotId: initialSlotId,
     startDate: getInitialStartDate(),
-    discountType: 'percentage' as 'fixed' | 'percentage',
-    discountValue: 0,
-    discountReason: '',
+    discountType: initialDiscount.discountType,
+    discountValue: initialDiscount.discountValue,
+    discountReason: initialDiscount.discountReason,
     allowSlotChange: false, // For renewals - whether to allow changing slot
   });
 
@@ -431,6 +449,11 @@ export function SubscriptionFormPage() {
               {formData.discountType === 'percentage' && formData.discountValue > 0 && selectedPlan && (
                 <p className="text-xs text-gray-600 mt-2">
                   {formData.discountValue}% = {formatCurrency(discountAmount)} off
+                </p>
+              )}
+              {isRenewal && existingOrExpiredSubscription && existingOrExpiredSubscription.discountAmount > 0 && (
+                <p className="text-xs text-indigo-600 mt-2">
+                  Discount of {formatCurrency(existingOrExpiredSubscription.discountAmount)} auto-applied from previous subscription.
                 </p>
               )}
             </Card>

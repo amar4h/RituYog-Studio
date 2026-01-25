@@ -48,16 +48,25 @@ class PaymentsHandler extends BaseHandler {
      * Generate next receipt number
      */
     public function generateReceiptNumber(): array {
-        // Get settings for prefix
+        // Get settings for prefix and starting number
         $settings = $this->queryOne("SELECT * FROM studio_settings WHERE id = 1");
-        $prefix = $settings['receiptPrefix'] ?? 'RCP';
+        $prefix = $settings['receipt_prefix'] ?? 'RCP';
+        $startNumber = (int) ($settings['receipt_start_number'] ?? 1);
 
-        // Count existing payments
-        $stmt = $this->db->query("SELECT COUNT(*) as count FROM {$this->table}");
-        $count = (int) $stmt->fetch()['count'];
+        // Find the highest receipt number (extract numeric part after prefix)
+        $prefixLen = strlen($prefix) + 2;
+        $stmt = $this->db->prepare(
+            "SELECT MAX(CAST(SUBSTRING(receipt_number, {$prefixLen}) AS UNSIGNED)) as max_num
+             FROM {$this->table}
+             WHERE receipt_number LIKE :pattern"
+        );
+        $stmt->execute(['pattern' => $prefix . '-%']);
+        $result = $stmt->fetch();
+        $maxNum = (int) ($result['max_num'] ?? 0);
 
-        $nextNumber = str_pad($count + 1, 5, '0', STR_PAD_LEFT);
-        return ['receiptNumber' => $prefix . '-' . $nextNumber];
+        // Next number is max of (highest existing, startNumber - 1) + 1
+        $nextNumber = max($maxNum, $startNumber - 1) + 1;
+        return ['receiptNumber' => $prefix . '-' . str_pad($nextNumber, 5, '0', STR_PAD_LEFT)];
     }
 
     /**

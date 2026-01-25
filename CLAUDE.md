@@ -90,6 +90,29 @@ Each slot has:
 - Invoices generated with subscriptions
 - PDF export with Rs symbol support (uses Noto Sans font)
 - Located in `src/pages/admin/InvoiceDetailPage.tsx`
+- **Invoice/Receipt Number Generation**:
+  - Continues from MAX existing number in database
+  - Respects starting number from Settings (invoiceStartNumber, receiptStartNumber)
+  - Format: `PREFIX-00001` (5-digit padded)
+  - Backend: `api/endpoints/invoices.php` → `generateNumber()`
+  - Backend: `api/endpoints/payments.php` → `generateReceiptNumber()`
+
+### Dashboard
+- **Page**: `/admin/dashboard` ([DashboardPage.tsx](src/pages/admin/DashboardPage.tsx))
+- **Compact stat tiles**: Active Members, Pending Leads, Expiring Soon (with icons)
+- **"This Month" tile**: Toggle visibility, shows both Invoices total and Payments received
+- **Monthly Chart**: Dual-bar chart showing Invoices (blue) vs Payments (green) per month
+  - Period options: 3M, 6M, 12M (configurable)
+  - Toggle visibility with eye icon
+- **Display preferences**: Configurable in Settings → Studio → Dashboard Preferences
+  - `dashboardShowRevenue`: Default state for "This Month" tile (default: hidden)
+  - `dashboardShowChart`: Default state for chart (default: shown)
+- **Notification counts**: Synced with Notifications page, filters out renewed members
+
+### Notifications
+- **Page**: `/admin/notifications` ([NotificationsPage.tsx](src/pages/admin/NotificationsPage.tsx))
+- **Renewal filtering**: Members who have renewed are automatically removed from expiring list
+- Uses `subscriptionService.hasPendingRenewal()` to check for future subscriptions
 
 ## Important Files
 
@@ -113,6 +136,10 @@ All TypeScript interfaces defined here including:
 - `SessionSlot`, `Invoice`, `Payment`
 - `AttendanceRecord`, `AttendanceStatus`, `MemberAttendanceSummary`
 - `AttendanceLockRecord` - Per-day lock state for attendance
+- `StudioSettings` - Includes:
+  - `invoicePrefix`, `receiptPrefix`, `invoiceStartNumber`, `receiptStartNumber`
+  - `dashboardShowRevenue`, `dashboardShowChart` (display preferences)
+  - `whatsappTemplates` (WhatsAppTemplates type)
 
 ### Constants (`src/constants/index.ts`)
 - `STORAGE_KEYS` - localStorage key names
@@ -129,7 +156,14 @@ All TypeScript interfaces defined here including:
 - `SubscriptionListPage.tsx` / `SubscriptionFormPage.tsx`
 - `InvoiceListPage.tsx` / `InvoiceDetailPage.tsx`
 - `PaymentListPage.tsx` / `RecordPaymentPage.tsx`
-- `SettingsPage.tsx` - Studio settings
+- `SettingsPage.tsx` - Studio settings (tabbed interface):
+  - **Studio**: Name, address, logo, Dashboard Preferences
+  - **Memberships**: Plan management (create/edit/deactivate)
+  - **Invoices**: Numbering settings, PDF template config
+  - **WhatsApp**: Message templates for notifications
+  - **Holidays**: Studio closure dates
+  - **Legal**: Terms & conditions, health disclaimer
+  - **Security**: Password change, data export/import
 
 ### Components
 - `src/components/common/` - Reusable UI (Card, Button, Modal, Alert, etc.)
@@ -291,6 +325,71 @@ toggleLock: (date, slotId) => {
 }
 ```
 **Remember**: When checking "current state" for toggling, always use `getEffectiveLockState()` (includes defaults), not `isLocked()` (only explicit values).
+
+### Invoice Creation "Database error occurred"
+**Problem**: Creating a subscription shows invoice PDF but fails to save with "Database error occurred".
+**Root Cause**: Race condition - invoice API call arrives before subscription is created in DB, causing FK constraint violation on `subscription_id`.
+**Solution** in `api/endpoints/invoices.php`:
+```php
+// Check if subscription exists before setting FK
+if (!empty($data['subscriptionId'])) {
+    $stmt = $this->db->prepare("SELECT id FROM membership_subscriptions WHERE id = :id");
+    $stmt->execute(['id' => $data['subscriptionId']]);
+    if (!$stmt->fetch()) {
+        // Subscription doesn't exist yet, set to null to avoid FK constraint error
+        $data['subscriptionId'] = null;
+    }
+}
+```
+**Remember**: When creating related entities concurrently, check FK existence and gracefully handle missing references.
+
+### Invoice Numbers Not Sequential (Skipping Numbers)
+**Problem**: Invoice numbers jump (e.g., INV-00028 after INV-01028) or don't use starting number from settings.
+**Root Cause**: Original code used `invoices.length + 1` instead of finding actual MAX number.
+**Solution**: Query for MAX existing number and compare with starting number:
+```php
+// Find highest existing number
+$maxNum = (int) ($result['max_num'] ?? 0);
+// Next = max(highest, startNumber-1) + 1
+$nextNumber = max($maxNum, $startNumber - 1) + 1;
+```
+**Files fixed**:
+- `src/services/storage.ts` → `invoiceService.generateInvoiceNumber()`
+- `api/endpoints/invoices.php` → `generateNumber()`
+- `api/endpoints/payments.php` → `generateReceiptNumber()`
+**Remember**: Number generation must find actual MAX, not count records.
+
+## Deployment Environments
+
+### Three-Tier Setup
+
+| Environment | Storage | Database | Git Branch | Build Command |
+|-------------|---------|----------|------------|---------------|
+| **Development** | localStorage | None | `rfs` | `npm run dev` |
+| **RFS/Test** | MySQL API | `yoga_test` on Hostinger | `rfs` | `npm run build:rfs` |
+| **Production** | MySQL API | `yoga` on Hostinger | `main` | `npm run build` |
+
+### Environment Files
+
+| File | Purpose | Used By |
+|------|---------|---------|
+| `.env` | Default (no API mode) | `npm run dev` |
+| `.env.rfs` | RFS site URL + API key | `npm run build:rfs` |
+| `.env.production` | Production site URL + API key | `npm run build` |
+| `api/.env` | DB credentials (on each Hostinger site) | PHP API |
+
+### Workflow
+
+1. **Develop**: Work on `rfs` branch, run `npm run dev` (localStorage)
+2. **Test on RFS**: Run `npm run build:rfs`, deploy to RFS Hostinger site
+3. **Production**: Merge `rfs` → `main`, run `npm run build`, deploy to production site
+
+### Key Rules
+
+- **Never deploy directly to production** - always test on RFS first
+- **RFS and Production are separate Hostinger websites** with separate databases
+- **Local development uses localStorage** - no database connection needed
+- **Each environment has its own API key** - don't mix them
 
 ## Related Repositories
 - **Monorepo**: `c:\Working\YogaStudio\` - Contains this app at `apps/admin/` plus static website at `apps/website/`

@@ -8,6 +8,7 @@ import {
   leadService,
   subscriptionService,
   paymentService,
+  invoiceService,
   slotService,
   settingsService,
 } from '../../services';
@@ -15,6 +16,12 @@ import { getToday, getCurrentMonthRange } from '../../utils/dateUtils';
 
 export function DashboardPage() {
   const [showAllExpiring, setShowAllExpiring] = useState(false);
+  const [chartMonths, setChartMonths] = useState<3 | 6 | 12>(6);
+
+  // Get settings for default toggle states
+  const settings = settingsService.getOrDefault();
+  const [showRevenue, setShowRevenue] = useState(settings.dashboardShowRevenue ?? false);
+  const [showMonthlyChart, setShowMonthlyChart] = useState(settings.dashboardShowChart ?? true);
 
   // Get data for stats
   const members = memberService.getAll();
@@ -35,15 +42,62 @@ export function DashboardPage() {
     })
     .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
 
-  // Calculate revenue
+  // Calculate current month revenue and invoices
   const { start, end } = getCurrentMonthRange();
   const monthlyRevenue = paymentService.getRevenue(start, end);
+
+  // Calculate current month invoices total
+  const allInvoicesForMonth = invoiceService.getAll().filter(inv =>
+    inv.invoiceDate >= start && inv.invoiceDate <= end
+  );
+  const monthlyInvoices = allInvoicesForMonth.reduce((sum, inv) => sum + Number(inv.totalAmount || 0), 0);
+
+  // Calculate monthly invoices and payments for chart (configurable period)
+  const getMonthlyChartData = (months: number) => {
+    const data: { month: string; shortMonth: string; invoices: number; payments: number }[] = [];
+    const now = new Date();
+    const allPayments = paymentService.getAll();
+    const allInvoices = invoiceService.getAll();
+
+    for (let i = months - 1; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthStart = date.toISOString().split('T')[0];
+      const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split('T')[0];
+
+      // Calculate invoice amounts for this month
+      const monthInvoices = allInvoices.filter(inv =>
+        inv.invoiceDate >= monthStart &&
+        inv.invoiceDate <= monthEnd
+      );
+      const invoiceTotal = monthInvoices.reduce((sum, inv) => sum + Number(inv.totalAmount || 0), 0);
+
+      // Calculate payment amounts for this month
+      const monthPayments = allPayments.filter(p =>
+        p.paymentDate >= monthStart &&
+        p.paymentDate <= monthEnd &&
+        p.status === 'completed'
+      );
+      const paymentTotal = monthPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+      data.push({
+        month: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+        shortMonth: date.toLocaleDateString('en-US', { month: 'short' }),
+        invoices: invoiceTotal,
+        payments: paymentTotal,
+      });
+    }
+    return data;
+  };
+  const monthlyChartData = getMonthlyChartData(chartMonths);
+  const maxChartValue = Math.max(
+    ...monthlyChartData.map(d => Math.max(d.invoices, d.payments)),
+    1
+  );
 
   // Calculate slot utilization
   const today = getToday();
 
   // Calculate pending notifications
-  const settings = settingsService.getOrDefault();
   const renewalReminderDays = settings.renewalReminderDays || 7;
 
   // Members needing renewal reminders (expiring within reminder window, not yet renewed)
@@ -126,50 +180,175 @@ export function DashboardPage() {
         <p className="text-gray-600">Welcome back! Here's an overview of your studio.</p>
       </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
+      {/* Stats grid - compact layout */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        {/* Small stat tiles with icons */}
+        <SmallStatCard
           title="Active Members"
           value={activeMembers.length}
+          color="blue"
           icon={
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           }
-          color="blue"
         />
-        <StatCard
+        <SmallStatCard
           title="Pending Leads"
           value={leads.length}
+          color="purple"
           icon={
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
             </svg>
           }
-          color="purple"
         />
-        <StatCard
+        <SmallStatCard
           title="Expiring Soon"
           value={expiringSubscriptions.length}
-          subtitle="Next 7 days"
+          color="yellow"
           icon={
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           }
-          color="yellow"
         />
-        <StatCard
-          title="This Month"
-          value={formatCurrency(monthlyRevenue)}
-          subtitle="Revenue"
-          icon={
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          }
-          color="green"
-        />
+
+        {/* This Month card with toggle visibility - shows both Invoices and Payments */}
+        <div
+          onClick={() => setShowRevenue(!showRevenue)}
+          className="col-span-2 md:col-span-1 bg-white rounded-lg border border-gray-200 p-3 cursor-pointer hover:shadow-md transition-shadow"
+        >
+          <div className="flex items-start gap-2">
+            <div className="p-1.5 bg-green-100 rounded-lg mt-0.5">
+              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-gray-500">This Month</p>
+              {showRevenue ? (
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-0.5">
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 bg-blue-500 rounded-sm flex-shrink-0"></span>
+                    <span className="text-xs text-gray-500">Invoices:</span>
+                    <span className="text-sm font-bold text-blue-700">{formatCurrency(monthlyInvoices)}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 bg-green-500 rounded-sm flex-shrink-0"></span>
+                    <span className="text-xs text-gray-500">Received:</span>
+                    <span className="text-sm font-bold text-green-700">{formatCurrency(monthlyRevenue)}</span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-lg font-bold text-gray-400">••••••</p>
+              )}
+            </div>
+            <div className="text-gray-400 flex-shrink-0 mt-0.5">
+              {showRevenue ? (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                </svg>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Monthly Chart card with toggle visibility */}
+        <div className="col-span-2 bg-white rounded-lg border border-gray-200 p-3">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-indigo-100 rounded-lg">
+                <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Invoices & Payments</p>
+                {/* Legend */}
+                <div className="flex items-center gap-2 text-[9px]">
+                  <span className="flex items-center gap-0.5"><span className="w-2 h-2 bg-blue-500 rounded-sm"></span> Invoices</span>
+                  <span className="flex items-center gap-0.5"><span className="w-2 h-2 bg-green-500 rounded-sm"></span> Payments</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              {/* Period selector */}
+              <div className="flex text-[10px] bg-gray-100 rounded overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                {[3, 6, 12].map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setChartMonths(m as 3 | 6 | 12)}
+                    className={`px-2 py-0.5 ${chartMonths === m ? 'bg-indigo-500 text-white' : 'text-gray-600 hover:bg-gray-200'}`}
+                  >
+                    {m}M
+                  </button>
+                ))}
+              </div>
+              {/* Toggle visibility */}
+              <button
+                onClick={() => setShowMonthlyChart(!showMonthlyChart)}
+                className="p-1 text-gray-400 hover:text-gray-600"
+              >
+                {showMonthlyChart ? (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
+          {showMonthlyChart ? (
+            <div className="flex items-end gap-1 h-20 mt-1">
+              {monthlyChartData.map((data, index) => {
+                const maxBarHeight = 56; // pixels (h-14)
+                const invoiceHeight = maxChartValue > 0 ? Math.max((data.invoices / maxChartValue) * maxBarHeight, 2) : 2;
+                const paymentHeight = maxChartValue > 0 ? Math.max((data.payments / maxChartValue) * maxBarHeight, 2) : 2;
+                return (
+                  <div key={index} className="flex flex-col items-center flex-1 min-w-0">
+                    <div className="flex items-end gap-[2px] w-full" style={{ height: maxBarHeight }}>
+                      {/* Invoice bar (blue) */}
+                      <div
+                        className="flex-1 bg-blue-500 rounded-t transition-all"
+                        style={{ height: `${invoiceHeight}px` }}
+                        title={`Invoices: ${formatCurrency(data.invoices)}`}
+                      />
+                      {/* Payment bar (green) */}
+                      <div
+                        className="flex-1 bg-green-500 rounded-t transition-all"
+                        style={{ height: `${paymentHeight}px` }}
+                        title={`Payments: ${formatCurrency(data.payments)}`}
+                      />
+                    </div>
+                    <span className="text-[9px] text-gray-500 mt-1 truncate w-full text-center">{data.shortMonth}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex items-end gap-1 h-16">
+              {monthlyChartData.map((data, index) => (
+                <div key={index} className="flex flex-col items-center flex-1 min-w-0">
+                  <div className="flex items-end gap-[1px] w-full h-12">
+                    <div className="flex-1 bg-gray-200 rounded-t" style={{ height: '40%' }} />
+                    <div className="flex-1 bg-gray-200 rounded-t" style={{ height: '40%' }} />
+                  </div>
+                  <span className="text-[8px] text-gray-400 mt-0.5 truncate w-full text-center">{data.shortMonth}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Pending Notifications Alert */}
@@ -400,5 +579,46 @@ function QuickAction({ label, href, icon }: QuickActionProps) {
       </div>
       <span className="text-sm font-medium text-center">{label}</span>
     </a>
+  );
+}
+
+interface SmallStatCardProps {
+  title: string;
+  value: string | number;
+  color: 'blue' | 'green' | 'yellow' | 'purple' | 'red';
+  icon?: React.ReactNode;
+}
+
+function SmallStatCard({ title, value, color, icon }: SmallStatCardProps) {
+  const iconBgStyles = {
+    blue: 'bg-blue-100 text-blue-600',
+    green: 'bg-green-100 text-green-600',
+    yellow: 'bg-yellow-100 text-yellow-600',
+    purple: 'bg-purple-100 text-purple-600',
+    red: 'bg-red-100 text-red-600',
+  };
+
+  const textStyles = {
+    blue: 'text-blue-700',
+    green: 'text-green-700',
+    yellow: 'text-yellow-700',
+    purple: 'text-purple-700',
+    red: 'text-red-700',
+  };
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-3">
+      <div className="flex items-center gap-2">
+        {icon && (
+          <div className={`p-1.5 rounded-lg ${iconBgStyles[color]}`}>
+            {icon}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-gray-500 truncate">{title}</p>
+          <p className={`text-lg font-bold ${textStyles[color]}`}>{value}</p>
+        </div>
+      </div>
+    </div>
   );
 }

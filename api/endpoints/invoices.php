@@ -12,6 +12,7 @@ class InvoicesHandler extends BaseHandler {
 
     /**
      * Override create to ensure items is properly formatted
+     * Also handles race condition where subscription might not exist yet
      */
     public function create(): array {
         $data = getRequestBody();
@@ -33,6 +34,18 @@ class InvoicesHandler extends BaseHandler {
             ];
         }
         $data['items'] = $cleanItems;
+
+        // Handle race condition: subscription might not exist yet in DB
+        // If subscriptionId is provided, check if it exists
+        // If not, set to null (foreign key allows null) - will be synced later
+        if (!empty($data['subscriptionId'])) {
+            $stmt = $this->db->prepare("SELECT id FROM membership_subscriptions WHERE id = :id");
+            $stmt->execute(['id' => $data['subscriptionId']]);
+            if (!$stmt->fetch()) {
+                // Subscription doesn't exist yet, set to null to avoid FK constraint error
+                $data['subscriptionId'] = null;
+            }
+        }
 
         // Use parent's create logic but with cleaned data
         $transformed = $this->transformToDb($data);
@@ -126,9 +139,10 @@ class InvoicesHandler extends BaseHandler {
      * Generate next invoice number
      */
     public function generateNumber(): array {
-        // Get settings for prefix
+        // Get settings for prefix and starting number
         $settings = $this->queryOne("SELECT * FROM studio_settings WHERE id = 1");
-        $prefix = $settings['invoicePrefix'] ?? 'INV';
+        $prefix = $settings['invoice_prefix'] ?? 'INV';
+        $startNumber = (int) ($settings['invoice_start_number'] ?? 1);
 
         // Find the highest invoice number (extract numeric part after prefix)
         // SUBSTRING starts at position after "INV-" (prefix length + 2 for the dash)
@@ -142,8 +156,9 @@ class InvoicesHandler extends BaseHandler {
         $result = $stmt->fetch();
         $maxNum = (int) ($result['max_num'] ?? 0);
 
-        $nextNumber = str_pad($maxNum + 1, 5, '0', STR_PAD_LEFT);
-        return ['invoiceNumber' => $prefix . '-' . $nextNumber];
+        // Next number is max of (highest existing, startNumber - 1) + 1
+        $nextNumber = max($maxNum, $startNumber - 1) + 1;
+        return ['invoiceNumber' => $prefix . '-' . str_pad($nextNumber, 5, '0', STR_PAD_LEFT)];
     }
 
     /**

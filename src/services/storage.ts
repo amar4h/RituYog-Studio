@@ -1647,7 +1647,22 @@ export const invoiceService = {
     const settings = settingsService.get();
     const invoices = getAll<Invoice>(STORAGE_KEYS.INVOICES);
     const prefix = settings?.invoicePrefix || 'INV';
-    const nextNumber = invoices.length + 1;
+    const startNumber = settings?.invoiceStartNumber || 1;
+
+    // Find the highest existing invoice number
+    let maxNumber = 0;
+    const prefixWithDash = prefix + '-';
+    invoices.forEach(inv => {
+      if (inv.invoiceNumber && inv.invoiceNumber.startsWith(prefixWithDash)) {
+        const numPart = parseInt(inv.invoiceNumber.substring(prefixWithDash.length), 10);
+        if (!isNaN(numPart) && numPart > maxNumber) {
+          maxNumber = numPart;
+        }
+      }
+    });
+
+    // Next number is max of (highest existing, startNumber - 1) + 1
+    const nextNumber = Math.max(maxNumber, startNumber - 1) + 1;
     return `${prefix}-${String(nextNumber).padStart(5, '0')}`;
   },
 
@@ -1769,7 +1784,22 @@ export const paymentService = {
     const settings = settingsService.get();
     const payments = getAll<Payment>(STORAGE_KEYS.PAYMENTS);
     const prefix = settings?.receiptPrefix || 'RCP';
-    const nextNumber = payments.length + 1;
+    const startNumber = settings?.receiptStartNumber || 1;
+
+    // Find the highest existing receipt number
+    let maxNumber = 0;
+    const prefixWithDash = prefix + '-';
+    payments.forEach(pmt => {
+      if (pmt.receiptNumber && pmt.receiptNumber.startsWith(prefixWithDash)) {
+        const numPart = parseInt(pmt.receiptNumber.substring(prefixWithDash.length), 10);
+        if (!isNaN(numPart) && numPart > maxNumber) {
+          maxNumber = numPart;
+        }
+      }
+    });
+
+    // Next number is max of (highest existing, startNumber - 1) + 1
+    const nextNumber = Math.max(maxNumber, startNumber - 1) + 1;
     return `${prefix}-${String(nextNumber).padStart(5, '0')}`;
   },
 
@@ -1828,7 +1858,7 @@ export const paymentService = {
         p.paymentDate >= startDate &&
         p.paymentDate <= endDate
       )
-      .reduce((sum, p) => sum + p.amount, 0);
+      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
   },
 
   // ============================================
@@ -1902,7 +1932,7 @@ export const paymentService = {
     getRevenue: async (startDate: string, endDate: string): Promise<number> => {
       if (isApiMode()) {
         const result = await paymentsApi.getRevenue(startDate, endDate);
-        return result.revenue;
+        return Number(result.revenue || 0);
       }
       return paymentService.getRevenue(startDate, endDate);
     },
