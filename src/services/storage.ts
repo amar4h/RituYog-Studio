@@ -943,7 +943,9 @@ export const subscriptionService = {
     startDate: string,
     discountAmount: number = 0,
     discountReason?: string,
-    notes?: string
+    notes?: string,
+    discountType?: 'fixed' | 'percentage',
+    discountPercentage?: number
   ): { subscription: MembershipSubscription; invoice: Invoice; warning?: string } => {
     const plan = membershipPlanService.getById(planId);
     if (!plan) throw new Error('Plan not found');
@@ -1023,6 +1025,8 @@ export const subscriptionService = {
       endDate,
       originalAmount,
       discountAmount,
+      discountType,
+      discountPercentage,
       discountReason,
       payableAmount,
       status: 'active',

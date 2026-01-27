@@ -176,6 +176,8 @@ export interface MembershipSubscription extends BaseEntity {
   // Pricing
   originalAmount: number;
   discountAmount: number;
+  discountType?: 'fixed' | 'percentage';
+  discountPercentage?: number;
   discountReason?: string;
   payableAmount: number;
 

@@ -78,10 +78,22 @@ export function SubscriptionFormPage() {
   // For renewals, auto-apply discount from previous subscription
   const getInitialDiscount = () => {
     if (existingOrExpiredSubscription && existingOrExpiredSubscription.discountAmount > 0) {
+      const prevSub = existingOrExpiredSubscription;
+
+      // Use stored discount type if available (percentage preserves the %)
+      if (prevSub.discountType === 'percentage' && prevSub.discountPercentage) {
+        return {
+          discountType: 'percentage' as const,
+          discountValue: prevSub.discountPercentage,
+          discountReason: prevSub.discountReason || '',
+        };
+      }
+
+      // Default to fixed amount (backward compatibility)
       return {
-        discountType: 'fixed' as 'fixed' | 'percentage',
-        discountValue: existingOrExpiredSubscription.discountAmount,
-        discountReason: existingOrExpiredSubscription.discountReason || '',
+        discountType: 'fixed' as const,
+        discountValue: prevSub.discountAmount,
+        discountReason: prevSub.discountReason || '',
       };
     }
     return {
@@ -180,7 +192,10 @@ export function SubscriptionFormPage() {
         formData.slotId,
         formData.startDate,
         discountAmount > 0 ? discountAmount : 0,
-        formData.discountReason.trim() || undefined
+        formData.discountReason.trim() || undefined,
+        undefined, // notes
+        formData.discountType,
+        formData.discountType === 'percentage' ? formData.discountValue : undefined
       );
 
       // If there's a warning (e.g., using exception capacity), show it before navigating

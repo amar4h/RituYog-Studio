@@ -1,7 +1,8 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { Card, Button, StatusBadge, Alert, Modal } from '../../components/common';
+import { Card, Button, StatusBadge, Alert, Modal, PageLoading } from '../../components/common';
 import { invoiceService, memberService, paymentService, subscriptionService, membershipPlanService, settingsService, whatsappService } from '../../services';
+import { useFreshData } from '../../hooks';
 import { formatCurrency } from '../../utils/formatUtils';
 import { formatDate } from '../../utils/dateUtils';
 import { downloadInvoicePDF, getInvoicePDFUrl, generateInvoicePDF } from '../../utils/pdfUtils';
@@ -9,6 +10,7 @@ import { downloadInvoicePDF, getInvoicePDFUrl, generateInvoicePDF } from '../../
 export function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { isLoading } = useFreshData(['invoices', 'members', 'subscriptions', 'payments']);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [downloading, setDownloading] = useState(false);
@@ -22,7 +24,7 @@ export function InvoiceDetailPage() {
     navigator.share !== undefined &&
     navigator.canShare !== undefined;
 
-  const invoice = id ? invoiceService.getById(id) : null;
+  const invoice = !isLoading && id ? invoiceService.getById(id) : null;
   const member = invoice ? memberService.getById(invoice.memberId) : null;
   const payments = invoice ? paymentService.getByInvoice(invoice.id) : [];
   const subscription = invoice?.subscriptionId
@@ -67,6 +69,10 @@ export function InvoiceDetailPage() {
       }
     };
   }, [invoice?.id]); // Re-generate when invoice changes
+
+  if (isLoading) {
+    return <PageLoading />;
+  }
 
   if (!invoice) {
     return (

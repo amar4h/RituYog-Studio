@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { memberService, leadService, subscriptionService, settingsService } from '../../services';
 
 interface HeaderProps {
   sidebarCollapsed?: boolean;
@@ -9,6 +11,40 @@ interface HeaderProps {
 export function Header({ sidebarCollapsed = false, onMobileMenuToggle }: HeaderProps) {
   const navigate = useNavigate();
   const { logout } = useAuth();
+
+  // Calculate notification count (expiring memberships + pending leads)
+  const notificationCount = useMemo(() => {
+    const settings = settingsService.getOrDefault();
+    const expiryDays = settings.renewalReminderDays || 7;
+    const today = new Date();
+    const alertDate = new Date(today);
+    alertDate.setDate(alertDate.getDate() + expiryDays);
+    const todayStr = today.toISOString().split('T')[0];
+    const alertDateStr = alertDate.toISOString().split('T')[0];
+
+    // Count expiring memberships (not already renewed)
+    const members = memberService.getAll().filter(m => m.status === 'active');
+    let expiringCount = 0;
+    members.forEach(member => {
+      const subscription = subscriptionService.getActiveMemberSubscription(member.id);
+      if (subscription && subscription.endDate >= todayStr && subscription.endDate <= alertDateStr) {
+        // Check if already renewed
+        if (!subscriptionService.hasPendingRenewal(member.id)) {
+          expiringCount++;
+        }
+      }
+    });
+
+    // Count pending leads (older than 2 days)
+    const twoBusinessDaysAgo = new Date();
+    twoBusinessDaysAgo.setDate(twoBusinessDaysAgo.getDate() - 2);
+    const pendingLeadsCount = leadService.getUnconverted().filter(lead => {
+      const createdAt = new Date(lead.createdAt);
+      return createdAt < twoBusinessDaysAgo;
+    }).length;
+
+    return expiringCount + pendingLeadsCount;
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -45,6 +81,12 @@ export function Header({ sidebarCollapsed = false, onMobileMenuToggle }: HeaderP
           </svg>
           <span className="hidden sm:inline">Studio App Home</span>
         </Link>
+        {/* Environment indicator (RFS/Test) */}
+        {import.meta.env.VITE_ENV_LABEL && (
+          <span className="px-2 py-0.5 bg-orange-500 text-white text-xs font-bold rounded">
+            {import.meta.env.VITE_ENV_LABEL}
+          </span>
+        )}
       </div>
 
       {/* Right side actions */}
@@ -61,13 +103,20 @@ export function Header({ sidebarCollapsed = false, onMobileMenuToggle }: HeaderP
         </button>
 
         {/* Notifications */}
-        <button className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
+        <Link
+          to="/admin/notifications"
+          className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+        >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
           </svg>
           {/* Notification badge */}
-          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-        </button>
+          {notificationCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+              {notificationCount > 9 ? '9+' : notificationCount}
+            </span>
+          )}
+        </Link>
 
         {/* User menu */}
         <div className="relative">
