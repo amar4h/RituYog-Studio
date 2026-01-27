@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Modal, Alert } from '../../components/common';
-import { paymentService, memberService, invoiceService, subscriptionService, membershipPlanService, whatsappService } from '../../services';
+import { paymentService, memberService, invoiceService, subscriptionService, membershipPlanService, whatsappService, isApiMode } from '../../services';
 import { formatCurrency } from '../../utils/formatUtils';
 import { formatDate, getCurrentMonthRange, getToday } from '../../utils/dateUtils';
 import type { Payment } from '../../types';
@@ -27,7 +27,17 @@ export function PaymentListPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const allPayments = paymentService.getAll();
+  // Store data in state for proper reactivity
+  const [allPayments, setAllPayments] = useState<Payment[]>(() => paymentService.getAll());
+
+  // Refresh data from API when component mounts (for API mode)
+  useEffect(() => {
+    if (isApiMode()) {
+      paymentService.async.getAll().then(payments => {
+        setAllPayments(payments);
+      }).catch(console.error);
+    }
+  }, []);
 
   // Filter payments
   const payments = allPayments.filter(payment => {
@@ -175,14 +185,14 @@ export function PaymentListPage() {
   const thisMonthPayments = allPayments.filter(p =>
     p.paymentDate >= start && p.paymentDate <= end && p.status === 'completed'
   );
-  const totalThisMonth = thisMonthPayments.reduce((sum, p) => sum + p.amount, 0);
+  const totalThisMonth = thisMonthPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const totalAllTime = allPayments
     .filter(p => p.status === 'completed')
-    .reduce((sum, p) => sum + p.amount, 0);
+    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
   // Payment method breakdown
   const methodBreakdown = thisMonthPayments.reduce((acc, p) => {
-    acc[p.paymentMethod] = (acc[p.paymentMethod] || 0) + p.amount;
+    acc[p.paymentMethod] = (acc[p.paymentMethod] || 0) + Number(p.amount || 0);
     return acc;
   }, {} as Record<string, number>);
 

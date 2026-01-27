@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Modal, Alert, SlotSelector } from '../../components/common';
-import { memberService, slotService, subscriptionService } from '../../services';
+import { memberService, slotService, subscriptionService, isApiMode } from '../../services';
 import { formatPhone } from '../../utils/formatUtils';
 import { formatDate, formatDateCompact, getToday, getDaysRemaining } from '../../utils/dateUtils';
 import type { Member, MembershipSubscription } from '../../types';
@@ -112,8 +112,18 @@ export function MemberListPage() {
   const [individualTransferReason, setIndividualTransferReason] = useState('');
   const [individualTransferError, setIndividualTransferError] = useState('');
 
-  const allMembers = memberService.getAll();
+  // Store data in state for proper reactivity
+  const [allMembers, setAllMembers] = useState<Member[]>(() => memberService.getAll());
   const slots = slotService.getActive();
+
+  // Refresh data from API when component mounts (for API mode)
+  useEffect(() => {
+    if (isApiMode()) {
+      memberService.async.getAll().then(members => {
+        setAllMembers(members);
+      }).catch(console.error);
+    }
+  }, []);
 
   // Filter members
   const members = allMembers.filter(member => {

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Alert, WhatsAppTemplateModal } from '../../components/common';
-import { leadService, slotService, whatsappService } from '../../services';
+import { leadService, slotService, whatsappService, isApiMode } from '../../services';
 import { formatPhone } from '../../utils/formatUtils';
 import { formatDate } from '../../utils/dateUtils';
 import type { Lead } from '../../types';
@@ -16,10 +16,18 @@ export function LeadListPage() {
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
-  // Use getUnconverted() to exclude converted leads from the list
-  // This ensures leads that have been converted to members don't appear
-  const allLeads = leadService.getUnconverted();
+  // Store leads in state for proper reactivity
+  const [allLeads, setAllLeads] = useState<Lead[]>(() => leadService.getUnconverted());
   const slots = slotService.getActive();
+
+  // Refresh data from API when component mounts (for API mode)
+  useEffect(() => {
+    if (isApiMode()) {
+      leadService.async.getUnconverted().then(leads => {
+        setAllLeads(leads);
+      }).catch(console.error);
+    }
+  }, []);
 
   // Filter leads (converted leads already excluded by getUnconverted)
   const leads = allLeads.filter(lead => {

@@ -17,6 +17,7 @@ import { getToday, getCurrentMonthRange } from '../../utils/dateUtils';
 export function DashboardPage() {
   const [showAllExpiring, setShowAllExpiring] = useState(false);
   const [chartMonths, setChartMonths] = useState<3 | 6 | 12>(6);
+  const [selectedChartMonth, setSelectedChartMonth] = useState<number | null>(null);
 
   // Get settings for default toggle states
   const settings = settingsService.getOrDefault();
@@ -217,7 +218,7 @@ export function DashboardPage() {
         {/* This Month card with toggle visibility - shows both Invoices and Payments */}
         <div
           onClick={() => setShowRevenue(!showRevenue)}
-          className="col-span-2 md:col-span-1 bg-white rounded-lg border border-gray-200 p-3 cursor-pointer hover:shadow-md transition-shadow"
+          className="bg-white rounded-lg border border-gray-200 p-3 cursor-pointer hover:shadow-md transition-shadow"
         >
           <div className="flex items-start gap-2">
             <div className="p-1.5 bg-green-100 rounded-lg mt-0.5">
@@ -309,32 +310,53 @@ export function DashboardPage() {
             </div>
           </div>
           {showMonthlyChart ? (
-            <div className="flex items-end gap-1 h-20 mt-1">
-              {monthlyChartData.map((data, index) => {
-                const maxBarHeight = 56; // pixels (h-14)
-                const invoiceHeight = maxChartValue > 0 ? Math.max((data.invoices / maxChartValue) * maxBarHeight, 2) : 2;
-                const paymentHeight = maxChartValue > 0 ? Math.max((data.payments / maxChartValue) * maxBarHeight, 2) : 2;
-                return (
-                  <div key={index} className="flex flex-col items-center flex-1 min-w-0">
-                    <div className="flex items-end gap-[2px] w-full" style={{ height: maxBarHeight }}>
-                      {/* Invoice bar (blue) */}
-                      <div
-                        className="flex-1 bg-blue-500 rounded-t transition-all"
-                        style={{ height: `${invoiceHeight}px` }}
-                        title={`Invoices: ${formatCurrency(data.invoices)}`}
-                      />
-                      {/* Payment bar (green) */}
-                      <div
-                        className="flex-1 bg-green-500 rounded-t transition-all"
-                        style={{ height: `${paymentHeight}px` }}
-                        title={`Payments: ${formatCurrency(data.payments)}`}
-                      />
+            <>
+              <div className="flex items-end gap-1 h-20 mt-1">
+                {monthlyChartData.map((data, index) => {
+                  const maxBarHeight = 56; // pixels (h-14)
+                  const invoiceHeight = maxChartValue > 0 ? Math.max((data.invoices / maxChartValue) * maxBarHeight, 2) : 2;
+                  const paymentHeight = maxChartValue > 0 ? Math.max((data.payments / maxChartValue) * maxBarHeight, 2) : 2;
+                  const isSelected = selectedChartMonth === index;
+                  return (
+                    <div
+                      key={index}
+                      className={`flex flex-col items-center flex-1 min-w-0 cursor-pointer rounded transition-colors ${isSelected ? 'bg-gray-100' : ''}`}
+                      onClick={() => setSelectedChartMonth(isSelected ? null : index)}
+                    >
+                      <div className="flex items-end gap-[2px] w-full" style={{ height: maxBarHeight }}>
+                        {/* Invoice bar (blue) */}
+                        <div
+                          className={`flex-1 rounded-t transition-all ${isSelected ? 'bg-blue-600' : 'bg-blue-500'}`}
+                          style={{ height: `${invoiceHeight}px` }}
+                          title={`Invoices: ${formatCurrency(data.invoices)}`}
+                        />
+                        {/* Payment bar (green) */}
+                        <div
+                          className={`flex-1 rounded-t transition-all ${isSelected ? 'bg-green-600' : 'bg-green-500'}`}
+                          style={{ height: `${paymentHeight}px` }}
+                          title={`Payments: ${formatCurrency(data.payments)}`}
+                        />
+                      </div>
+                      <span className={`text-[9px] mt-1 truncate w-full text-center ${isSelected ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>{data.shortMonth}</span>
                     </div>
-                    <span className="text-[9px] text-gray-500 mt-1 truncate w-full text-center">{data.shortMonth}</span>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+              {/* Selected month details - shown on tap for mobile */}
+              {selectedChartMonth !== null && (
+                <div className="flex justify-center gap-4 mt-2 pt-2 border-t border-gray-100 text-xs">
+                  <span className="text-gray-600">
+                    <span className="font-medium">{monthlyChartData[selectedChartMonth].month}:</span>
+                  </span>
+                  <span className="text-blue-700">
+                    Inv: {formatCurrency(monthlyChartData[selectedChartMonth].invoices)}
+                  </span>
+                  <span className="text-green-700">
+                    Rcvd: {formatCurrency(monthlyChartData[selectedChartMonth].payments)}
+                  </span>
+                </div>
+              )}
+            </>
           ) : (
             <div className="flex items-end gap-1 h-16">
               {monthlyChartData.map((data, index) => (

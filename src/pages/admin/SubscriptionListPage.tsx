@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Modal, ConfirmDialog, Alert } from '../../components/common';
-import { subscriptionService, memberService, membershipPlanService, invoiceService, slotService } from '../../services';
+import { subscriptionService, memberService, membershipPlanService, invoiceService, slotService, isApiMode } from '../../services';
 import { formatCurrency } from '../../utils/formatUtils';
-import { formatDate, getDaysRemaining } from '../../utils/dateUtils';
+import { formatDate, getDaysRemaining, calculateSubscriptionEndDate } from '../../utils/dateUtils';
 import type { MembershipSubscription } from '../../types';
 import type { Column } from '../../components/common';
 
@@ -15,9 +15,13 @@ export function SubscriptionListPage() {
   // Edit modal state
   const [editingSubscription, setEditingSubscription] = useState<MembershipSubscription | null>(null);
   const [editStartDate, setEditStartDate] = useState('');
-  const [editEndDate, setEditEndDate] = useState('');
+  const [editPlanId, setEditPlanId] = useState('');
+  const [editDiscountType, setEditDiscountType] = useState<'fixed' | 'percentage'>('fixed');
+  const [editDiscountValue, setEditDiscountValue] = useState(0);
+  const [editDiscountReason, setEditDiscountReason] = useState('');
   const [editError, setEditError] = useState('');
   const [editSuccess, setEditSuccess] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
 
   // Delete confirmation state
   const [deletingSubscription, setDeletingSubscription] = useState<MembershipSubscription | null>(null);
@@ -28,8 +32,18 @@ export function SubscriptionListPage() {
   // Force re-render after updates
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const allSubscriptions = subscriptionService.getAll();
-  const plans = membershipPlanService.getAll();
+  // Store data in state for proper reactivity
+  const [allSubscriptions, setAllSubscriptions] = useState<MembershipSubscription[]>(() => subscriptionService.getAll());
+  const plans = membershipPlanService.getAll(); // Plans are loaded on app startup, no need for async
+
+  // Refresh data from API when component mounts (for API mode)
+  useEffect(() => {
+    if (isApiMode()) {
+      subscriptionService.async.getAll().then(subs => {
+        setAllSubscriptions(subs);
+      }).catch(console.error);
+    }
+  }, [refreshKey]);
 
   // Filter subscriptions
   const subscriptions = allSubscriptions.filter(sub => {
@@ -145,7 +159,11 @@ export function SubscriptionListPage() {
             onClick={() => {
               setEditingSubscription(sub);
               setEditStartDate(sub.startDate);
-              setEditEndDate(sub.endDate);
+              setEditPlanId(sub.planId);
+              // Determine if discount was percentage or fixed based on stored values
+              setEditDiscountType('fixed');
+              setEditDiscountValue(sub.discountAmount);
+              setEditDiscountReason(sub.discountReason || '');
               setEditError('');
             }}
           >
@@ -164,31 +182,87 @@ export function SubscriptionListPage() {
     },
   ];
 
-  // Handle edit subscription dates
-  const handleEditSave = () => {
+  // Calculate end date and amounts for edit form
+  const editSelectedPlan = plans.find(p => p.id === editPlanId);
+  const editEndDate = useMemo(() => {
+    if (editStartDate && editSelectedPlan) {
+      return calculateSubscriptionEndDate(editStartDate, editSelectedPlan.durationMonths);
+    }
+    return editingSubscription?.endDate || '';
+  }, [editStartDate, editSelectedPlan, editingSubscription]);
+
+  const editOriginalAmount = editSelectedPlan?.price || 0;
+  const editDiscountAmount = editDiscountType === 'percentage'
+    ? Math.round((editOriginalAmount * editDiscountValue) / 100)
+    : editDiscountValue;
+  const editPayableAmount = Math.max(0, editOriginalAmount - editDiscountAmount);
+
+  // Handle edit subscription
+  const handleEditSave = async () => {
     if (!editingSubscription) return;
 
-    if (!editStartDate || !editEndDate) {
-      setEditError('Both start and end dates are required');
+    if (!editStartDate) {
+      setEditError('Start date is required');
       return;
     }
 
-    if (editStartDate > editEndDate) {
-      setEditError('Start date cannot be after end date');
+    if (!editPlanId) {
+      setEditError('Please select a plan');
       return;
     }
+
+    if (editDiscountAmount > editOriginalAmount) {
+      setEditError('Discount cannot exceed the plan price');
+      return;
+    }
+
+    setEditSaving(true);
+    setEditError('');
 
     try {
-      subscriptionService.update(editingSubscription.id, {
+      const slot = slotService.getById(editingSubscription.slotId);
+
+      // Update subscription
+      await subscriptionService.async.update(editingSubscription.id, {
         startDate: editStartDate,
         endDate: editEndDate,
+        planId: editPlanId,
+        originalAmount: editOriginalAmount,
+        discountAmount: editDiscountAmount,
+        discountReason: editDiscountReason.trim() || undefined,
+        payableAmount: editPayableAmount,
       });
+
+      // Update the associated invoice if it exists
+      if (editingSubscription.invoiceId) {
+        const invoice = invoiceService.getById(editingSubscription.invoiceId);
+        if (invoice) {
+          await invoiceService.async.update(editingSubscription.invoiceId, {
+            amount: editOriginalAmount,
+            discount: editDiscountAmount,
+            discountReason: editDiscountReason.trim() || undefined,
+            totalAmount: editPayableAmount,
+            dueDate: editStartDate,
+            items: [
+              {
+                description: `${editSelectedPlan?.name} Membership (${editSelectedPlan?.durationMonths} ${editSelectedPlan?.durationMonths === 1 ? 'month' : 'months'})${slot ? ` - ${slot.displayName}` : ''}`,
+                quantity: 1,
+                unitPrice: editOriginalAmount,
+                total: editOriginalAmount,
+              },
+            ],
+          });
+        }
+      }
+
       setEditingSubscription(null);
-      setEditSuccess('Subscription dates updated successfully');
+      setEditSuccess('Subscription and invoice updated successfully');
       setRefreshKey(k => k + 1);
       setTimeout(() => setEditSuccess(''), 3000);
     } catch (err) {
       setEditError(err instanceof Error ? err.message : 'Failed to update subscription');
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -267,7 +341,7 @@ export function SubscriptionListPage() {
   const pendingPayments = allSubscriptions.filter(s => s.paymentStatus === 'pending').length;
   const totalRevenue = allSubscriptions
     .filter(s => s.paymentStatus === 'paid')
-    .reduce((sum, s) => sum + s.payableAmount, 0);
+    .reduce((sum, s) => sum + Number(s.payableAmount || 0), 0);
 
   return (
     <div className="space-y-6" key={refreshKey}>
@@ -396,7 +470,8 @@ export function SubscriptionListPage() {
       <Modal
         isOpen={!!editingSubscription}
         onClose={() => setEditingSubscription(null)}
-        title="Edit Subscription Dates"
+        title="Edit Subscription"
+        size="lg"
       >
         {editingSubscription && (
           <div className="space-y-4">
@@ -410,6 +485,36 @@ export function SubscriptionListPage() {
               </span>
             </p>
 
+            {/* Plan Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Membership Plan
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {plans.filter(p => p.isActive).map(plan => (
+                  <button
+                    key={plan.id}
+                    type="button"
+                    onClick={() => setEditPlanId(plan.id)}
+                    className={`p-2 border-2 rounded-lg text-left transition-colors ${
+                      editPlanId === plan.id
+                        ? 'border-indigo-500 bg-indigo-50'
+                        : 'border-gray-200 hover:border-indigo-300'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start gap-1">
+                      <p className="font-semibold text-gray-900 text-sm">{plan.name}</p>
+                      <p className="font-bold text-indigo-600 text-sm whitespace-nowrap">
+                        {formatCurrency(plan.price)}
+                      </p>
+                    </div>
+                    <p className="text-xs text-gray-500">{plan.durationMonths} {plan.durationMonths === 1 ? 'month' : 'months'}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Dates */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -429,11 +534,73 @@ export function SubscriptionListPage() {
                 <input
                   type="date"
                   value={editEndDate}
-                  onChange={(e) => setEditEndDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  disabled
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600"
                 />
+                <p className="text-xs text-gray-500 mt-1">Calculated from plan duration</p>
               </div>
             </div>
+
+            {/* Discount */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Discount (Optional)
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                <Select
+                  value={editDiscountType}
+                  onChange={(e) => {
+                    setEditDiscountType(e.target.value as 'fixed' | 'percentage');
+                    setEditDiscountValue(0);
+                  }}
+                  options={[
+                    { value: 'percentage', label: '%' },
+                    { value: 'fixed', label: '₹' },
+                  ]}
+                />
+                <Input
+                  type="number"
+                  min={0}
+                  max={editDiscountType === 'percentage' ? 100 : editOriginalAmount}
+                  value={editDiscountValue}
+                  onChange={(e) => setEditDiscountValue(parseInt(e.target.value) || 0)}
+                  placeholder={editDiscountType === 'percentage' ? '%' : '₹'}
+                />
+                <Input
+                  value={editDiscountReason}
+                  onChange={(e) => setEditDiscountReason(e.target.value)}
+                  placeholder="Reason"
+                />
+              </div>
+              {editDiscountType === 'percentage' && editDiscountValue > 0 && editSelectedPlan && (
+                <p className="text-xs text-gray-600 mt-1">
+                  {editDiscountValue}% = {formatCurrency(editDiscountAmount)} off
+                </p>
+              )}
+            </div>
+
+            {/* Summary */}
+            {editSelectedPlan && (
+              <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Plan Price</span>
+                  <span className="text-gray-900">{formatCurrency(editOriginalAmount)}</span>
+                </div>
+                {editDiscountAmount > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>
+                      Discount
+                      {editDiscountType === 'percentage' && ` (${editDiscountValue}%)`}
+                    </span>
+                    <span>-{formatCurrency(editDiscountAmount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold border-t pt-2">
+                  <span>Total</span>
+                  <span className="text-indigo-600">{formatCurrency(editPayableAmount)}</span>
+                </div>
+              </div>
+            )}
 
             {editError && (
               <Alert variant="error" dismissible onDismiss={() => setEditError('')}>
@@ -446,11 +613,12 @@ export function SubscriptionListPage() {
                 variant="outline"
                 onClick={() => setEditingSubscription(null)}
                 fullWidth
+                disabled={editSaving}
               >
                 Cancel
               </Button>
-              <Button onClick={handleEditSave} fullWidth>
-                Save Changes
+              <Button onClick={handleEditSave} fullWidth loading={editSaving}>
+                {editSaving ? 'Saving...' : 'Save Changes'}
               </Button>
             </div>
           </div>
