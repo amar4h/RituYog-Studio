@@ -1,13 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Alert, WhatsAppTemplateModal } from '../../components/common';
-import { leadService, slotService, whatsappService, isApiMode } from '../../services';
+import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Alert, WhatsAppTemplateModal, PageLoading } from '../../components/common';
+import { leadService, slotService, whatsappService } from '../../services';
 import { formatPhone } from '../../utils/formatUtils';
 import { formatDate } from '../../utils/dateUtils';
+import { useFreshData } from '../../hooks';
 import type { Lead } from '../../types';
 import type { Column } from '../../components/common';
 
 export function LeadListPage() {
+  // Fetch fresh data from API on mount
+  const { isLoading } = useFreshData(['leads']);
+
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -16,18 +20,14 @@ export function LeadListPage() {
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
-  // Store leads in state for proper reactivity
-  const [allLeads, setAllLeads] = useState<Lead[]>(() => leadService.getUnconverted());
-  const slots = slotService.getActive();
+  // Show loading state while fetching data
+  if (isLoading) {
+    return <PageLoading />;
+  }
 
-  // Refresh data from API when component mounts (for API mode)
-  useEffect(() => {
-    if (isApiMode()) {
-      leadService.async.getUnconverted().then(leads => {
-        setAllLeads(leads);
-      }).catch(console.error);
-    }
-  }, []);
+  // Get data after loading is complete
+  const allLeads = leadService.getUnconverted();
+  const slots = slotService.getActive();
 
   // Filter leads (converted leads already excluded by getUnconverted)
   const leads = allLeads.filter(lead => {

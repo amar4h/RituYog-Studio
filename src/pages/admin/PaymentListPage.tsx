@@ -1,13 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Modal, Alert } from '../../components/common';
-import { paymentService, memberService, invoiceService, subscriptionService, membershipPlanService, whatsappService, isApiMode } from '../../services';
+import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Modal, Alert, PageLoading } from '../../components/common';
+import { paymentService, memberService, invoiceService, subscriptionService, membershipPlanService, whatsappService } from '../../services';
 import { formatCurrency } from '../../utils/formatUtils';
 import { formatDate, getCurrentMonthRange, getToday } from '../../utils/dateUtils';
+import { useFreshData } from '../../hooks';
 import type { Payment } from '../../types';
 import type { Column } from '../../components/common';
 
 export function PaymentListPage() {
+  // Fetch fresh data from API on mount
+  const { isLoading } = useFreshData(['payments', 'invoices', 'members']);
+
   const [search, setSearch] = useState('');
   const [methodFilter, setMethodFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -30,20 +34,13 @@ export function PaymentListPage() {
   // Force re-render after updates
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Store data in state for proper reactivity
-  const [allPayments, setAllPayments] = useState<Payment[]>(() => paymentService.getAll());
+  // Show loading state while fetching data
+  if (isLoading) {
+    return <PageLoading />;
+  }
 
-  // Refresh data from API when component mounts or after changes (for API mode)
-  useEffect(() => {
-    if (isApiMode()) {
-      paymentService.async.getAll().then(payments => {
-        setAllPayments(payments);
-      }).catch(console.error);
-    } else {
-      // For localStorage mode, also refresh from source
-      setAllPayments(paymentService.getAll());
-    }
-  }, [refreshKey]);
+  // Get data after loading is complete (refreshKey triggers re-read after local changes)
+  const allPayments = paymentService.getAll();
 
   // Filter payments
   const payments = allPayments.filter(payment => {

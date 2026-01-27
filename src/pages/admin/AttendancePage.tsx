@@ -1,9 +1,10 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Card, Button, Alert, SlotSelector } from '../../components/common';
+import { Card, Button, Alert, SlotSelector, PageLoading } from '../../components/common';
 import { MemberAttendanceTile } from '../../components/attendance';
 import { slotService, attendanceService, attendanceLockService } from '../../services';
 import { getToday, getMonthStart, getMonthEnd, formatDate } from '../../utils/dateUtils';
 import { parseISO, isWeekend, addDays, subDays, format, startOfMonth, endOfMonth, isAfter, isBefore } from 'date-fns';
+import { useFreshData } from '../../hooks';
 
 // ============================================
 // PERIOD PRESETS CONFIGURATION
@@ -80,6 +81,9 @@ function getDefaultPeriodPresetId(today: string): string {
 }
 
 export function AttendancePage() {
+  // Fetch fresh data from API on mount
+  const { isLoading } = useFreshData(['members', 'subscriptions', 'attendance', 'attendance-locks']);
+
   // Get today's date for determining available presets
   const today = getToday();
 
@@ -105,6 +109,11 @@ export function AttendancePage() {
   const [selectedPresetId, setSelectedPresetId] = useState<string>(defaultPresetId);
   const [periodStart, setPeriodStart] = useState(defaultPreset.startDate);
   const [periodEnd, setPeriodEnd] = useState(defaultPreset.endDate);
+
+  // Show loading state while fetching data
+  if (isLoading) {
+    return <PageLoading />;
+  }
 
   // UI state
   const [error, setError] = useState('');

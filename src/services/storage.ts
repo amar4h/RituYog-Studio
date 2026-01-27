@@ -3836,3 +3836,135 @@ export function isApiSynced(): boolean {
 export function clearApiSync(): void {
   localStorage.removeItem('yoga_studio_api_synced');
 }
+
+// ============================================
+// TIERED DATA SYNC FUNCTIONS
+// For faster initial page load
+// ============================================
+
+const TIERED_API_URL = import.meta.env.VITE_API_URL || '/api';
+const TIERED_API_KEY = import.meta.env.VITE_API_KEY || '';
+
+/**
+ * Sync only essential data (settings, slots, plans)
+ * Used on app startup for fast initial load
+ */
+export async function syncEssentialData(): Promise<void> {
+  if (!isApiMode()) {
+    console.log('[Storage] localStorage mode - no essential sync needed');
+    return;
+  }
+
+  console.log('[Storage] Syncing essential data (settings, slots, plans)...');
+
+  try {
+    const [slots, settings, plansData] = await Promise.all([
+      slotsApi.getAll().catch(() => []),
+      settingsApi.get().catch(() => null),
+      fetch(`${TIERED_API_URL}/plans`, {
+        headers: { 'X-API-Key': TIERED_API_KEY },
+      }).then(r => r.json()).catch(() => []),
+    ]);
+
+    // Store in localStorage
+    saveAll(STORAGE_KEYS.SESSION_SLOTS, slots as SessionSlot[]);
+    saveAll(STORAGE_KEYS.MEMBERSHIP_PLANS, Array.isArray(plansData) ? plansData : plansData.data || []);
+
+    if (settings) {
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+    }
+
+    // Mark essential sync as completed
+    localStorage.setItem('yoga_studio_essential_synced', new Date().toISOString());
+
+    console.log('[Storage] Essential sync complete:', {
+      slots: (slots as SessionSlot[]).length,
+      plans: (Array.isArray(plansData) ? plansData : plansData.data || []).length,
+      settings: settings ? 'loaded' : 'none',
+    });
+  } catch (error) {
+    console.error('[Storage] Essential sync failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Sync specific feature data on demand
+ * Used by admin pages to fetch fresh data
+ */
+export async function syncFeatureData(features: string[]): Promise<void> {
+  if (!isApiMode()) {
+    console.log('[Storage] localStorage mode - no feature sync needed');
+    return;
+  }
+
+  console.log('[Storage] Syncing feature data:', features);
+
+  const fetchers: Record<string, () => Promise<void>> = {
+    members: async () => {
+      const data = await membersApi.getAll().catch(() => []);
+      saveAll(STORAGE_KEYS.MEMBERS, data as Member[]);
+    },
+    leads: async () => {
+      const data = await leadsApi.getAll().catch(() => []);
+      saveAll(STORAGE_KEYS.LEADS, data as Lead[]);
+    },
+    subscriptions: async () => {
+      const data = await subscriptionsApi.getAll().catch(() => []);
+      saveAll(STORAGE_KEYS.SUBSCRIPTIONS, data as MembershipSubscription[]);
+    },
+    invoices: async () => {
+      const data = await invoicesApi.getAll().catch(() => []);
+      saveAll(STORAGE_KEYS.INVOICES, data as Invoice[]);
+    },
+    payments: async () => {
+      const data = await paymentsApi.getAll().catch(() => []);
+      saveAll(STORAGE_KEYS.PAYMENTS, data as Payment[]);
+    },
+    attendance: async () => {
+      const data = await attendanceApi.getAll().catch(() => []);
+      saveAll(STORAGE_KEYS.ATTENDANCE, data as AttendanceRecord[]);
+    },
+    'attendance-locks': async () => {
+      const data = await fetch(`${TIERED_API_URL}/attendance-locks`, {
+        headers: { 'X-API-Key': TIERED_API_KEY },
+      }).then(r => r.json()).catch(() => ({}));
+      if (data && typeof data === 'object') {
+        localStorage.setItem(STORAGE_KEYS.ATTENDANCE_LOCKS, JSON.stringify(data));
+      }
+    },
+    'notification-logs': async () => {
+      const data = await fetch(`${TIERED_API_URL}/notification-logs`, {
+        headers: { 'X-API-Key': TIERED_API_KEY },
+      }).then(r => r.json()).catch(() => []);
+      if (Array.isArray(data)) {
+        localStorage.setItem(STORAGE_KEYS.NOTIFICATION_LOGS, JSON.stringify(data));
+      }
+    },
+    slots: async () => {
+      const data = await slotsApi.getAll().catch(() => []);
+      saveAll(STORAGE_KEYS.SESSION_SLOTS, data as SessionSlot[]);
+    },
+    plans: async () => {
+      const data = await fetch(`${TIERED_API_URL}/plans`, {
+        headers: { 'X-API-Key': TIERED_API_KEY },
+      }).then(r => r.json()).catch(() => []);
+      saveAll(STORAGE_KEYS.MEMBERSHIP_PLANS, Array.isArray(data) ? data : data.data || []);
+    },
+    settings: async () => {
+      const data = await settingsApi.get().catch(() => null);
+      if (data) {
+        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(data));
+      }
+    },
+  };
+
+  // Fetch all requested features in parallel
+  const promises = features
+    .filter(f => fetchers[f])
+    .map(f => fetchers[f]());
+
+  await Promise.all(promises);
+
+  console.log('[Storage] Feature sync complete for:', features);
+}

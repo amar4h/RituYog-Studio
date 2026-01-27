@@ -35,6 +35,8 @@ export {
   syncFromApi,
   isApiSynced,
   clearApiSync,
+  syncEssentialData,
+  syncFeatureData,
 } from './storage';
 
 // Re-export storage mode utilities for consumers

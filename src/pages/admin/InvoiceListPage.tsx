@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Alert, Modal } from '../../components/common';
-import { invoiceService, memberService, subscriptionService, membershipPlanService, paymentService, settingsService, isApiMode } from '../../services';
+import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Alert, Modal, PageLoading } from '../../components/common';
+import { invoiceService, memberService, subscriptionService, membershipPlanService, paymentService, settingsService } from '../../services';
 import { formatCurrency } from '../../utils/formatUtils';
 import { formatDate, getCurrentMonthRange } from '../../utils/dateUtils';
 import { generateInvoicePDF } from '../../utils/pdfUtils';
+import { useFreshData } from '../../hooks';
 import type { Invoice, InvoiceItem, InvoiceStatus, Member } from '../../types';
 import type { Column } from '../../components/common';
 
@@ -18,6 +19,9 @@ interface LineItemForm {
 }
 
 export function InvoiceListPage() {
+  // Fetch fresh data from API on mount
+  const { isLoading } = useFreshData(['invoices', 'members', 'subscriptions']);
+
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [sharingInvoiceId, setSharingInvoiceId] = useState<string | null>(null);
@@ -40,22 +44,14 @@ export function InvoiceListPage() {
   const [isCreating, setIsCreating] = useState(false);
   const isEditMode = editingInvoiceId !== null;
 
-  // Store data in state for proper reactivity
-  const [allMembers, setAllMembers] = useState<Member[]>(() => memberService.getAll());
-  const [allInvoices, setAllInvoices] = useState<Invoice[]>(() => invoiceService.getAll());
+  // Show loading state while fetching data
+  if (isLoading) {
+    return <PageLoading />;
+  }
 
-  // Refresh data from API when component mounts (for API mode)
-  useEffect(() => {
-    if (isApiMode()) {
-      Promise.all([
-        memberService.async.getAll(),
-        invoiceService.async.getAll(),
-      ]).then(([members, invoices]) => {
-        setAllMembers(members);
-        setAllInvoices(invoices);
-      }).catch(console.error);
-    }
-  }, []);
+  // Get data after loading is complete
+  const allMembers = memberService.getAll();
+  const allInvoices = invoiceService.getAll();
 
   // Check if Web Share API with files is supported
   const canShareFiles = typeof navigator !== 'undefined' &&

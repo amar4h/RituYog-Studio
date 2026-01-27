@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button, Badge, WhatsAppTemplateModal } from '../../components/common';
+import { Card, Button, Badge, WhatsAppTemplateModal, PageLoading } from '../../components/common';
 import {
   memberService,
   leadService,
@@ -12,6 +12,7 @@ import {
   whatsappService,
 } from '../../services';
 import { getDaysRemaining, formatDate } from '../../utils/dateUtils';
+import { useFreshData } from '../../hooks';
 import type { NotificationType, Member, Lead, MembershipSubscription, MembershipPlan } from '../../types';
 
 type TabType = 'pending' | 'sent' | 'all';
@@ -35,6 +36,9 @@ interface TemplateSelectionContext {
 }
 
 export function NotificationsPage() {
+  // Fetch fresh data from API on mount
+  const { isLoading } = useFreshData(['members', 'leads', 'subscriptions', 'notification-logs']);
+
   const [activeTab, setActiveTab] = useState<TabType>('pending');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [logsVersion, setLogsVersion] = useState(0); // Triggers re-render when logs change
@@ -46,6 +50,11 @@ export function NotificationsPage() {
   // Bulk template selection modal state
   const [bulkTemplateModalOpen, setBulkTemplateModalOpen] = useState(false);
   const [bulkNotificationType, setBulkNotificationType] = useState<'renewal-reminder' | 'lead-followup' | null>(null);
+
+  // Show loading state while fetching data
+  if (isLoading) {
+    return <PageLoading />;
+  }
 
   // Get settings and data
   const settings = settingsService.getOrDefault();

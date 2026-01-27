@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button } from '../../components/common';
+import { Card, Button, PageLoading } from '../../components/common';
 import { formatCurrency } from '../../utils/formatUtils';
 import { getDaysRemaining } from '../../utils/dateUtils';
 import {
@@ -13,14 +13,23 @@ import {
   settingsService,
 } from '../../services';
 import { getToday, getCurrentMonthRange } from '../../utils/dateUtils';
+import { useFreshData } from '../../hooks';
 
 export function DashboardPage() {
+  // Fetch fresh data from API on mount
+  const { isLoading } = useFreshData(['members', 'leads', 'subscriptions', 'invoices', 'payments']);
+
   const [showAllExpiring, setShowAllExpiring] = useState(false);
   const [chartMonths, setChartMonths] = useState<3 | 6 | 12>(6);
   const [selectedChartMonth, setSelectedChartMonth] = useState<number | null>(null);
 
   // Get settings for default toggle states
   const settings = settingsService.getOrDefault();
+
+  // Show loading state while fetching data
+  if (isLoading) {
+    return <PageLoading />;
+  }
   const [showRevenue, setShowRevenue] = useState(settings.dashboardShowRevenue ?? false);
   const [showMonthlyChart, setShowMonthlyChart] = useState(settings.dashboardShowChart ?? true);
 
