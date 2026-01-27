@@ -114,6 +114,64 @@ Each slot has:
 - **Renewal filtering**: Members who have renewed are automatically removed from expiring list
 - Uses `subscriptionService.hasPendingRenewal()` to check for future subscriptions
 
+### Tiered Data Loading (Performance Optimization)
+Implemented to improve initial page load time in API mode.
+
+**Problem**: Original `syncFromApi()` loaded ALL 12 endpoints on app start, blocking UI for 2-5 seconds.
+
+**Solution**: Tiered loading strategy:
+1. **Essential data on startup** (settings, slots, plans) - ~500ms
+2. **Admin pages fetch their own data** fresh on each visit
+
+**Key Functions** in `src/services/storage.ts`:
+- `syncEssentialData()` - Loads only settings, slots, plans on app start
+- `syncFeatureData(features: string[])` - Loads specific data types on demand
+
+**Custom Hook** `src/hooks/useFreshData.ts`:
+```typescript
+const { isLoading } = useFreshData(['members', 'subscriptions']);
+if (isLoading) return <PageLoading />;
+```
+
+**Data Requirements by Admin Page**:
+| Page | Required Data |
+|------|---------------|
+| Dashboard | members, leads, subscriptions, invoices, payments |
+| Members | members, subscriptions |
+| Leads | leads |
+| Attendance | members, subscriptions, attendance, attendance-locks |
+| Invoices | invoices, members, subscriptions |
+| Payments | payments, invoices, members |
+| Notifications | members, leads, subscriptions, notification-logs |
+
+**React Hooks Order Rule (Critical)**:
+When using `useFreshData` with early return for loading state, ALL hooks (useState, useMemo, useCallback) MUST be called BEFORE the `if (isLoading) return <PageLoading />` check. This ensures hooks are called in the same order on every render.
+
+```typescript
+// CORRECT: All hooks before loading check
+function MyPage() {
+  const { isLoading } = useFreshData(['members']);
+  const [state, setState] = useState(false);
+  const memoValue = useMemo(() => computeValue(), [dep]);
+
+  if (isLoading) return <PageLoading />;  // AFTER all hooks
+  // ... render
+}
+
+// WRONG: Hooks after loading check causes React Error #310
+function MyPage() {
+  const { isLoading } = useFreshData(['members']);
+  if (isLoading) return <PageLoading />;  // TOO EARLY!
+  const [state, setState] = useState(false);  // ERROR: fewer hooks on re-render
+}
+```
+
+**Files Modified**:
+- `src/services/storage.ts` - Added `syncEssentialData()` and `syncFeatureData()`
+- `src/App.tsx` - Uses `syncEssentialData()` instead of `syncFromApi()`
+- `src/hooks/useFreshData.ts` - New hook for page-specific data loading
+- Admin pages: DashboardPage, MemberListPage, LeadListPage, AttendancePage, InvoiceListPage, PaymentListPage, NotificationsPage
+
 ## Important Files
 
 ### Services (`src/services/`)
