@@ -1827,9 +1827,10 @@ export const paymentService = {
       notes,
     });
 
-    // Update invoice
-    const totalPaid = (invoice.amountPaid || 0) + amount;
-    const newStatus = totalPaid >= invoice.totalAmount ? 'paid' : 'partially-paid';
+    // Update invoice - ensure numeric comparison (API may return strings)
+    const totalPaid = Number(invoice.amountPaid || 0) + amount;
+    const invoiceTotal = Number(invoice.totalAmount || 0);
+    const newStatus = totalPaid >= invoiceTotal ? 'paid' : 'partially-paid';
 
     invoiceService.update(invoiceId, {
       amountPaid: totalPaid,
@@ -1964,9 +1965,10 @@ export const paymentService = {
           notes,
         });
 
-        // Update invoice via API
-        const totalPaid = (invoice.amountPaid || 0) + amount;
-        const newStatus = totalPaid >= invoice.totalAmount ? 'paid' : 'partially-paid';
+        // Update invoice via API - ensure numeric comparison (API may return strings)
+        const totalPaid = Number(invoice.amountPaid || 0) + amount;
+        const invoiceTotal = Number(invoice.totalAmount || 0);
+        const newStatus = totalPaid >= invoiceTotal ? 'paid' : 'partially-paid';
         await invoicesApi.updatePaymentStatus(invoiceId, {
           amountPaid: totalPaid,
           status: newStatus,

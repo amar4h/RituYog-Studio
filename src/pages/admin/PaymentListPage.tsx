@@ -27,17 +27,23 @@ export function PaymentListPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Force re-render after updates
+  const [refreshKey, setRefreshKey] = useState(0);
+
   // Store data in state for proper reactivity
   const [allPayments, setAllPayments] = useState<Payment[]>(() => paymentService.getAll());
 
-  // Refresh data from API when component mounts (for API mode)
+  // Refresh data from API when component mounts or after changes (for API mode)
   useEffect(() => {
     if (isApiMode()) {
       paymentService.async.getAll().then(payments => {
         setAllPayments(payments);
       }).catch(console.error);
+    } else {
+      // For localStorage mode, also refresh from source
+      setAllPayments(paymentService.getAll());
     }
-  }, []);
+  }, [refreshKey]);
 
   // Filter payments
   const payments = allPayments.filter(payment => {
@@ -239,12 +245,13 @@ export function PaymentListPage() {
         status: editFormData.status,
       });
 
-      // Update invoice if amount changed
+      // Update invoice if amount changed - ensure numeric comparison
       if (amountDiff !== 0) {
         const invoice = invoiceService.getById(selectedPayment.invoiceId);
         if (invoice) {
-          const newAmountPaid = Math.max(0, (invoice.amountPaid || 0) + amountDiff);
-          const newStatus = newAmountPaid >= invoice.totalAmount ? 'paid' : newAmountPaid > 0 ? 'partially-paid' : 'sent';
+          const newAmountPaid = Math.max(0, Number(invoice.amountPaid || 0) + amountDiff);
+          const invoiceTotal = Number(invoice.totalAmount || 0);
+          const newStatus = newAmountPaid >= invoiceTotal ? 'paid' : newAmountPaid > 0 ? 'partially-paid' : 'sent';
           invoiceService.update(invoice.id, {
             amountPaid: newAmountPaid,
             status: newStatus,
@@ -255,6 +262,7 @@ export function PaymentListPage() {
       setSuccess('Payment updated successfully');
       setShowEditModal(false);
       setSelectedPayment(null);
+      setRefreshKey(k => k + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update payment');
     }
@@ -264,11 +272,12 @@ export function PaymentListPage() {
     if (!selectedPayment) return;
 
     try {
-      // Update invoice to subtract this payment amount
+      // Update invoice to subtract this payment amount - ensure numeric comparison
       const invoice = invoiceService.getById(selectedPayment.invoiceId);
       if (invoice) {
-        const newAmountPaid = Math.max(0, (invoice.amountPaid || 0) - selectedPayment.amount);
-        const newStatus = newAmountPaid >= invoice.totalAmount ? 'paid' : newAmountPaid > 0 ? 'partially-paid' : 'sent';
+        const newAmountPaid = Math.max(0, Number(invoice.amountPaid || 0) - Number(selectedPayment.amount || 0));
+        const invoiceTotal = Number(invoice.totalAmount || 0);
+        const newStatus = newAmountPaid >= invoiceTotal ? 'paid' : newAmountPaid > 0 ? 'partially-paid' : 'sent';
         invoiceService.update(invoice.id, {
           amountPaid: newAmountPaid,
           status: newStatus,
@@ -281,6 +290,7 @@ export function PaymentListPage() {
       setSuccess('Payment deleted successfully');
       setShowDeleteModal(false);
       setSelectedPayment(null);
+      setRefreshKey(k => k + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete payment');
     }
