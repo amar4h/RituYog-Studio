@@ -51,66 +51,65 @@ export function NotificationsPage() {
   const [bulkTemplateModalOpen, setBulkTemplateModalOpen] = useState(false);
   const [bulkNotificationType, setBulkNotificationType] = useState<'renewal-reminder' | 'lead-followup' | null>(null);
 
-  // Show loading state while fetching data
-  if (isLoading) {
-    return <PageLoading />;
-  }
-
-  // Get settings and data
-  const settings = settingsService.getOrDefault();
-  const renewalReminderDays = settings.renewalReminderDays || 7;
-  const slots = slotService.getActive();
-  const plans = membershipPlanService.getAll();
-
-  // Get all expiring subscriptions (not yet expired)
-  const allExpiringSubscriptions = subscriptionService.getExpiringSoon(renewalReminderDays);
-
-  // Filter out members who already have a pending renewal OR have renewed (newer active subscription)
-  const expiringSubscriptions = allExpiringSubscriptions.filter(expiring => {
-    // Check if member has a pending renewal
-    if (subscriptionService.hasPendingRenewal(expiring.memberId)) return false;
-
-    // Check if member has a newer active subscription (already renewed)
-    const allMemberSubs = subscriptionService.getByMember(expiring.memberId);
-    const hasNewerActiveSub = allMemberSubs.some(sub =>
-      sub.id !== expiring.id &&
-      sub.status === 'active' &&
-      new Date(sub.endDate) > new Date(expiring.endDate)
-    );
-    return !hasNewerActiveSub;
-  });
-
-  // Get recently expired subscriptions (last 7 days)
-  const allExpiredSubscriptions = subscriptionService.getRecentlyExpired(7);
-  const expiredSubscriptions = allExpiredSubscriptions.filter(expired => {
-    // Check if member has a pending renewal
-    if (subscriptionService.hasPendingRenewal(expired.memberId)) return false;
-
-    // Check if member has any active subscription (already renewed)
-    const allMemberSubs = subscriptionService.getByMember(expired.memberId);
-    const hasActiveSub = allMemberSubs.some(sub =>
-      sub.id !== expired.id &&
-      sub.status === 'active'
-    );
-    return !hasActiveSub;
-  });
-
-  // Get pending leads (older than 2 days, not converted)
-  const allLeads = leadService.getUnconverted();
-  const twoBusinessDaysAgo = new Date();
-  twoBusinessDaysAgo.setDate(twoBusinessDaysAgo.getDate() - 2);
-  const pendingLeads = allLeads.filter(lead => {
-    const createdAt = new Date(lead.createdAt);
-    return createdAt < twoBusinessDaysAgo && lead.status !== 'converted';
-  });
-
   // Get notification logs (re-fetch when logsVersion changes)
-  const allLogs = useMemo(() => notificationLogService.getAll(), [logsVersion]);
-  const pendingLogs = allLogs.filter(log => log.status === 'pending');
-  const sentLogs = allLogs.filter(log => log.status === 'sent');
+  // Must be called before loading check to maintain hooks order
+  const allLogs = useMemo(() => {
+    if (isLoading) return [];
+    return notificationLogService.getAll();
+  }, [logsVersion, isLoading]);
 
   // Build pending notifications list (real-time from data)
+  // Must be called before loading check to maintain hooks order
   const pendingNotifications = useMemo(() => {
+    if (isLoading) return [];
+
+    const settings = settingsService.getOrDefault();
+    const renewalReminderDays = settings.renewalReminderDays || 7;
+    const slots = slotService.getActive();
+    const plans = membershipPlanService.getAll();
+
+    // Get all expiring subscriptions (not yet expired)
+    const allExpiringSubscriptions = subscriptionService.getExpiringSoon(renewalReminderDays);
+
+    // Filter out members who already have a pending renewal OR have renewed (newer active subscription)
+    const expiringSubscriptions = allExpiringSubscriptions.filter(expiring => {
+      // Check if member has a pending renewal
+      if (subscriptionService.hasPendingRenewal(expiring.memberId)) return false;
+
+      // Check if member has a newer active subscription (already renewed)
+      const allMemberSubs = subscriptionService.getByMember(expiring.memberId);
+      const hasNewerActiveSub = allMemberSubs.some(sub =>
+        sub.id !== expiring.id &&
+        sub.status === 'active' &&
+        new Date(sub.endDate) > new Date(expiring.endDate)
+      );
+      return !hasNewerActiveSub;
+    });
+
+    // Get recently expired subscriptions (last 7 days)
+    const allExpiredSubscriptions = subscriptionService.getRecentlyExpired(7);
+    const expiredSubscriptions = allExpiredSubscriptions.filter(expired => {
+      // Check if member has a pending renewal
+      if (subscriptionService.hasPendingRenewal(expired.memberId)) return false;
+
+      // Check if member has any active subscription (already renewed)
+      const allMemberSubs = subscriptionService.getByMember(expired.memberId);
+      const hasActiveSub = allMemberSubs.some(sub =>
+        sub.id !== expired.id &&
+        sub.status === 'active'
+      );
+      return !hasActiveSub;
+    });
+
+    // Get pending leads (older than 2 days, not converted)
+    const allLeads = leadService.getUnconverted();
+    const twoBusinessDaysAgo = new Date();
+    twoBusinessDaysAgo.setDate(twoBusinessDaysAgo.getDate() - 2);
+    const pendingLeads = allLeads.filter(lead => {
+      const createdAt = new Date(lead.createdAt);
+      return createdAt < twoBusinessDaysAgo && lead.status !== 'converted';
+    });
+
     const notifications: {
       id: string;
       type: NotificationType;
@@ -199,7 +198,21 @@ export function NotificationsPage() {
     });
 
     return notifications;
-  }, [expiringSubscriptions, expiredSubscriptions, pendingLeads, plans, slots]);
+  }, [isLoading]);
+
+  // Show loading state while fetching data
+  if (isLoading) {
+    return <PageLoading />;
+  }
+
+  // Derive filtered logs from allLogs
+  const pendingLogs = allLogs.filter(log => log.status === 'pending');
+  const sentLogs = allLogs.filter(log => log.status === 'sent');
+
+  // Get settings and data for rendering
+  const settings = settingsService.getOrDefault();
+  const slots = slotService.getActive();
+  const plans = membershipPlanService.getAll();
 
   // Handle send WhatsApp - open template selection modal
   const handleSendWhatsApp = (notification: typeof pendingNotifications[0]) => {
