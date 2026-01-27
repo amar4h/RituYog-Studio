@@ -110,17 +110,10 @@ export function AttendancePage() {
   const [periodStart, setPeriodStart] = useState(defaultPreset.startDate);
   const [periodEnd, setPeriodEnd] = useState(defaultPreset.endDate);
 
-  // Show loading state while fetching data
-  if (isLoading) {
-    return <PageLoading />;
-  }
-
   // UI state
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [refreshKey, setRefreshKey] = useState(0); // Force re-render after attendance change
-
-  const selectedSlot = slots.find(s => s.id === selectedSlotId);
 
   // Check if selected date is a weekend
   const isWeekendDay = isWeekend(parseISO(selectedDate));
@@ -130,10 +123,6 @@ export function AttendancePage() {
     if (!selectedSlotId) return { allowed: false, reason: 'No slot selected' };
     return attendanceLockService.canMarkAttendance(selectedDate, selectedSlotId);
   }, [selectedDate, selectedSlotId, refreshKey]);
-
-  const isLocked = !attendanceCheck.allowed && attendanceCheck.reason === 'Attendance for this session is locked';
-  const isFutureDate = !attendanceCheck.allowed && attendanceCheck.reason === 'Cannot mark attendance for future dates';
-  const isTooOld = !attendanceCheck.allowed && attendanceCheck.reason === 'Cannot mark attendance for more than 3 days in the past';
 
   // Check if date is within the editable range (today or up to 3 days ago)
   const isEditableDate = useMemo(() => {
@@ -151,15 +140,6 @@ export function AttendancePage() {
     setRefreshKey(k => k + 1);
     setTimeout(() => setSuccess(''), 2000);
   }, [selectedDate, selectedSlotId]);
-
-  // Get attendance data for the selected slot and date
-  const attendanceData = selectedSlotId && !isWeekendDay
-    ? attendanceService.getSlotAttendanceWithMembers(selectedSlotId, selectedDate, periodStart, periodEnd)
-    : [];
-
-  // Count present/total for today's summary
-  const presentToday = attendanceData.filter(a => a.isPresent).length;
-  const totalMembers = attendanceData.length;
 
   // Handle marking attendance
   const handleToggleAttendance = useCallback((memberId: string, currentlyPresent: boolean) => {
@@ -180,6 +160,25 @@ export function AttendancePage() {
       setError(err instanceof Error ? err.message : 'Failed to mark attendance');
     }
   }, [selectedSlotId, selectedDate, attendanceCheck]);
+
+  // Show loading state while fetching data (MUST be after all hooks)
+  if (isLoading) {
+    return <PageLoading />;
+  }
+
+  const selectedSlot = slots.find(s => s.id === selectedSlotId);
+  const isLocked = !attendanceCheck.allowed && attendanceCheck.reason === 'Attendance for this session is locked';
+  const isFutureDate = !attendanceCheck.allowed && attendanceCheck.reason === 'Cannot mark attendance for future dates';
+  const isTooOld = !attendanceCheck.allowed && attendanceCheck.reason === 'Cannot mark attendance for more than 3 days in the past';
+
+  // Get attendance data for the selected slot and date
+  const attendanceData = selectedSlotId && !isWeekendDay
+    ? attendanceService.getSlotAttendanceWithMembers(selectedSlotId, selectedDate, periodStart, periodEnd)
+    : [];
+
+  // Count present/total for today's summary
+  const presentToday = attendanceData.filter(a => a.isPresent).length;
+  const totalMembers = attendanceData.length;
 
   // Handle period preset selection
   const handlePresetSelect = (presetId: string) => {

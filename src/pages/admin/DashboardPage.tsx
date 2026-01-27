@@ -25,13 +25,13 @@ export function DashboardPage() {
 
   // Get settings for default toggle states
   const settings = settingsService.getOrDefault();
+  const [showRevenue, setShowRevenue] = useState(settings.dashboardShowRevenue ?? false);
+  const [showMonthlyChart, setShowMonthlyChart] = useState(settings.dashboardShowChart ?? true);
 
-  // Show loading state while fetching data
+  // Show loading state while fetching data (MUST be after all hooks)
   if (isLoading) {
     return <PageLoading />;
   }
-  const [showRevenue, setShowRevenue] = useState(settings.dashboardShowRevenue ?? false);
-  const [showMonthlyChart, setShowMonthlyChart] = useState(settings.dashboardShowChart ?? true);
 
   // Get data for stats
   const members = memberService.getAll();
