@@ -33,3 +33,6 @@ api/.env
 # Claude temp files
 .claude/
 tmpclaude-*
+
+# RFS setup files (contain credentials)
+rfs-setup/

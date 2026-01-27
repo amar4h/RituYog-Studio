@@ -308,6 +308,42 @@ All prices in Indian Rupees (Rs/INR). Format using `formatCurrency()` from `src/
 4. Ensure `api/.env` exists with correct DB credentials
 5. Run any new SQL migrations in phpMyAdmin
 
+### RFS (Ready for Staging) Environment
+Separate test environment for validating changes before production.
+
+**RFS Site**: `https://darkslategrey-oryx-397719.hostingersite.com`
+**Database**: `u429905972_test_yoga`
+
+**Local Files**:
+- `.env.rfs` - RFS build configuration (API URL, API key)
+- `rfs-setup/.env` - Server-side DB credentials (upload to `public_html/api/.env`)
+
+**Build & Deploy to RFS**:
+```bash
+npm run build:rfs
+# Upload dist/* to RFS public_html/
+```
+
+**RFS Setup Checklist** (one-time):
+1. Create Hostinger website for RFS
+2. Create MySQL database
+3. Upload `api/` folder to `public_html/api/`
+4. Upload `rfs-setup/.env` as `public_html/api/.env`
+5. Run `database/schema.sql` in phpMyAdmin
+6. Build with `npm run build:rfs`
+7. Upload `dist/*` to `public_html/`
+
+**API .env format** (for `api/.env`):
+```
+DB_HOST=localhost
+DB_NAME=database_name
+DB_USER=database_user
+DB_PASSWORD=database_password
+API_KEY=64_char_hex_key
+```
+
+**Important**: Key is `DB_PASSWORD` not `DB_PASS` (config.php line 45).
+
 ## Common Issues & Fixes
 
 ### API Endpoint "Handler class not found"

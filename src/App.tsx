@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { AppRouter } from './router';
-import { initializeStorage, seedDemoData, syncEssentialData, isApiMode } from './services';
+import { initializeStorage, seedDemoData, syncEssentialData, isApiMode, settingsService } from './services';
 
 // Initialize storage for localStorage mode
 // In API mode, syncFromApi will populate localStorage from the server
@@ -41,6 +41,24 @@ function App() {
         });
     }
   }, []);
+
+  // Set favicon from settings logo
+  useEffect(() => {
+    if (!isLoading) {
+      const settings = settingsService.getOrDefault();
+      if (settings.logoData) {
+        const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+        if (link) {
+          link.href = settings.logoData;
+        } else {
+          const newLink = document.createElement('link');
+          newLink.rel = 'icon';
+          newLink.href = settings.logoData;
+          document.head.appendChild(newLink);
+        }
+      }
+    }
+  }, [isLoading]);
 
   // Show loading state while syncing from API
   if (isLoading) {
