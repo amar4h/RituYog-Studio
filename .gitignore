@@ -26,6 +26,8 @@ dist-ssr
 # Environment files
 .env
 .env.local
+.env.rfs
+.env.production
 api/.env
 
 # Claude temp files

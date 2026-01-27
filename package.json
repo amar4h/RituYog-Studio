@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:rfs": "tsc -b && vite build --mode rfs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
