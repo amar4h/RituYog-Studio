@@ -186,7 +186,8 @@ export function SubscriptionFormPage() {
     setLoading(true);
 
     try {
-      const result = subscriptionService.createWithInvoice(
+      // Use async version to fetch fresh capacity data from API
+      const result = await subscriptionService.async.createWithInvoice(
         formData.memberId,
         formData.planId,
         formData.slotId,
@@ -204,7 +205,9 @@ export function SubscriptionFormPage() {
         alert(result.warning);
       }
 
-      navigate(`/admin/invoices/${result.invoice.id}`);
+      // Pass fromCreation flag to skip API sync on InvoiceDetailPage
+      // This prevents race condition where API sync overwrites localStorage before API write completes
+      navigate(`/admin/invoices/${result.invoice.id}`, { state: { fromCreation: true } });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create subscription');
     } finally {

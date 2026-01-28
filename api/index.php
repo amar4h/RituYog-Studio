@@ -121,10 +121,8 @@ try {
     $result = $handler->$action($id);
     jsonResponse($result);
 } catch (PDOException $e) {
-    if (DEBUG_MODE) {
-        errorResponse('Database error: ' . $e->getMessage(), 500);
-    }
-    errorResponse('Database error occurred', 500);
+    // Always show database error details for easier debugging
+    errorResponse('Database error: ' . $e->getMessage(), 500);
 } catch (Exception $e) {
     errorResponse($e->getMessage(), 400);
 }

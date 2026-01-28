@@ -700,6 +700,25 @@ export const leadService = {
           notes: lead.notes,
         });
 
+        // Wait for member to be confirmed in database before updating lead
+        // This handles database replication lag on shared hosting (Hostinger)
+        const maxWaitAttempts = 10;
+        let memberConfirmed = false;
+        for (let attempt = 1; attempt <= maxWaitAttempts; attempt++) {
+          const fetchedMember = await memberService.async.getById(member.id);
+          if (fetchedMember) {
+            memberConfirmed = true;
+            break;
+          }
+          // Wait before next check (200ms, 400ms, 600ms... up to 2 seconds)
+          await new Promise(resolve => setTimeout(resolve, 200 * attempt));
+        }
+
+        if (!memberConfirmed) {
+          throw new Error('Member creation timed out. Please try again.');
+        }
+
+        // Now safe to update lead with FK reference to member
         await leadService.async.update(leadId, {
           status: 'converted',
           convertedToMemberId: member.id,
@@ -1358,6 +1377,152 @@ export const subscriptionService = {
         return subscriptionsApi.checkSlotCapacity(slotId, startDate, endDate);
       }
       return subscriptionService.checkSlotCapacity(slotId, startDate, endDate);
+    },
+
+    // Async version of createWithInvoice that uses API data for capacity checks
+    createWithInvoice: async (
+      memberId: string,
+      planId: string,
+      slotId: string,
+      startDate: string,
+      discountAmount: number = 0,
+      discountReason?: string,
+      notes?: string,
+      discountType?: 'fixed' | 'percentage',
+      discountPercentage?: number
+    ): Promise<{ subscription: MembershipSubscription; invoice: Invoice; warning?: string }> => {
+      // In localStorage mode, use sync version
+      if (!isApiMode()) {
+        return subscriptionService.createWithInvoice(
+          memberId, planId, slotId, startDate, discountAmount, discountReason, notes, discountType, discountPercentage
+        );
+      }
+
+      // API mode - fetch fresh data from API for members/subscriptions
+      // Plans and slots are synced at startup and rarely change, so use sync versions
+      const plan = membershipPlanService.getById(planId);
+      const slot = slotService.getById(slotId);
+      const member = await memberService.async.getById(memberId);
+
+      if (!plan) throw new Error('Plan not found');
+      if (!member) throw new Error('Member not found');
+      if (!slot) throw new Error('Session slot not found');
+
+      // Calculate end date based on plan duration
+      const endDate = calculateSubscriptionEndDate(startDate, plan.durationMonths);
+
+      // Check for overlapping subscriptions using API data
+      const existingSubscriptions = await subscriptionService.async.getByMember(memberId);
+      const overlappingSubscription = existingSubscriptions.find(s => {
+        if (!['active', 'pending', 'scheduled'].includes(s.status)) return false;
+        return startDate <= s.endDate && endDate >= s.startDate;
+      });
+
+      if (overlappingSubscription) {
+        const overlapPlan = membershipPlanService.getById(overlappingSubscription.planId);
+        throw new Error(
+          `Member already has an overlapping subscription (${overlapPlan?.name || 'Unknown'}) ` +
+          `from ${overlappingSubscription.startDate} to ${overlappingSubscription.endDate}. ` +
+          `Please choose a start date after ${overlappingSubscription.endDate}.`
+        );
+      }
+
+      // Check if this is a renewal (member already has this slot assigned)
+      const isRenewalInSameSlot = member.assignedSlotId === slotId;
+
+      // Check slot capacity using API (fresh data)
+      const capacityCheck = await subscriptionService.async.checkSlotCapacity(slotId, startDate, endDate);
+
+      // For renewals in same slot, skip capacity check (member already occupies the slot)
+      if (!isRenewalInSameSlot && !capacityCheck.available) {
+        throw new Error(
+          `Slot "${slot.displayName}" is completely full. ` +
+          `Current bookings: ${capacityCheck.currentBookings}, Total capacity: ${capacityCheck.totalCapacity}. ` +
+          `Cannot add more members to this slot.`
+        );
+      }
+
+      const isUsingExceptionCapacity = !isRenewalInSameSlot && capacityCheck.isExceptionOnly;
+
+      // Calculate amounts
+      const originalAmount = plan.price;
+      const payableAmount = Math.max(0, originalAmount - discountAmount);
+
+      // Create subscription via API
+      const subscription = await subscriptionService.async.create({
+        memberId,
+        planId,
+        slotId,
+        startDate,
+        endDate,
+        originalAmount,
+        discountAmount,
+        discountType,
+        discountPercentage,
+        discountReason,
+        payableAmount,
+        status: 'active',
+        isExtension: false,
+        paymentStatus: 'pending',
+        notes,
+      });
+
+      // Create invoice via API
+      const invoiceNumber = await invoiceService.async.generateInvoiceNumber();
+      const invoice = await invoiceService.async.create({
+        invoiceNumber,
+        invoiceType: 'membership',
+        memberId,
+        subscriptionId: subscription.id,
+        amount: originalAmount,
+        discount: discountAmount,
+        discountReason,
+        totalAmount: payableAmount,
+        amountPaid: 0,
+        invoiceDate: new Date().toISOString().split('T')[0],
+        dueDate: startDate,
+        status: 'sent',
+        items: [
+          {
+            description: `${plan.name} Membership (${plan.durationMonths} ${plan.durationMonths === 1 ? 'month' : 'months'}) - ${slot.displayName}`,
+            quantity: 1,
+            unitPrice: originalAmount,
+            total: originalAmount,
+          },
+        ],
+      });
+
+      // Update member status and assigned slot via API
+      await memberService.async.update(memberId, {
+        status: 'active',
+        assignedSlotId: slotId,
+      });
+
+      // Also update localStorage for UI consistency
+      const members = getAll<Member>(STORAGE_KEYS.MEMBERS);
+      const memberIndex = members.findIndex(m => m.id === memberId);
+      if (memberIndex >= 0) {
+        members[memberIndex] = { ...members[memberIndex], status: 'active', assignedSlotId: slotId };
+        saveAll(STORAGE_KEYS.MEMBERS, members);
+      }
+
+      // Update subscriptions in localStorage
+      const subscriptions = getAll<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS);
+      subscriptions.push(subscription);
+      saveAll(STORAGE_KEYS.SUBSCRIPTIONS, subscriptions);
+
+      // Update invoices in localStorage
+      const invoices = getAll<Invoice>(STORAGE_KEYS.INVOICES);
+      invoices.push(invoice);
+      saveAll(STORAGE_KEYS.INVOICES, invoices);
+
+      return {
+        subscription,
+        invoice,
+        warning: isUsingExceptionCapacity
+          ? `Using exception capacity for slot "${slot.displayName}"`
+          : undefined,
+      };
     },
   },
 };
@@ -2670,6 +2835,98 @@ export function seedDemoData(): void {
       isException: false,
     });
   });
+
+  // ============================================
+  // CREATE MEMBER WITH % DISCOUNT (for testing renewal discount preservation)
+  // ============================================
+  const discountTestMember = {
+    firstName: 'Pooja',
+    lastName: 'Discount',
+    email: 'pooja.discount@email.com',
+    phone: '9876543299',
+    gender: 'female' as const,
+    daysToExpiry: 3,
+    discountPercent: 20, // 20% discount
+  };
+
+  {
+    const slot = slots[0];
+    const expiryDate = new Date(now);
+    expiryDate.setDate(expiryDate.getDate() + discountTestMember.daysToExpiry);
+    const expEndDate = expiryDate.toISOString().split('T')[0];
+
+    const expStartDate = new Date(expiryDate);
+    expStartDate.setDate(expStartDate.getDate() - 30);
+    const expStart = expStartDate.toISOString().split('T')[0];
+
+    const discountAmount = Math.round(monthlyPlan.price * discountTestMember.discountPercent / 100);
+    const payableAmount = monthlyPlan.price - discountAmount;
+
+    const member = memberService.create({
+      firstName: discountTestMember.firstName,
+      lastName: discountTestMember.lastName,
+      email: discountTestMember.email,
+      phone: discountTestMember.phone,
+      gender: discountTestMember.gender,
+      status: 'active',
+      source: 'referral',
+      assignedSlotId: slot.id,
+      classesAttended: 20,
+      medicalConditions: [],
+      consentRecords: [],
+    });
+
+    // Create subscription with percentage discount
+    const subscription = subscriptionService.create({
+      memberId: member.id,
+      planId: monthlyPlan.id,
+      slotId: slot.id,
+      startDate: expStart,
+      endDate: expEndDate,
+      originalAmount: monthlyPlan.price,
+      discountAmount: discountAmount,
+      discountType: 'percentage',
+      discountPercentage: discountTestMember.discountPercent,
+      discountReason: 'Referral discount',
+      payableAmount: payableAmount,
+      status: 'active',
+      isExtension: false,
+      paymentStatus: 'paid',
+    });
+
+    // Create paid invoice
+    invoiceService.create({
+      invoiceNumber: invoiceService.generateInvoiceNumber(),
+      invoiceType: 'membership',
+      memberId: member.id,
+      amount: monthlyPlan.price,
+      discount: discountAmount,
+      discountReason: 'Referral discount',
+      totalAmount: payableAmount,
+      amountPaid: payableAmount,
+      invoiceDate: expStart,
+      dueDate: expStart,
+      status: 'paid',
+      items: [{
+        description: `${monthlyPlan.name} Membership - ${slot.displayName}`,
+        quantity: 1,
+        unitPrice: monthlyPlan.price,
+        total: monthlyPlan.price,
+      }],
+      subscriptionId: subscription.id,
+    });
+
+    // Create slot subscription
+    slotSubscriptionService.create({
+      memberId: member.id,
+      slotId: slot.id,
+      startDate: expStart,
+      isActive: true,
+      isException: false,
+    });
+
+    console.log('Created test member "Pooja Discount" with 20% discount expiring in 3 days');
+  }
 
   // ============================================
   // CREATE MEMBERS WITH EXPIRED SUBSCRIPTIONS (for testing expired notifications)

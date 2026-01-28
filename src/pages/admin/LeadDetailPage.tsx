@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, Button, StatusBadge, Badge, Select, ConfirmDialog, Alert, Modal, WhatsAppTemplateModal } from '../../components/common';
 import { leadService, slotService, trialBookingService, membershipPlanService, subscriptionService, settingsService, whatsappService } from '../../services';
 import { formatPhone, formatName, formatCurrency } from '../../utils/formatUtils';
@@ -18,6 +18,14 @@ export function LeadDetailPage() {
   const [converting, setConverting] = useState(false);
   const [capacityWarning, setCapacityWarning] = useState('');
   const [showFollowUpTemplateModal, setShowFollowUpTemplateModal] = useState(false);
+  const modalContentRef = useRef<HTMLDivElement>(null);
+
+  // Scroll error into view when it occurs
+  useEffect(() => {
+    if (error && modalContentRef.current) {
+      modalContentRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [error]);
 
   const lead = id ? leadService.getById(id) : null;
   const slots = slotService.getActive();
@@ -72,7 +80,7 @@ export function LeadDetailPage() {
     }
   };
 
-  const handleConvert = () => {
+  const handleConvert = async () => {
     if (!selectedPlanId || !selectedSlotId) {
       setError('Please select a membership plan and slot');
       return;
@@ -82,8 +90,8 @@ export function LeadDetailPage() {
     setError('');
 
     try {
-      // Convert lead to member
-      const member = leadService.convertToMember(lead.id);
+      // Convert lead to member (use async version for API mode)
+      const member = await leadService.async.convertToMember(lead.id);
 
       // Calculate discount amount
       const originalAmount = selectedPlan?.price || 0;
@@ -91,8 +99,8 @@ export function LeadDetailPage() {
         ? Math.round((originalAmount * discountValue) / 100)
         : discountValue;
 
-      // Create subscription directly - this also sets member status to 'active'
-      const result = subscriptionService.createWithInvoice(
+      // Create subscription directly using async version for fresh API data
+      const result = await subscriptionService.async.createWithInvoice(
         member.id,
         selectedPlanId,
         selectedSlotId,
@@ -462,7 +470,14 @@ export function LeadDetailPage() {
         title="Convert Lead to Member"
         size="lg"
       >
-        <div className="space-y-6">
+        <div ref={modalContentRef} className="space-y-6">
+          {/* Error shown at top for immediate visibility */}
+          {error && (
+            <Alert variant="error" dismissible onDismiss={() => setError('')}>
+              {error}
+            </Alert>
+          )}
+
           <p className="text-gray-600">
             Converting <span className="font-semibold">{formatName(lead.firstName, lead.lastName)}</span> to a member.
             Select a membership plan and slot to activate their subscription immediately.
@@ -714,13 +729,6 @@ export function LeadDetailPage() {
               Convert & Activate Subscription
             </Button>
           </div>
-
-          {/* Inline error shown below buttons for immediate visibility */}
-          {error && (
-            <Alert variant="error" dismissible onDismiss={() => setError('')} className="mt-4">
-              {error}
-            </Alert>
-          )}
         </div>
       </Modal>
 

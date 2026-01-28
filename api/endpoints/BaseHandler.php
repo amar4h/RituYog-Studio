@@ -7,7 +7,8 @@ abstract class BaseHandler {
     protected PDO $db;
     protected string $table;
     protected array $jsonFields = [];
-    protected array $dateFields = [];
+    protected array $dateFields = [];      // DATE columns (YYYY-MM-DD)
+    protected array $datetimeFields = [];  // DATETIME columns (YYYY-MM-DD HH:MM:SS)
     protected array $boolFields = [];
 
     public function __construct() {
@@ -206,6 +207,22 @@ abstract class BaseHandler {
             // Convert boolean to int for database
             if (in_array($snakeKey, $this->boolFields)) {
                 $value = $value ? 1 : 0;
+            }
+
+            // Convert ISO date strings to MySQL DATE format (YYYY-MM-DD)
+            if (in_array($snakeKey, $this->dateFields) && !empty($value) && is_string($value)) {
+                // Handle ISO format: 2026-01-28T18:30:45.123Z -> 2026-01-28
+                if (strpos($value, 'T') !== false) {
+                    $value = substr($value, 0, 10);
+                }
+            }
+
+            // Convert ISO datetime strings to MySQL DATETIME format (YYYY-MM-DD HH:MM:SS)
+            if (in_array($snakeKey, $this->datetimeFields) && !empty($value) && is_string($value)) {
+                // Handle ISO format: 2026-01-28T18:30:45.123Z -> 2026-01-28 18:30:45
+                if (strpos($value, 'T') !== false) {
+                    $value = str_replace('T', ' ', substr($value, 0, 19));
+                }
             }
 
             $result[$snakeKey] = $value;

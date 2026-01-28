@@ -9,6 +9,8 @@ class LeadsHandler extends BaseHandler {
     protected string $table = 'leads';
     protected array $jsonFields = ['interested_plan_ids', 'medical_conditions', 'consent_records'];
     protected array $boolFields = ['has_yoga_experience'];
+    protected array $dateFields = ['trial_date', 'last_contact_date', 'next_follow_up_date'];
+    protected array $datetimeFields = ['conversion_date'];
 
     /**
      * Get leads by status

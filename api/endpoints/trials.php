@@ -9,6 +9,7 @@ class TrialsHandler extends BaseHandler {
     protected string $table = 'trial_bookings';
     protected array $jsonFields = [];
     protected array $boolFields = ['is_exception', 'confirmation_sent', 'reminder_sent'];
+    protected array $dateFields = ['date'];
 
     /**
      * Get bookings by lead

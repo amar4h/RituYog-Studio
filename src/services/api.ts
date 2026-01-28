@@ -136,10 +136,13 @@ async function apiRequest<T>(endpoint: string, options: RequestOptions = {}): Pr
 
   // Handle errors
   if (!response.ok) {
-    throw new Error(data.error || `API error: ${response.status}`);
+    throw new Error(data?.error || `API error: ${response.status}`);
   }
 
-  // Return data or full response
+  // Return data or full response (handle null responses)
+  if (data === null || data === undefined) {
+    return null as T;
+  }
   return (data.data ?? data) as T;
 }
 

@@ -9,6 +9,7 @@ class InvoicesHandler extends BaseHandler {
     protected string $table = 'invoices';
     protected array $jsonFields = ['items'];
     protected array $boolFields = [];
+    protected array $dateFields = ['invoice_date', 'due_date', 'paid_date'];
 
     /**
      * Override create to ensure items is properly formatted

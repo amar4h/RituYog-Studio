@@ -9,6 +9,7 @@ class PaymentsHandler extends BaseHandler {
     protected string $table = 'payments';
     protected array $jsonFields = [];
     protected array $boolFields = [];
+    protected array $dateFields = ['payment_date'];
 
     /**
      * Get payments by invoice

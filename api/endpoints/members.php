@@ -9,6 +9,7 @@ class MembersHandler extends BaseHandler {
     protected string $table = 'members';
     protected array $jsonFields = ['emergency_contact', 'medical_conditions', 'consent_records'];
     protected array $boolFields = [];
+    protected array $dateFields = ['date_of_birth', 'membership_start_date', 'membership_end_date'];
 
     /**
      * Get members by status

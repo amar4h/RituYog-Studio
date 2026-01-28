@@ -9,6 +9,7 @@ class AttendanceHandler extends BaseHandler {
     protected string $table = 'attendance_records';
     protected array $jsonFields = [];
     protected array $boolFields = [];
+    protected array $dateFields = ['date'];
 
     /**
      * Get attendance by slot and date
