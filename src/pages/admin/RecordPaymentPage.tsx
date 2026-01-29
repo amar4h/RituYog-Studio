@@ -14,7 +14,7 @@ export function RecordPaymentPage() {
   const [formData, setFormData] = useState({
     invoiceId: preselectedInvoiceId || '',
     amount: 0,
-    paymentMethod: 'cash' as Payment['paymentMethod'],
+    paymentMethod: 'upi' as Payment['paymentMethod'],
     paymentDate: getToday(),
     transactionReference: '',
     notes: '',
@@ -87,7 +87,9 @@ export function RecordPaymentPage() {
         formData.notes.trim() || undefined
       );
 
-      navigate(`/admin/invoices/${formData.invoiceId}`);
+      // Pass fromPayment flag to skip API sync on InvoiceDetailPage
+      // This prevents race condition where API sync overwrites localStorage before API write completes
+      navigate(`/admin/invoices/${formData.invoiceId}`, { state: { fromPayment: true } });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to record payment');
     } finally {

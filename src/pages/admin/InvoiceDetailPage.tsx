@@ -1,4 +1,4 @@
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { Card, Button, StatusBadge, Alert, Modal, PageLoading } from '../../components/common';
 import { invoiceService, memberService, paymentService, subscriptionService, membershipPlanService, settingsService, whatsappService } from '../../services';
@@ -10,7 +10,13 @@ import { downloadInvoicePDF, getInvoicePDFUrl, generateInvoicePDF } from '../../
 export function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isLoading } = useFreshData(['invoices', 'members', 'subscriptions', 'payments']);
+  const location = useLocation();
+  const locationState = location.state as { fromCreation?: boolean; fromPayment?: boolean } | null;
+
+  // Skip API sync when navigating from creation or payment recording to avoid race condition
+  // where API sync overwrites localStorage before the API write completes
+  const skipSync = locationState?.fromCreation === true || locationState?.fromPayment === true;
+  const { isLoading } = useFreshData(skipSync ? [] : ['invoices', 'members', 'subscriptions', 'payments']);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [downloading, setDownloading] = useState(false);
@@ -193,13 +199,14 @@ export function InvoiceDetailPage() {
               <Button>Record Payment</Button>
             </Link>
           )}
-          {member && invoice.status === 'paid' && payments.length > 0 && (
+          {member && payments.length > 0 && (
             <a
               href={whatsappService.generatePaymentConfirmation({
                 member,
                 payment: payments[0],
                 invoice,
                 plan: plan || { name: 'Membership' } as any,
+                subscription: subscription || undefined,
               }).link}
               target="_blank"
               rel="noopener noreferrer"
@@ -212,12 +219,13 @@ export function InvoiceDetailPage() {
               Send Receipt
             </a>
           )}
-          {member && invoice.status !== 'paid' && (
+          {member && balance > 0 && payments.length === 0 && (
             <a
-              href={whatsappService.generateLink(
-                member.phone,
-                `Hi ${member.firstName}, this is a reminder about your pending payment of ${formatCurrency(balance)} for invoice #${invoice.invoiceNumber}. Please complete the payment at your earliest convenience. - ${settingsService.getOrDefault().studioName}`
-              )}
+              href={whatsappService.generatePaymentReminder({
+                member,
+                invoice,
+                balance,
+              }).link}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-green-700 bg-green-100 rounded-lg hover:bg-green-200 transition-colors"

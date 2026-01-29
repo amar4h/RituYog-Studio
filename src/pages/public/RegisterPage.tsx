@@ -15,6 +15,8 @@ export function RegisterPage() {
     lastName: '',
     email: '',
     phone: '',
+    age: '',
+    gender: '' as '' | 'male' | 'female' | 'other',
     preferredSlotId: '',
     source: 'online',
     notes: '',
@@ -98,6 +100,17 @@ export function RegisterPage() {
     } else if (!validatePhone(formData.phone)) {
       newErrors.phone = 'Invalid phone number (10 digits required)';
     }
+    if (!formData.age.trim()) {
+      newErrors.age = 'Age is required';
+    } else {
+      const ageNum = parseInt(formData.age, 10);
+      if (isNaN(ageNum) || ageNum < 5 || ageNum > 100) {
+        newErrors.age = 'Please enter a valid age (5-100)';
+      }
+    }
+    if (!formData.gender) {
+      newErrors.gender = 'Gender is required';
+    }
     if (!consents.termsAndConditions) {
       newErrors.termsAndConditions = 'You must accept the terms and conditions';
     }
@@ -133,11 +146,13 @@ export function RegisterPage() {
         ? `[Preferred: Personal Training] ${formData.notes.trim()}`.trim()
         : formData.notes.trim() || undefined;
 
-      leadService.create({
+      await leadService.create({
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         email: formData.email.trim().toLowerCase(),
         phone: formData.phone.replace(/\D/g, ''),
+        age: parseInt(formData.age, 10),
+        gender: formData.gender as 'male' | 'female' | 'other',
         status: 'new',
         source: 'online',
         preferredSlotId: isPersonalTraining ? undefined : (formData.preferredSlotId || undefined),
@@ -188,15 +203,7 @@ export function RegisterPage() {
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <Link to="/" className="inline-block">
-            <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-            </div>
-          </Link>
-          <h1 className="text-3xl font-bold text-gray-900">{settings.studioName}</h1>
-          <p className="text-gray-600 mt-2">Register Your Interest</p>
+          <h1 className="text-3xl font-bold text-gray-900">Register Your Interest</h1>
         </div>
 
         {submitError && (
@@ -239,6 +246,38 @@ export function RegisterPage() {
                 placeholder="10-digit mobile number"
                 required
               />
+              <Input
+                label="Age"
+                type="number"
+                min={5}
+                max={100}
+                value={formData.age}
+                onChange={(e) => handleChange('age', e.target.value)}
+                error={errors.age}
+                placeholder="Your age"
+                required
+              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Gender <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.gender}
+                  onChange={(e) => handleChange('gender', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                    errors.gender ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  required
+                >
+                  <option value="">Select gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+                {errors.gender && (
+                  <p className="text-sm text-red-600 mt-1">{errors.gender}</p>
+                )}
+              </div>
             </div>
           </Card>
 

@@ -55,10 +55,25 @@ export function openWhatsApp(phone: string, message: string): void {
 
 /**
  * Get WhatsApp templates from settings (with fallback to defaults)
+ * Merges with defaults to ensure all template arrays exist
  */
 export function getWhatsAppTemplates(): WhatsAppTemplates {
   const settings = settingsService.get();
-  return settings?.whatsappTemplates || DEFAULT_WHATSAPP_TEMPLATES;
+  const stored = settings?.whatsappTemplates;
+
+  // If no stored templates, return defaults
+  if (!stored) {
+    return DEFAULT_WHATSAPP_TEMPLATES;
+  }
+
+  // Merge with defaults to ensure all template arrays exist
+  return {
+    renewalReminders: stored.renewalReminders?.length ? stored.renewalReminders : DEFAULT_WHATSAPP_TEMPLATES.renewalReminders,
+    classReminder: stored.classReminder || DEFAULT_WHATSAPP_TEMPLATES.classReminder,
+    paymentConfirmation: stored.paymentConfirmation || DEFAULT_WHATSAPP_TEMPLATES.paymentConfirmation,
+    paymentReminders: stored.paymentReminders?.length ? stored.paymentReminders : DEFAULT_WHATSAPP_TEMPLATES.paymentReminders,
+    leadFollowUps: stored.leadFollowUps?.length ? stored.leadFollowUps : DEFAULT_WHATSAPP_TEMPLATES.leadFollowUps,
+  };
 }
 
 /**
@@ -193,10 +208,11 @@ export interface PaymentConfirmationData {
   payment: Payment;
   invoice: Invoice;
   plan: MembershipPlan;
+  subscription?: MembershipSubscription;
 }
 
 export function generatePaymentConfirmation(data: PaymentConfirmationData): { phone: string; message: string; link: string } {
-  const { member, payment, invoice, plan } = data;
+  const { member, payment, invoice, plan, subscription } = data;
   const templates = getWhatsAppTemplates();
   const studioInfo = getStudioPlaceholders();
 
@@ -207,6 +223,8 @@ export function generatePaymentConfirmation(data: PaymentConfirmationData): { ph
     paymentDate: formatDate(payment.paymentDate),
     invoiceNumber: invoice.invoiceNumber,
     planName: plan.name,
+    membershipStartDate: subscription ? formatDate(subscription.startDate) : '',
+    membershipEndDate: subscription ? formatDate(subscription.endDate) : '',
     ...studioInfo,
   };
 
@@ -218,6 +236,50 @@ export function generatePaymentConfirmation(data: PaymentConfirmationData): { ph
     message,
     link: generateWhatsAppLink(phone, message),
   };
+}
+
+export interface PaymentReminderData {
+  member: Member;
+  invoice: Invoice;
+  balance: number;
+  templateIndex?: number;  // Which template to use (0-based index)
+}
+
+export function generatePaymentReminder(data: PaymentReminderData): { phone: string; message: string; link: string } {
+  const { member, invoice, balance, templateIndex = 0 } = data;
+  const templates = getWhatsAppTemplates();
+  const studioInfo = getStudioPlaceholders();
+
+  const placeholders: Record<string, string> = {
+    memberName: `${member.firstName} ${member.lastName}`,
+    memberFirstName: member.firstName,
+    balanceAmount: balance.toLocaleString('en-IN'),  // Without Rs prefix as template already has ₹
+    pendingAmount: formatAmount(balance),  // With Rs prefix for templates that need it
+    invoiceNumber: invoice.invoiceNumber,
+    invoiceAmount: formatAmount(invoice.totalAmount),
+    dueDate: formatDate(invoice.dueDate),
+    ...studioInfo,
+  };
+
+  // Get the template by index (with bounds checking)
+  const templateArray = templates.paymentReminders;
+  const selectedTemplate = templateArray[Math.min(templateIndex, templateArray.length - 1)];
+  const message = formatMessage(selectedTemplate.template, placeholders);
+  const phone = member.whatsappNumber || member.phone;
+
+  return {
+    phone,
+    message,
+    link: generateWhatsAppLink(phone, message),
+  };
+}
+
+/**
+ * Get available payment reminder templates
+ */
+export function getPaymentReminderTemplates(): { name: string; template: string }[] {
+  const templates = getWhatsAppTemplates();
+  return templates.paymentReminders;
 }
 
 export interface LeadFollowUpData {
@@ -270,12 +332,14 @@ export const whatsappService = {
 
   // Template helpers
   getRenewalReminderTemplates,
+  getPaymentReminderTemplates,
   getLeadFollowUpTemplates,
 
   // Message generators
   generateRenewalReminder,
   generateClassReminder,
   generatePaymentConfirmation,
+  generatePaymentReminder,
   generateLeadFollowUp,
 
   // Quick send methods (opens WhatsApp directly)
@@ -289,6 +353,10 @@ export const whatsappService = {
   },
   sendPaymentConfirmation: (data: PaymentConfirmationData) => {
     const { phone, message } = generatePaymentConfirmation(data);
+    openWhatsApp(phone, message);
+  },
+  sendPaymentReminder: (data: PaymentReminderData) => {
+    const { phone, message } = generatePaymentReminder(data);
     openWhatsApp(phone, message);
   },
   sendLeadFollowUp: (data: LeadFollowUpData) => {

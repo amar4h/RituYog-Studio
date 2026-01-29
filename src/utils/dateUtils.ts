@@ -49,6 +49,9 @@ export function formatDateShort(dateString: string): string {
   }
 }
 
+// Use getDayNameShort() for string format ('Mon', 'Tue', etc.)
+// Use getDayOfWeek() for numeric format (0-6, where 0 is Sunday)
+
 // Compact date format: "20 Jan" or "20 Jan 2026" if different year
 export function formatDateCompact(dateString: string): string {
   try {

@@ -147,6 +147,7 @@ export function PaymentListPage() {
               payment,
               invoice,
               plan: plan || { name: 'Membership' } as any,
+              subscription: subscription || undefined,
             }).link
           : null;
 

@@ -238,6 +238,31 @@ _This is an automated message. Reply STOP to opt-out._`,
     name: 'Payment Confirmation',
     template: 'Hi {memberName}, we received your payment of {amount} for {planName}. Thank you! - {studioName}\n\n_This is an automated message. Reply STOP to opt-out._',
   },
+  paymentReminders: [
+    {
+      name: 'Gentle Reminder',
+      template: `Hi {memberName} Namaste 🌸
+
+This is a gentle reminder about your pending payment for your yoga membership 🙏
+
+📋 Invoice: {invoiceNumber}
+💰 Amount Due: ₹{balanceAmount}
+📅 Due Date: {dueDate}
+
+You can pay via UPI, bank transfer, or cash at the studio. Please feel free to reply here if you have any questions 🌿
+
+Warm regards,
+{studioName} ✨
+
+_This is an automated message. Reply STOP to opt-out._`,
+    },
+    {
+      name: 'Follow-up Reminder',
+      template: `Hi {memberName}, this is a follow-up regarding your pending payment of ₹{balanceAmount} (Invoice: {invoiceNumber}). Please clear the dues at your earliest convenience to continue enjoying uninterrupted yoga sessions. - {studioName}
+
+_This is an automated message. Reply STOP to opt-out._`,
+    },
+  ],
   leadFollowUps: [
     {
       name: 'Trial Invitation',
@@ -279,6 +304,11 @@ export const WHATSAPP_PLACEHOLDERS = {
     { key: '{amount}', description: 'Payment amount' },
     { key: '{paymentDate}', description: 'Payment date' },
     { key: '{invoiceNumber}', description: 'Invoice number' },
+    { key: '{planName}', description: 'Membership plan name' },
+    { key: '{membershipStartDate}', description: 'Membership start date' },
+    { key: '{membershipEndDate}', description: 'Membership end date' },
+    { key: '{balanceAmount}', description: 'Outstanding balance' },
+    { key: '{dueDate}', description: 'Payment due date' },
   ],
   lead: [
     { key: '{leadName}', description: 'Lead full name' },

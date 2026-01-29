@@ -20,6 +20,7 @@ export function DashboardPage() {
   const { isLoading } = useFreshData(['members', 'leads', 'subscriptions', 'invoices', 'payments']);
 
   const [showAllExpiring, setShowAllExpiring] = useState(false);
+  const [showExpiredView, setShowExpiredView] = useState(false); // Toggle between expiring/expired
   const [chartMonths, setChartMonths] = useState<3 | 6 | 12>(6);
   const [selectedChartMonth, setSelectedChartMonth] = useState<number | null>(null);
 
@@ -127,18 +128,21 @@ export function DashboardPage() {
   });
 
   // Recently expired subscriptions (last 7 days) that haven't renewed
-  const expiredSubscriptions = subscriptionService.getRecentlyExpired(7).filter(sub => {
-    // Check if member has a pending renewal
-    if (subscriptionService.hasPendingRenewal(sub.memberId)) return false;
+  // Sorted by most recent expiry first
+  const expiredSubscriptions = subscriptionService.getRecentlyExpired(7)
+    .filter(sub => {
+      // Check if member has a pending renewal
+      if (subscriptionService.hasPendingRenewal(sub.memberId)) return false;
 
-    // Check if member has any active subscription (already renewed)
-    const allMemberSubs = subscriptionService.getByMember(sub.memberId);
-    const hasActiveSub = allMemberSubs.some(s =>
-      s.id !== sub.id &&
-      s.status === 'active'
-    );
-    return !hasActiveSub;
-  });
+      // Check if member has any active subscription (already renewed)
+      const allMemberSubs = subscriptionService.getByMember(sub.memberId);
+      const hasActiveSub = allMemberSubs.some(s =>
+        s.id !== sub.id &&
+        s.status === 'active'
+      );
+      return !hasActiveSub;
+    })
+    .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime()); // Most recent first
 
   // Leads needing follow-up (pending leads older than 2 days)
   const twoBusinessDaysAgo = new Date();
@@ -444,73 +448,170 @@ export function DashboardPage() {
           </div>
         </Card>
 
-        {/* Expiring memberships */}
-        <Card title="Expiring Memberships" subtitle="Next 7 days (not yet renewed)">
-          {expiringSubscriptions.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">
-              No memberships expiring in the next 7 days
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {(showAllExpiring ? expiringSubscriptions : expiringSubscriptions.slice(0, 5)).map(subscription => {
-                const member = memberService.getById(subscription.memberId);
-                const daysLeft = getDaysRemaining(subscription.endDate);
-                const slot = slots.find(s => s.id === subscription.slotId);
-                return (
-                  <div
-                    key={subscription.id}
-                    className="flex items-center gap-2 px-3 py-2 bg-yellow-50 rounded-lg"
-                  >
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium whitespace-nowrap ${
-                      daysLeft <= 2 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
-                    }`}>
-                      {daysLeft === 0 ? 'Today' : `${daysLeft}d`}
-                    </span>
-                    <Link
-                      to={`/admin/members/${subscription.memberId}`}
-                      className="font-medium text-gray-900 hover:text-indigo-600 truncate flex-1 min-w-0"
-                    >
-                      {member?.firstName} {member?.lastName}
-                    </Link>
-                    {slot && (
-                      <span className="text-xs text-gray-500 whitespace-nowrap">
-                        {(() => {
-                          const [h, m] = slot.startTime.split(':').map(Number);
-                          const hour = h % 12 || 12;
-                          const ampm = h >= 12 ? 'PM' : 'AM';
-                          return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`;
-                        })()}
-                      </span>
-                    )}
-                    <Link
-                      to="/admin/subscriptions/new"
-                      state={{
-                        memberId: subscription.memberId,
-                        slotId: subscription.slotId,
-                        planId: subscription.planId,
-                        isRenewal: true,
-                      }}
-                    >
-                      <Button size="sm" variant="primary">
-                        Renew
-                      </Button>
-                    </Link>
-                  </div>
-                );
-              })}
-              {expiringSubscriptions.length > 5 && (
+        {/* Expiring/Expired memberships with toggle */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+          {/* Custom header with toggle */}
+          <div className="px-4 py-3 border-b border-gray-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <h3 className="font-semibold text-gray-900">
+                  {showExpiredView ? 'Expired Memberships' : 'Expiring Memberships'}
+                </h3>
+                {/* Toggle switch */}
                 <button
-                  onClick={() => setShowAllExpiring(!showAllExpiring)}
-                  className="w-full text-center text-sm text-indigo-600 hover:text-indigo-800 font-medium pt-2 cursor-pointer"
+                  onClick={() => {
+                    setShowExpiredView(!showExpiredView);
+                    setShowAllExpiring(false); // Reset expand state when toggling
+                  }}
+                  className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
                 >
-                  {showAllExpiring
-                    ? 'Show less'
-                    : `+${expiringSubscriptions.length - 5} more expiring`}
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                  </svg>
+                  {showExpiredView ? 'Show Expiring' : 'Show Expired'}
                 </button>
-              )}
+              </div>
+              <span className="text-xs text-gray-500">
+                {showExpiredView ? 'Last 7 days' : 'Next 7 days'}
+              </span>
             </div>
-          )}
-        </Card>
+          </div>
+
+          {/* Content */}
+          <div className="p-4">
+            {showExpiredView ? (
+              // Expired memberships view
+              expiredSubscriptions.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">
+                  No memberships expired in the last 7 days
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {(showAllExpiring ? expiredSubscriptions : expiredSubscriptions.slice(0, 5)).map(subscription => {
+                    const member = memberService.getById(subscription.memberId);
+                    const daysAgo = Math.abs(getDaysRemaining(subscription.endDate));
+                    const slot = slots.find(s => s.id === subscription.slotId);
+                    return (
+                      <div
+                        key={subscription.id}
+                        className="flex items-center gap-2 px-3 py-2 bg-red-50 rounded-lg"
+                      >
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium whitespace-nowrap bg-red-100 text-red-700">
+                          {daysAgo === 0 ? 'Today' : daysAgo === 1 ? '1d ago' : `${daysAgo}d ago`}
+                        </span>
+                        <Link
+                          to={`/admin/members/${subscription.memberId}`}
+                          className="font-medium text-gray-900 hover:text-indigo-600 truncate flex-1 min-w-0"
+                        >
+                          {member?.firstName} {member?.lastName}
+                        </Link>
+                        {slot && (
+                          <span className="text-xs text-gray-500 whitespace-nowrap">
+                            {(() => {
+                              const [h, m] = slot.startTime.split(':').map(Number);
+                              const hour = h % 12 || 12;
+                              const ampm = h >= 12 ? 'PM' : 'AM';
+                              return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`;
+                            })()}
+                          </span>
+                        )}
+                        <Link
+                          to="/admin/subscriptions/new"
+                          state={{
+                            memberId: subscription.memberId,
+                            slotId: subscription.slotId,
+                            planId: subscription.planId,
+                            isRenewal: true,
+                          }}
+                        >
+                          <Button size="sm" variant="primary">
+                            Renew
+                          </Button>
+                        </Link>
+                      </div>
+                    );
+                  })}
+                  {expiredSubscriptions.length > 5 && (
+                    <button
+                      onClick={() => setShowAllExpiring(!showAllExpiring)}
+                      className="w-full text-center text-sm text-indigo-600 hover:text-indigo-800 font-medium pt-2 cursor-pointer"
+                    >
+                      {showAllExpiring
+                        ? 'Show less'
+                        : `+${expiredSubscriptions.length - 5} more expired`}
+                    </button>
+                  )}
+                </div>
+              )
+            ) : (
+              // Expiring memberships view (original)
+              expiringSubscriptions.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">
+                  No memberships expiring in the next 7 days
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {(showAllExpiring ? expiringSubscriptions : expiringSubscriptions.slice(0, 5)).map(subscription => {
+                    const member = memberService.getById(subscription.memberId);
+                    const daysLeft = getDaysRemaining(subscription.endDate);
+                    const slot = slots.find(s => s.id === subscription.slotId);
+                    return (
+                      <div
+                        key={subscription.id}
+                        className="flex items-center gap-2 px-3 py-2 bg-yellow-50 rounded-lg"
+                      >
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium whitespace-nowrap ${
+                          daysLeft <= 2 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {daysLeft === 0 ? 'Today' : `${daysLeft}d`}
+                        </span>
+                        <Link
+                          to={`/admin/members/${subscription.memberId}`}
+                          className="font-medium text-gray-900 hover:text-indigo-600 truncate flex-1 min-w-0"
+                        >
+                          {member?.firstName} {member?.lastName}
+                        </Link>
+                        {slot && (
+                          <span className="text-xs text-gray-500 whitespace-nowrap">
+                            {(() => {
+                              const [h, m] = slot.startTime.split(':').map(Number);
+                              const hour = h % 12 || 12;
+                              const ampm = h >= 12 ? 'PM' : 'AM';
+                              return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`;
+                            })()}
+                          </span>
+                        )}
+                        <Link
+                          to="/admin/subscriptions/new"
+                          state={{
+                            memberId: subscription.memberId,
+                            slotId: subscription.slotId,
+                            planId: subscription.planId,
+                            isRenewal: true,
+                          }}
+                        >
+                          <Button size="sm" variant="primary">
+                            Renew
+                          </Button>
+                        </Link>
+                      </div>
+                    );
+                  })}
+                  {expiringSubscriptions.length > 5 && (
+                    <button
+                      onClick={() => setShowAllExpiring(!showAllExpiring)}
+                      className="w-full text-center text-sm text-indigo-600 hover:text-indigo-800 font-medium pt-2 cursor-pointer"
+                    >
+                      {showAllExpiring
+                        ? 'Show less'
+                        : `+${expiringSubscriptions.length - 5} more expiring`}
+                    </button>
+                  )}
+                </div>
+              )
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Quick actions */}

@@ -386,6 +386,7 @@ export interface WhatsAppTemplates {
   renewalReminders: WhatsAppMessageTemplate[];  // Array of templates (3 options)
   classReminder: WhatsAppMessageTemplate;
   paymentConfirmation: WhatsAppMessageTemplate;
+  paymentReminders: WhatsAppMessageTemplate[];  // Array of templates for payment due reminders
   leadFollowUps: WhatsAppMessageTemplate[];  // Array of templates (2 options)
 }
 
