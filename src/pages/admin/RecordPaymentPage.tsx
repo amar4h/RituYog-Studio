@@ -219,12 +219,13 @@ export function RecordPaymentPage() {
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-lg">₹</span>
               <input
                 type="number"
-                min={1}
+                min={0.01}
                 max={balance}
+                step="0.01"
                 value={formData.amount || ''}
                 onChange={(e) => setFormData(prev => ({
                   ...prev,
-                  amount: parseInt(e.target.value) || 0,
+                  amount: parseFloat(e.target.value) || 0,
                 }))}
                 className="w-full pl-8 pr-4 py-3 text-2xl font-bold text-center border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 placeholder="0"

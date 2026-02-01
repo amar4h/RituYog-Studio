@@ -4215,7 +4215,7 @@ export const inventoryService = {
     productId: string,
     quantity: number,
     notes?: string
-  ): InventoryTransaction => {
+  ): { transaction: InventoryTransaction; expense: Expense } => {
     const product = productService.getById(productId);
     if (!product) {
       throw new Error('Product not found');
@@ -4228,14 +4228,38 @@ export const inventoryService = {
     const previousStock = product.currentStock;
     const newStock = previousStock - quantity;
     const today = new Date().toISOString().split('T')[0];
+    const totalCost = quantity * product.costPrice;
 
-    // Create transaction record
+    // Create expense record for studio consumption
+    const expense = expenseService.create({
+      expenseNumber: expenseService.generateExpenseNumber(),
+      category: 'supplies',
+      description: `Studio consumption: ${product.name} (${quantity} ${product.unit})`,
+      vendorName: 'Studio Consumption',
+      amount: totalCost,
+      totalAmount: totalCost,
+      amountPaid: totalCost,  // Auto-paid (internal consumption)
+      items: [{
+        description: product.name,
+        productId: product.id,
+        quantity,
+        unitCost: product.costPrice,
+        total: totalCost,
+      }],
+      expenseDate: today,
+      paymentStatus: 'paid',
+      paidDate: today,
+      notes: notes || `Consumed from inventory for studio use`,
+    });
+
+    // Create transaction record linked to expense
     const transaction = inventoryService.create({
       productId,
       type: 'consumed',
       quantity: -quantity,
       unitCost: product.costPrice,
-      totalValue: quantity * product.costPrice,
+      totalValue: totalCost,
+      expenseId: expense.id,  // Link to expense
       previousStock,
       newStock,
       transactionDate: today,
@@ -4245,7 +4269,7 @@ export const inventoryService = {
     // Update product stock
     productService.updateStock(productId, newStock);
 
-    return transaction;
+    return { transaction, expense };
   },
 
   // Record stock adjustment (manual correction)

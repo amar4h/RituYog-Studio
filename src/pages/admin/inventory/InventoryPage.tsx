@@ -71,8 +71,8 @@ export function InventoryPage() {
         if (qty > selectedProduct.currentStock) {
           throw new Error('Cannot consume more than current stock');
         }
-        inventoryService.recordConsumption(selectedProduct.id, qty, adjustmentNotes);
-        setSuccess(`Recorded consumption of ${qty} ${selectedProduct.unit}(s) of ${selectedProduct.name}`);
+        const { expense } = inventoryService.recordConsumption(selectedProduct.id, qty, adjustmentNotes);
+        setSuccess(`Recorded consumption of ${qty} ${selectedProduct.unit}(s) of ${selectedProduct.name}. Expense ${expense.expenseNumber} created.`);
       } else if (adjustmentType === 'damaged') {
         if (qty > selectedProduct.currentStock) {
           throw new Error('Cannot mark more damaged than current stock');
