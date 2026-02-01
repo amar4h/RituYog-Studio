@@ -1829,6 +1829,12 @@ export const invoiceService = {
     );
   },
 
+  // Find invoice by subscriptionId (to prevent duplicates)
+  getBySubscriptionId: (subscriptionId: string): Invoice | null => {
+    const invoices = getAll<Invoice>(STORAGE_KEYS.INVOICES);
+    return invoices.find(i => i.subscriptionId === subscriptionId) || null;
+  },
+
   generateInvoiceNumber: (): string => {
     const settings = settingsService.get();
     const invoices = getAll<Invoice>(STORAGE_KEYS.INVOICES);

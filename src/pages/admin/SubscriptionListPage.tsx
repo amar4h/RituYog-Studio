@@ -135,12 +135,16 @@ export function SubscriptionListPage() {
       key: 'actions',
       header: '',
       render: (sub) => {
-        // Check if invoice actually exists, not just if invoiceId is set
-        const invoice = sub.invoiceId ? invoiceService.getById(sub.invoiceId) : null;
+        // Check if invoice exists - first by invoiceId, then by subscriptionId
+        let invoice = sub.invoiceId ? invoiceService.getById(sub.invoiceId) : null;
+        if (!invoice) {
+          // Check if an invoice exists with this subscriptionId (wasn't linked properly)
+          invoice = invoiceService.getBySubscriptionId(sub.id);
+        }
         return (
           <div className="flex gap-2 justify-end">
             {invoice ? (
-              <Link to={`/admin/invoices/${sub.invoiceId}`}>
+              <Link to={`/admin/invoices/${invoice.id}`}>
                 <Button variant="ghost" size="sm">Invoice</Button>
               </Link>
             ) : (
@@ -287,6 +291,17 @@ export function SubscriptionListPage() {
     document.body.style.cursor = 'wait';
 
     try {
+      // First check if an invoice already exists for this subscription
+      const existingInvoice = invoiceService.getBySubscriptionId(sub.id);
+      if (existingInvoice) {
+        // Invoice exists but subscription wasn't linked - just link them
+        await subscriptionService.async.update(sub.id, { invoiceId: existingInvoice.id });
+        setEditSuccess('Found existing invoice and linked to subscription');
+        setRefreshKey(k => k + 1);
+        setTimeout(() => setEditSuccess(''), 3000);
+        return;
+      }
+
       const plan = membershipPlanService.getById(sub.planId);
       const slot = slotService.getById(sub.slotId);
 
