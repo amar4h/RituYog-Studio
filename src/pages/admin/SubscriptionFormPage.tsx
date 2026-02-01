@@ -233,7 +233,7 @@ export function SubscriptionFormPage() {
         </p>
         {isRenewal && existingOrExpiredSubscription && (
           <p className="text-sm text-indigo-600 mt-1">
-            Previous subscription: {existingOrExpiredSubscription.startDate} to {existingOrExpiredSubscription.endDate}
+            Previous: <span className="whitespace-nowrap">{existingOrExpiredSubscription.startDate}</span> to <span className="whitespace-nowrap">{existingOrExpiredSubscription.endDate}</span>
           </p>
         )}
       </div>
@@ -321,19 +321,19 @@ export function SubscriptionFormPage() {
 
             {/* Plan Selection */}
             <Card title="Membership Plan">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {plans.map(plan => (
                   <button
                     key={plan.id}
                     type="button"
                     onClick={() => setFormData(prev => ({ ...prev, planId: plan.id }))}
-                    className={`p-2 border-2 rounded-lg text-left transition-colors ${
+                    className={`p-3 sm:p-2 border-2 rounded-lg text-left transition-colors ${
                       formData.planId === plan.id
                         ? 'border-indigo-500 bg-indigo-50'
                         : 'border-gray-200 hover:border-indigo-300'
                     }`}
                   >
-                    <div className="flex justify-between items-start gap-1">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-0.5 sm:gap-1">
                       <p className="font-semibold text-gray-900">{plan.name}</p>
                       <p className="font-bold text-indigo-600 whitespace-nowrap">
                         {formatCurrency(plan.price)}
@@ -404,7 +404,7 @@ export function SubscriptionFormPage() {
                     <p className="font-semibold text-indigo-900">{selectedSlot.displayName}</p>
                     <p className="text-sm text-indigo-700">{selectedSlot.startTime} - {selectedSlot.endTime}</p>
                   </div>
-                  <div className="mt-3 flex items-center justify-between">
+                  <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <p className="text-sm text-gray-500">
                       {formData.allowSlotChange
                         ? 'Select a new slot from the options above'
@@ -421,6 +421,7 @@ export function SubscriptionFormPage() {
                           allowSlotChange: !prev.allowSlotChange,
                           slotId: prev.allowSlotChange ? (selectedMember?.assignedSlotId || '') : prev.slotId,
                         }))}
+                        className="self-start sm:self-auto"
                       >
                         {formData.allowSlotChange ? 'Keep Current Slot' : 'Change Slot'}
                       </Button>
@@ -432,7 +433,7 @@ export function SubscriptionFormPage() {
 
             {/* Discount */}
             <Card title="Discount (Optional)">
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 <Select
                   label="Type"
                   value={formData.discountType}
@@ -462,6 +463,7 @@ export function SubscriptionFormPage() {
                   value={formData.discountReason}
                   onChange={(e) => setFormData(prev => ({ ...prev, discountReason: e.target.value }))}
                   placeholder="e.g., Referral"
+                  className="col-span-2 sm:col-span-1"
                 />
               </div>
               {formData.discountType === 'percentage' && formData.discountValue > 0 && selectedPlan && (
@@ -508,8 +510,10 @@ export function SubscriptionFormPage() {
 
                     <div>
                       <p className="text-sm text-gray-500">Period</p>
-                      <p className="font-medium text-gray-900">
-                        {formData.startDate} to {endDate}
+                      <p className="font-medium text-gray-900 break-words">
+                        <span className="whitespace-nowrap">{formData.startDate}</span>
+                        <span className="mx-1">to</span>
+                        <span className="whitespace-nowrap">{endDate}</span>
                       </p>
                       <p className="text-xs text-gray-500">{selectedPlan.durationMonths} {selectedPlan.durationMonths === 1 ? 'month' : 'months'}</p>
                     </div>

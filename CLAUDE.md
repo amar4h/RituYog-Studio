@@ -11,6 +11,38 @@ A Yoga Studio Management application built with React + TypeScript + Vite. Uses 
 - **Storage**: localStorage (with service layer pattern)
 - **PDF Generation**: jsPDF with html2canvas
 
+## UX/Design Preferences
+
+### Mobile-First Responsive Design
+**All UI must be mobile-friendly.** When creating or modifying layouts:
+
+1. **Grid layouts**: Use responsive breakpoints, never fixed columns on mobile
+   - ❌ `grid-cols-3` (cramped on mobile)
+   - ✅ `grid-cols-1 sm:grid-cols-2 md:grid-cols-3`
+
+2. **Flex layouts**: Stack vertically on mobile, horizontal on larger screens
+   - ❌ `flex justify-between` (items may overlap on mobile)
+   - ✅ `flex flex-col sm:flex-row sm:justify-between gap-2`
+
+3. **Touch targets**: Ensure adequate padding for touch (min 44px)
+   - Use `p-3 sm:p-2` for interactive elements on mobile
+
+4. **Date displays**: Prevent awkward line breaks
+   - Wrap dates in `<span className="whitespace-nowrap">`
+
+5. **Form inputs**: Stack on mobile, inline on desktop
+   - `grid-cols-1 md:grid-cols-2` or `grid-cols-1 md:grid-cols-3`
+
+6. **Buttons**: Full width on mobile when appropriate
+   - Use `w-full sm:w-auto` for action buttons
+
+7. **Text truncation**: Use `break-words` for long content areas
+
+### Tailwind Breakpoints Reference
+- `sm:` → 640px+ (large phones, small tablets)
+- `md:` → 768px+ (tablets)
+- `lg:` → 1024px+ (laptops, desktops)
+
 ## Key Architecture
 
 ### Data Storage
