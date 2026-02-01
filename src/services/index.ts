@@ -29,6 +29,10 @@ export {
   attendanceService,
   attendanceLockService,
   notificationLogService,
+  // Inventory & Expenses
+  productService,
+  inventoryService,
+  expenseService,
   initializeStorage,
   seedDemoData,
   resetAndSeedData,

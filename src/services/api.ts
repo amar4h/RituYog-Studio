@@ -610,3 +610,123 @@ export const healthApi = {
     params: { action: 'stats' }
   }),
 };
+
+// ============================================
+// INVENTORY & EXPENSE API CLIENTS
+// ============================================
+
+export const productsApi = {
+  ...createCrudClient('products'),
+
+  getBySku: (sku: string) => apiRequest<unknown | null>('products', {
+    params: { action: 'getBySku', sku }
+  }),
+
+  getByCategory: (category: string) => apiRequest<unknown[]>('products', {
+    params: { action: 'getByCategory', category }
+  }),
+
+  getActive: () => apiRequest<unknown[]>('products', {
+    params: { action: 'getActive' }
+  }),
+
+  getLowStock: () => apiRequest<unknown[]>('products', {
+    params: { action: 'getLowStock' }
+  }),
+
+  search: (query: string) => apiRequest<unknown[]>('products', {
+    params: { action: 'search', query }
+  }),
+
+  getStockValue: () => apiRequest<{ totalValue: number; totalCost: number; totalItems: number }>('products', {
+    params: { action: 'getStockValue' }
+  }),
+
+  updateStock: (id: string, quantity: number, notes?: string) => apiRequest<unknown>('products', {
+    method: 'POST',
+    params: { action: 'updateStock', id },
+    body: { quantity, notes }
+  }),
+};
+
+export const inventoryApi = {
+  ...createCrudClient('inventory'),
+
+  getByProduct: (productId: string) => apiRequest<unknown[]>('inventory', {
+    params: { action: 'getByProduct', productId }
+  }),
+
+  getByType: (type: string) => apiRequest<unknown[]>('inventory', {
+    params: { action: 'getByType', type }
+  }),
+
+  getByDateRange: (startDate: string, endDate: string) => apiRequest<unknown[]>('inventory', {
+    params: { action: 'getByDateRange', startDate, endDate }
+  }),
+
+  getCostOfGoodsSold: (startDate: string, endDate: string) => apiRequest<{ cogs: number; count: number }>('inventory', {
+    params: { action: 'getCostOfGoodsSold', startDate, endDate }
+  }),
+
+  getByExpense: (expenseId: string) => apiRequest<unknown[]>('inventory', {
+    params: { action: 'getByExpense', expenseId }
+  }),
+
+  getByInvoice: (invoiceId: string) => apiRequest<unknown[]>('inventory', {
+    params: { action: 'getByInvoice', invoiceId }
+  }),
+
+  getProductSummary: (productId: string) => apiRequest<unknown>('inventory', {
+    params: { action: 'getProductSummary', productId }
+  }),
+};
+
+export const expensesApi = {
+  ...createCrudClient('expenses'),
+
+  getByCategory: (category: string) => apiRequest<unknown[]>('expenses', {
+    params: { action: 'getByCategory', category }
+  }),
+
+  getByVendor: (vendorName: string) => apiRequest<unknown[]>('expenses', {
+    params: { action: 'getByVendor', vendorName }
+  }),
+
+  getByDateRange: (startDate: string, endDate: string) => apiRequest<unknown[]>('expenses', {
+    params: { action: 'getByDateRange', startDate, endDate }
+  }),
+
+  getPending: () => apiRequest<unknown[]>('expenses', {
+    params: { action: 'getPending' }
+  }),
+
+  getRecurring: () => apiRequest<unknown[]>('expenses', {
+    params: { action: 'getRecurring' }
+  }),
+
+  generateNumber: () => apiRequest<{ expenseNumber: string }>('expenses', {
+    params: { action: 'generateNumber' }
+  }),
+
+  getTotalByCategory: (startDate: string, endDate: string) => apiRequest<Record<string, number>>('expenses', {
+    params: { action: 'getTotalByCategory', startDate, endDate }
+  }),
+
+  getMonthlyTotals: (months?: number) => apiRequest<{ month: string; total: number }[]>('expenses', {
+    params: { action: 'getMonthlyTotals', months }
+  }),
+
+  recordPayment: (id: string, data: {
+    amount: number;
+    paymentMethod?: string;
+    paymentReference?: string;
+  }) => apiRequest<unknown>('expenses', {
+    method: 'POST',
+    params: { action: 'recordPayment', id },
+    body: data
+  }),
+
+  getTotal: (startDate: string, endDate: string) => apiRequest<{ total: number }>('expenses', {
+    params: { action: 'getTotal', startDate, endDate }
+  }),
+};

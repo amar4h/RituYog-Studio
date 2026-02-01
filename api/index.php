@@ -79,6 +79,10 @@ $validEndpoints = [
     'auth',
     'health',
     'test',
+    // Inventory & Expenses
+    'products',
+    'inventory',
+    'expenses',
 ];
 
 if (!in_array($endpoint, $validEndpoints)) {

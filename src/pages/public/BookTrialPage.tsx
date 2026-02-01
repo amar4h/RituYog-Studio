@@ -227,10 +227,26 @@ export function BookTrialPage() {
   const getDateAvailability = (date: Date) => {
     const dateString = format(date, 'yyyy-MM-dd');
     const today = startOfToday();
+    const todayString = format(today, 'yyyy-MM-dd');
 
     // Check if date is in the past
     if (isBefore(date, today)) {
       return { status: 'past', available: 0, tooltip: 'Past date' };
+    }
+
+    // Check if today and the selected slot's time has already passed
+    if (dateString === todayString && selectedSlotId) {
+      const selectedSlot = slots.find(s => s.id === selectedSlotId);
+      if (selectedSlot) {
+        const now = new Date();
+        const [hours, minutes] = selectedSlot.startTime.split(':').map(Number);
+        const slotTime = new Date();
+        slotTime.setHours(hours, minutes, 0, 0);
+
+        if (now > slotTime) {
+          return { status: 'past', available: 0, tooltip: 'Session time has passed for today' };
+        }
+      }
     }
 
     // Check if date is beyond the 2-week booking window

@@ -446,6 +446,54 @@ export const INVOICE_STATUS_OPTIONS = [
 ] as const;
 
 // ============================================
+// PRODUCT CATEGORIES
+// ============================================
+
+export const PRODUCT_CATEGORY_OPTIONS = [
+  { value: 'yoga-equipment', label: 'Yoga Equipment' },
+  { value: 'clothing', label: 'Clothing' },
+  { value: 'supplements', label: 'Supplements' },
+  { value: 'accessories', label: 'Accessories' },
+  { value: 'books', label: 'Books' },
+  { value: 'other', label: 'Other' },
+] as const;
+
+// ============================================
+// EXPENSE CATEGORIES
+// ============================================
+
+export const EXPENSE_CATEGORY_OPTIONS = [
+  { value: 'procurement', label: 'Procurement', color: 'blue' },
+  { value: 'rent', label: 'Rent', color: 'purple' },
+  { value: 'utilities', label: 'Utilities', color: 'cyan' },
+  { value: 'salaries', label: 'Salaries', color: 'green' },
+  { value: 'maintenance', label: 'Maintenance', color: 'orange' },
+  { value: 'marketing', label: 'Marketing', color: 'pink' },
+  { value: 'insurance', label: 'Insurance', color: 'indigo' },
+  { value: 'professional-fees', label: 'Professional Fees', color: 'teal' },
+  { value: 'equipment', label: 'Equipment', color: 'yellow' },
+  { value: 'supplies', label: 'Supplies', color: 'lime' },
+  { value: 'travel', label: 'Travel', color: 'amber' },
+  { value: 'other', label: 'Other', color: 'gray' },
+] as const;
+
+export const EXPENSE_PAYMENT_STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pending', color: 'yellow' },
+  { value: 'paid', label: 'Paid', color: 'green' },
+  { value: 'partial', label: 'Partial', color: 'blue' },
+] as const;
+
+export const INVENTORY_TRANSACTION_TYPE_OPTIONS = [
+  { value: 'purchase', label: 'Purchase', color: 'green' },
+  { value: 'sale', label: 'Sale', color: 'blue' },
+  { value: 'consumed', label: 'Consumed', color: 'orange' },
+  { value: 'adjustment', label: 'Adjustment', color: 'purple' },
+  { value: 'returned', label: 'Returned', color: 'cyan' },
+  { value: 'damaged', label: 'Damaged', color: 'red' },
+  { value: 'initial', label: 'Initial Stock', color: 'gray' },
+] as const;
+
+// ============================================
 // GENDER OPTIONS
 // ============================================
 
@@ -531,6 +579,11 @@ export const STORAGE_KEYS = {
   ATTENDANCE: 'yoga_studio_attendance',
   ATTENDANCE_LOCKS: 'yoga_studio_attendance_locks',
   NOTIFICATION_LOGS: 'yoga_studio_notification_logs',
+
+  // Inventory & Expenses
+  PRODUCTS: 'yoga_studio_products',
+  INVENTORY_TRANSACTIONS: 'yoga_studio_inventory_transactions',
+  EXPENSES: 'yoga_studio_expenses',
 
   // Settings & Auth
   SETTINGS: 'yoga_studio_settings',

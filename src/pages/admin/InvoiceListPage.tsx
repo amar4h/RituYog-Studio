@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Alert, Modal, PageLoading } from '../../components/common';
-import { invoiceService, memberService, subscriptionService, membershipPlanService, paymentService, settingsService } from '../../services';
+import { invoiceService, memberService, subscriptionService, membershipPlanService, paymentService, settingsService, productService, inventoryService } from '../../services';
 import { formatCurrency } from '../../utils/formatUtils';
 import { formatDate, getCurrentMonthRange } from '../../utils/dateUtils';
 import { generateInvoicePDF } from '../../utils/pdfUtils';
 import { useFreshData } from '../../hooks';
-import type { Invoice, InvoiceItem, InvoiceStatus, Member } from '../../types';
+import type { Invoice, InvoiceItem, InvoiceStatus, InvoiceType, Member } from '../../types';
 import type { Column } from '../../components/common';
 
 // Type for line item in form (before saving)
@@ -24,6 +24,7 @@ export function InvoiceListPage() {
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [typeFilter, setTypeFilter] = useState<string>('');
   const [sharingInvoiceId, setSharingInvoiceId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
@@ -42,6 +43,8 @@ export function InvoiceListPage() {
   const [invoiceStatus, setInvoiceStatus] = useState<InvoiceStatus>('sent');
   const [invoiceNotes, setInvoiceNotes] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [invoiceType, setInvoiceType] = useState<InvoiceType>('product-sale');
+  const [selectedProductId, setSelectedProductId] = useState('');
   const isEditMode = editingInvoiceId !== null;
 
   // Show loading state while fetching data
@@ -52,6 +55,7 @@ export function InvoiceListPage() {
   // Get data after loading is complete
   const allMembers = memberService.getAll();
   const allInvoices = invoiceService.getAll();
+  const allProducts = productService.getAll().filter(p => p.isActive && p.currentStock > 0);
 
   // Check if Web Share API with files is supported
   const canShareFiles = typeof navigator !== 'undefined' &&
@@ -68,7 +72,9 @@ export function InvoiceListPage() {
 
       const matchesStatus = !statusFilter || invoice.status === statusFilter;
 
-      return matchesSearch && matchesStatus;
+      const matchesType = !typeFilter || invoice.invoiceType === typeFilter;
+
+      return matchesSearch && matchesStatus && matchesType;
     })
     .sort((a, b) => {
       // Sort by createdAt timestamp (most recent first)
@@ -148,6 +154,39 @@ export function InvoiceListPage() {
     ));
   };
 
+  // Add product from inventory to line items
+  const addProductToLineItems = (productId: string) => {
+    const product = allProducts.find(p => p.id === productId);
+    if (!product) return;
+
+    // Check if product already exists in line items
+    const existingItem = lineItems.find(item => item.description === product.name);
+    if (existingItem) {
+      // Increase quantity if already exists
+      setLineItems(lineItems.map(item =>
+        item.description === product.name
+          ? { ...item, quantity: Math.min(item.quantity + 1, product.currentStock) }
+          : item
+      ));
+    } else {
+      // Add new line item with product details
+      const newItem: LineItemForm = {
+        id: crypto.randomUUID(),
+        description: product.name,
+        quantity: 1,
+        unitPrice: product.sellingPrice,
+        cost: product.costPrice,
+      };
+      // Replace empty first item or add to list
+      if (lineItems.length === 1 && !lineItems[0].description) {
+        setLineItems([newItem]);
+      } else {
+        setLineItems([...lineItems, newItem]);
+      }
+    }
+    setSelectedProductId(''); // Reset selector
+  };
+
   // Calculations
   const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
   const calculatedDiscount = discountType === 'percentage'
@@ -167,6 +206,8 @@ export function InvoiceListPage() {
     setDueDate(new Date().toISOString().split('T')[0]);
     setInvoiceStatus('sent');
     setInvoiceNotes('');
+    setInvoiceType('product-sale');
+    setSelectedProductId('');
   };
 
   // Edit invoice handler - populate form with existing invoice data
@@ -249,7 +290,7 @@ export function InvoiceListPage() {
           invoiceNumber: invoiceService.generateInvoiceNumber(),
           invoiceDate: invoiceDate,
           dueDate: dueDate,
-          invoiceType: 'product-sale',
+          invoiceType: invoiceType,
           items: items,
           amount: subtotal,
           discount: calculatedDiscount,
@@ -260,7 +301,23 @@ export function InvoiceListPage() {
           notes: invoiceNotes || undefined
         };
 
-        invoiceService.create(invoice);
+        const createdInvoice = invoiceService.create(invoice);
+
+        // Deduct inventory for product sales
+        if (invoiceType === 'product-sale') {
+          for (const item of items) {
+            // Find product by name to get ID and cost
+            const product = allProducts.find(p => p.name === item.description);
+            if (product && item.quantity > 0) {
+              inventoryService.recordSale(
+                product.id,
+                item.quantity,
+                product.costPrice,
+                createdInvoice.id
+              );
+            }
+          }
+        }
       }
 
       setShowCreateModal(false);
@@ -306,6 +363,19 @@ export function InvoiceListPage() {
       header: 'Date',
       render: (invoice) => (
         <span className="text-gray-600">{formatDate(invoice.invoiceDate)}</span>
+      ),
+    },
+    {
+      key: 'type',
+      header: 'Type',
+      render: (invoice) => (
+        <span className={`px-2 py-0.5 text-xs font-medium rounded ${
+          invoice.invoiceType === 'product-sale'
+            ? 'bg-purple-100 text-purple-700'
+            : 'bg-blue-100 text-blue-700'
+        }`}>
+          {invoice.invoiceType === 'product-sale' ? 'Product' : 'Membership'}
+        </span>
       ),
     },
     {
@@ -454,11 +524,20 @@ export function InvoiceListPage() {
 
       {/* Filters */}
       <Card>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Input
             placeholder="Search by member or invoice #..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+          />
+          <Select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            options={[
+              { value: '', label: 'All Types' },
+              { value: 'membership', label: 'Membership' },
+              { value: 'product-sale', label: 'Product Sale' },
+            ]}
           />
           <Select
             value={statusFilter}
@@ -486,7 +565,7 @@ export function InvoiceListPage() {
         <EmptyState
           icon={EmptyIcons.document}
           title="No invoices found"
-          description={search || statusFilter
+          description={search || statusFilter || typeFilter
             ? "Try adjusting your filters to find what you're looking for."
             : "Invoices are automatically created when subscriptions are added."
           }
@@ -509,6 +588,37 @@ export function InvoiceListPage() {
         size="lg"
       >
         <div className="space-y-6">
+          {/* Invoice Type */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Invoice Type
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="invoiceType"
+                  value="product-sale"
+                  checked={invoiceType === 'product-sale'}
+                  onChange={() => setInvoiceType('product-sale')}
+                  className="text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm text-gray-700">Product Sale</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="invoiceType"
+                  value="membership"
+                  checked={invoiceType === 'membership'}
+                  onChange={() => setInvoiceType('membership')}
+                  className="text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm text-gray-700">Membership/Other</span>
+              </label>
+            </div>
+          </div>
+
           {/* Member Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -529,6 +639,39 @@ export function InvoiceListPage() {
               Need to add someone? <Link to="/admin/members/new" className="text-indigo-600 hover:text-indigo-700">Create a new member</Link> first.
             </p>
           </div>
+
+          {/* Quick Add from Inventory (for product sales) */}
+          {invoiceType === 'product-sale' && allProducts.length > 0 && (
+            <div className="bg-indigo-50 p-4 rounded-lg">
+              <label className="block text-sm font-medium text-indigo-700 mb-2">
+                Quick Add from Inventory
+              </label>
+              <div className="flex gap-2">
+                <Select
+                  value={selectedProductId}
+                  onChange={(e) => setSelectedProductId(e.target.value)}
+                  options={[
+                    { value: '', label: 'Select a product...' },
+                    ...allProducts.map(p => ({
+                      value: p.id,
+                      label: `${p.name} (${p.currentStock} in stock) - ${formatCurrency(p.sellingPrice)}`
+                    }))
+                  ]}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => selectedProductId && addProductToLineItems(selectedProductId)}
+                  disabled={!selectedProductId}
+                >
+                  Add
+                </Button>
+              </div>
+              <p className="mt-1 text-xs text-indigo-600">
+                Select a product to auto-fill price and cost. Stock will be deducted when invoice is created.
+              </p>
+            </div>
+          )}
 
           {/* Line Items */}
           <div>

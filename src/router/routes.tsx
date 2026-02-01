@@ -30,6 +30,15 @@ const RecordPaymentPage = lazy(() => import('../pages/admin/RecordPaymentPage').
 const SettingsPage = lazy(() => import('../pages/admin/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const NotificationsPage = lazy(() => import('../pages/admin/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
 
+// Products, Inventory & Expenses - lazy loaded
+const ProductListPage = lazy(() => import('../pages/admin/products/ProductListPage').then(m => ({ default: m.ProductListPage })));
+const ProductFormPage = lazy(() => import('../pages/admin/products/ProductFormPage').then(m => ({ default: m.ProductFormPage })));
+const InventoryPage = lazy(() => import('../pages/admin/inventory/InventoryPage').then(m => ({ default: m.InventoryPage })));
+const ExpenseListPage = lazy(() => import('../pages/admin/expenses/ExpenseListPage').then(m => ({ default: m.ExpenseListPage })));
+const ExpenseFormPage = lazy(() => import('../pages/admin/expenses/ExpenseFormPage').then(m => ({ default: m.ExpenseFormPage })));
+const ProductSalePage = lazy(() => import('../pages/admin/sales/ProductSalePage').then(m => ({ default: m.ProductSalePage })));
+const FinancialReportsPage = lazy(() => import('../pages/admin/reports/FinancialReportsPage').then(m => ({ default: m.FinancialReportsPage })));
+
 // Public pages - lazy loaded
 const HomePage = lazy(() => import('../pages/public/HomePage').then(m => ({ default: m.HomePage })));
 const RegisterPage = lazy(() => import('../pages/public/RegisterPage').then(m => ({ default: m.RegisterPage })));
@@ -239,6 +248,104 @@ export const routes: RouteObject[] = [
             element: (
               <SuspenseWrapper>
                 <RecordPaymentPage />
+              </SuspenseWrapper>
+            ),
+          },
+
+          // Products
+          {
+            path: '/admin/products',
+            element: (
+              <SuspenseWrapper>
+                <ProductListPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/admin/products/new',
+            element: (
+              <SuspenseWrapper>
+                <ProductFormPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/admin/products/:id',
+            element: (
+              <SuspenseWrapper>
+                <ProductFormPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/admin/products/:id/edit',
+            element: (
+              <SuspenseWrapper>
+                <ProductFormPage />
+              </SuspenseWrapper>
+            ),
+          },
+
+          // Inventory
+          {
+            path: '/admin/inventory',
+            element: (
+              <SuspenseWrapper>
+                <InventoryPage />
+              </SuspenseWrapper>
+            ),
+          },
+
+          // Expenses
+          {
+            path: '/admin/expenses',
+            element: (
+              <SuspenseWrapper>
+                <ExpenseListPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/admin/expenses/new',
+            element: (
+              <SuspenseWrapper>
+                <ExpenseFormPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/admin/expenses/:id',
+            element: (
+              <SuspenseWrapper>
+                <ExpenseFormPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/admin/expenses/:id/edit',
+            element: (
+              <SuspenseWrapper>
+                <ExpenseFormPage />
+              </SuspenseWrapper>
+            ),
+          },
+
+          // Product Sales
+          {
+            path: '/admin/sales/product',
+            element: (
+              <SuspenseWrapper>
+                <ProductSalePage />
+              </SuspenseWrapper>
+            ),
+          },
+
+          // Financial Reports
+          {
+            path: '/admin/reports',
+            element: (
+              <SuspenseWrapper>
+                <FinancialReportsPage />
               </SuspenseWrapper>
             ),
           },

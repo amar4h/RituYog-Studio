@@ -19,7 +19,10 @@ export type DataType =
   | 'notification-logs'
   | 'slots'
   | 'plans'
-  | 'settings';
+  | 'settings'
+  | 'products'
+  | 'inventory'
+  | 'expenses';
 
 interface UseFreshDataResult {
   isLoading: boolean;

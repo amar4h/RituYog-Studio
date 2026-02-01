@@ -372,6 +372,158 @@ export interface Payment extends BaseEntity {
 }
 
 // ============================================
+// PRODUCT CATALOG
+// ============================================
+
+export type ProductCategory = 'yoga-equipment' | 'clothing' | 'supplements' | 'accessories' | 'books' | 'other';
+
+export interface Product extends BaseEntity {
+  name: string;
+  sku: string;                    // Stock Keeping Unit - unique identifier
+  category: ProductCategory;
+  description?: string;
+  costPrice: number;              // Purchase cost per unit
+  sellingPrice: number;           // Retail price per unit
+  currentStock: number;           // Current quantity in inventory
+  lowStockThreshold: number;      // Alert when stock falls below this
+  unit: string;                   // 'piece', 'pack', 'kg', etc.
+  isActive: boolean;              // Can be sold/used
+  imageUrl?: string;
+  barcode?: string;
+  notes?: string;
+}
+
+// ============================================
+// INVENTORY TRANSACTIONS
+// ============================================
+
+export type InventoryTransactionType =
+  | 'purchase'       // Bought from vendor (stock in)
+  | 'sale'           // Sold to customer (stock out)
+  | 'consumed'       // Used by studio (stock out)
+  | 'adjustment'     // Manual correction (+/-)
+  | 'returned'       // Returned by customer (stock in)
+  | 'damaged'        // Written off (stock out)
+  | 'initial';       // Opening stock
+
+export interface InventoryTransaction extends BaseEntity {
+  productId: string;
+  type: InventoryTransactionType;
+  quantity: number;               // Positive for in, negative for out
+  unitCost: number;               // Cost at time of transaction
+  totalValue: number;             // quantity * unitCost (absolute value)
+
+  // For purchases - link to expense
+  expenseId?: string;
+  vendorName?: string;
+
+  // For sales - link to invoice
+  invoiceId?: string;
+
+  // Stock levels at time of transaction
+  previousStock: number;
+  newStock: number;
+
+  transactionDate: string;        // YYYY-MM-DD
+  notes?: string;
+  recordedBy?: string;
+}
+
+// ============================================
+// EXPENSE TRACKING
+// ============================================
+
+export type ExpenseCategory =
+  | 'procurement'         // Product purchases (linked to inventory)
+  | 'rent'
+  | 'utilities'           // Electricity, water, internet
+  | 'salaries'
+  | 'maintenance'
+  | 'marketing'
+  | 'insurance'
+  | 'professional-fees'   // Accounting, legal
+  | 'equipment'           // Studio equipment (non-inventory)
+  | 'supplies'            // Consumables like cleaning supplies
+  | 'travel'
+  | 'other';
+
+export type ExpensePaymentStatus = 'pending' | 'paid' | 'partial';
+
+export interface ExpenseItem {
+  description: string;
+  productId?: string;             // For procurement - link to product
+  quantity?: number;
+  unitCost: number;
+  total: number;
+}
+
+export interface Expense extends BaseEntity {
+  expenseNumber: string;          // Auto-generated: EXP-00001
+  category: ExpenseCategory;
+  description: string;
+
+  // Vendor details
+  vendorName: string;
+  vendorContact?: string;
+  vendorGstin?: string;           // Tax ID
+
+  // Amounts
+  amount: number;                 // Subtotal
+  taxAmount?: number;
+  totalAmount: number;
+  amountPaid: number;
+
+  // Items (for procurement, can have multiple products)
+  items: ExpenseItem[];
+
+  // Dates
+  expenseDate: string;
+  dueDate?: string;
+  paidDate?: string;
+
+  // Payment info
+  paymentStatus: ExpensePaymentStatus;
+  paymentMethod?: PaymentMethod;
+  paymentReference?: string;
+
+  // Document
+  receiptUrl?: string;            // Uploaded receipt image
+  receiptData?: string;           // Base64 encoded receipt
+  invoiceNumber?: string;         // Vendor's invoice number
+
+  // Flags
+  isRecurring?: boolean;
+  recurringFrequency?: 'monthly' | 'quarterly' | 'yearly';
+
+  notes?: string;
+}
+
+// ============================================
+// FINANCIAL SUMMARY TYPES
+// ============================================
+
+export interface RevenueBreakdown {
+  membershipRevenue: number;
+  productRevenue: number;
+  productCost: number;            // COGS - Cost of Goods Sold
+  productProfit: number;          // productRevenue - productCost
+  totalRevenue: number;
+}
+
+export interface ExpenseBreakdown {
+  byCategory: Record<ExpenseCategory, number>;
+  total: number;
+}
+
+export interface ProfitLossSummary {
+  period: { start: string; end: string };
+  revenue: RevenueBreakdown;
+  expenses: ExpenseBreakdown;
+  grossProfit: number;            // totalRevenue - expenses.total
+  productMargin: number;          // productProfit / productRevenue (percentage)
+}
+
+// ============================================
 // WHATSAPP MESSAGE TEMPLATES
 // ============================================
 
@@ -452,6 +604,8 @@ export interface StudioSettings {
   receiptPrefix: string;
   invoiceStartNumber?: number;
   receiptStartNumber?: number;
+  expensePrefix?: string;
+  expenseStartNumber?: number;
 
   // Trial settings
   trialClassEnabled: boolean;
@@ -541,6 +695,28 @@ export interface PaymentFilters {
   invoiceId?: string;
   status?: PaymentRecordStatus;
   method?: PaymentMethod;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export interface ProductFilters {
+  search?: string;
+  category?: ProductCategory;
+  lowStock?: boolean;             // Only show low stock items
+  isActive?: boolean;
+}
+
+export interface InventoryFilters {
+  productId?: string;
+  type?: InventoryTransactionType;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export interface ExpenseFilters {
+  category?: ExpenseCategory;
+  vendorName?: string;
+  paymentStatus?: ExpensePaymentStatus;
   dateFrom?: string;
   dateTo?: string;
 }
