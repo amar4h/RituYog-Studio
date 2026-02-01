@@ -10,6 +10,7 @@ class InventoryHandler extends BaseHandler {
     protected array $jsonFields = [];
     protected array $boolFields = [];
     protected array $dateFields = ['transaction_date'];
+    protected array $numericFields = ['quantity', 'unit_cost', 'total_value', 'previous_stock', 'new_stock'];
 
     /**
      * Create new inventory transaction

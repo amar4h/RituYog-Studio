@@ -9,6 +9,7 @@ class PlansHandler extends BaseHandler {
     protected string $table = 'membership_plans';
     protected array $jsonFields = ['allowed_session_types', 'features'];
     protected array $boolFields = ['is_active'];
+    protected array $numericFields = ['price', 'duration_months'];
 
     /**
      * Get active plans

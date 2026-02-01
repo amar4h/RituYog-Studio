@@ -9,6 +9,7 @@ class SlotsHandler extends BaseHandler {
     protected string $table = 'session_slots';
     protected array $jsonFields = [];
     protected array $boolFields = ['is_active'];
+    protected array $numericFields = ['capacity', 'exception_capacity'];
 
     /**
      * Get active slots

@@ -10,6 +10,7 @@ class SubscriptionsHandler extends BaseHandler {
     protected array $jsonFields = [];
     protected array $boolFields = ['is_extension'];
     protected array $dateFields = ['start_date', 'end_date'];
+    protected array $numericFields = ['price', 'discount', 'classes_attended'];
 
     /**
      * Get subscriptions by member

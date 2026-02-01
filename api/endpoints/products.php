@@ -10,6 +10,7 @@ class ProductsHandler extends BaseHandler {
     protected array $jsonFields = [];
     protected array $boolFields = ['is_active'];
     protected array $dateFields = [];
+    protected array $numericFields = ['cost_price', 'selling_price', 'current_stock', 'low_stock_threshold'];
 
     /**
      * Get product by SKU

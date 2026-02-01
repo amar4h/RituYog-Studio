@@ -10,6 +10,7 @@ class PaymentsHandler extends BaseHandler {
     protected array $jsonFields = [];
     protected array $boolFields = [];
     protected array $dateFields = ['payment_date'];
+    protected array $numericFields = ['amount'];
 
     /**
      * Get payments by invoice

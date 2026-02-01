@@ -10,6 +10,7 @@ abstract class BaseHandler {
     protected array $dateFields = [];      // DATE columns (YYYY-MM-DD)
     protected array $datetimeFields = [];  // DATETIME columns (YYYY-MM-DD HH:MM:SS)
     protected array $boolFields = [];
+    protected array $numericFields = [];   // DECIMAL/FLOAT columns - cast to float
 
     public function __construct() {
         $this->db = getDB();
@@ -166,6 +167,11 @@ abstract class BaseHandler {
             // Convert boolean fields
             if (in_array($key, $this->boolFields)) {
                 $value = (bool) $value;
+            }
+
+            // Convert numeric fields (DECIMAL/FLOAT) to float
+            if (in_array($key, $this->numericFields) && $value !== null) {
+                $value = (float) $value;
             }
 
             $result[$camelKey] = $value;
