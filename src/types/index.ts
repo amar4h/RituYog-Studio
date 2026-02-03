@@ -275,6 +275,11 @@ export interface Lead extends BaseEntity {
   followUpNotes?: string;
 
   notes?: string;
+
+  // Quick-add registration completion
+  completionToken?: string;         // Secure token for public completion link
+  completionTokenExpiry?: string;   // ISO datetime when token expires
+  isProfileComplete?: boolean;      // Whether lead has completed full registration
 }
 
 // ============================================
@@ -540,6 +545,7 @@ export interface WhatsAppTemplates {
   paymentConfirmation: WhatsAppMessageTemplate;
   paymentReminders: WhatsAppMessageTemplate[];  // Array of templates for payment due reminders
   leadFollowUps: WhatsAppMessageTemplate[];  // Array of templates (2 options)
+  leadRegistrationLink?: WhatsAppMessageTemplate;  // Template for sharing registration completion link
 }
 
 // ============================================

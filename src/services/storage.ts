@@ -46,6 +46,8 @@ import type {
   MemberAttendanceSummary,
   NotificationLog,
   NotificationType,
+  MedicalCondition,
+  ConsentRecord,
   // Product & Inventory types
   Product,
   ProductCategory,
@@ -579,6 +581,92 @@ export const leadService = {
   },
 
   // ============================================
+  // QUICK-ADD LEAD METHODS (for registration completion flow)
+  // ============================================
+
+  // Generate a cryptographically secure completion token
+  generateCompletionToken: (): string => {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
+  },
+
+  // Create a quick-add lead with minimal info and completion token
+  createQuick: (data: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    gender: 'male' | 'female' | 'other';
+    age?: number;
+    preferredSlotId?: string;
+  }): Lead => {
+    const token = leadService.generateCompletionToken();
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + 7); // 7 days expiry
+
+    return leadService.create({
+      ...data,
+      email: '', // Will be filled on completion
+      status: 'new',
+      source: 'whatsapp',
+      completionToken: token,
+      completionTokenExpiry: expiryDate.toISOString(),
+      isProfileComplete: false,
+      medicalConditions: [],
+      consentRecords: [],
+    });
+  },
+
+  // Get lead by completion token (for public completion page)
+  getByToken: (token: string): Lead | null => {
+    const leads = getAll<Lead>(STORAGE_KEYS.LEADS);
+    const now = new Date().toISOString();
+    return leads.find(l =>
+      l.completionToken === token &&
+      l.completionTokenExpiry &&
+      l.completionTokenExpiry > now &&
+      !l.isProfileComplete
+    ) || null;
+  },
+
+  // Complete lead registration (public action via token)
+  completeRegistration: (token: string, data: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email: string;
+    age?: number;
+    gender?: 'male' | 'female' | 'other';
+    preferredSlotId?: string;
+    medicalConditions: MedicalCondition[];
+    consentRecords: ConsentRecord[];
+  }): Lead | null => {
+    const lead = leadService.getByToken(token);
+    if (!lead) return null;
+
+    return leadService.update(lead.id, {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      phone: data.phone,
+      email: data.email,
+      age: data.age,
+      gender: data.gender,
+      preferredSlotId: data.preferredSlotId,
+      medicalConditions: data.medicalConditions,
+      consentRecords: data.consentRecords,
+      isProfileComplete: true,
+      completionToken: undefined, // Clear token after use
+      completionTokenExpiry: undefined,
+    });
+  },
+
+  // Generate the registration completion URL for a lead
+  getRegistrationUrl: (lead: Lead): string => {
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/complete-registration/${lead.completionToken}`;
+  },
+
+  // ============================================
   // ASYNC METHODS - Dual-mode support
   // ============================================
   async: {
@@ -763,6 +851,63 @@ export const leadService = {
         l.email.toLowerCase().includes(lowerQuery) ||
         l.phone.includes(query)
       );
+    },
+
+    // Quick-add lead with completion token
+    createQuick: async (data: {
+      firstName: string;
+      lastName: string;
+      phone: string;
+      gender: 'male' | 'female' | 'other';
+      age?: number;
+      preferredSlotId?: string;
+    }): Promise<Lead> => {
+      const token = leadService.generateCompletionToken();
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + 7);
+
+      const leadData = {
+        ...data,
+        email: '',
+        status: 'new' as const,
+        source: 'whatsapp' as const,
+        completionToken: token,
+        completionTokenExpiry: expiryDate.toISOString(),
+        isProfileComplete: false,
+        medicalConditions: [],
+        consentRecords: [],
+      };
+
+      if (isApiMode()) {
+        return leadsApi.create(leadData) as Promise<Lead>;
+      }
+      return create<Lead>(STORAGE_KEYS.LEADS, leadData);
+    },
+
+    // Get lead by completion token (public - no auth required)
+    getByToken: async (token: string): Promise<Lead | null> => {
+      if (isApiMode()) {
+        return leadsApi.getByToken(token) as Promise<Lead | null>;
+      }
+      return leadService.getByToken(token);
+    },
+
+    // Complete lead registration (public - token auth)
+    completeRegistration: async (token: string, data: {
+      firstName: string;
+      lastName: string;
+      phone: string;
+      email: string;
+      age?: number;
+      gender?: 'male' | 'female' | 'other';
+      preferredSlotId?: string;
+      medicalConditions: MedicalCondition[];
+      consentRecords: ConsentRecord[];
+    }): Promise<Lead | null> => {
+      if (isApiMode()) {
+        return leadsApi.completeRegistration(token, data) as Promise<Lead | null>;
+      }
+      return leadService.completeRegistration(token, data);
     },
   },
 };

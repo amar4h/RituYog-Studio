@@ -43,6 +43,7 @@ const FinancialReportsPage = lazy(() => import('../pages/admin/reports/Financial
 const HomePage = lazy(() => import('../pages/public/HomePage').then(m => ({ default: m.HomePage })));
 const RegisterPage = lazy(() => import('../pages/public/RegisterPage').then(m => ({ default: m.RegisterPage })));
 const BookTrialPage = lazy(() => import('../pages/public/BookTrialPage').then(m => ({ default: m.BookTrialPage })));
+const LeadCompletionPage = lazy(() => import('../pages/public/LeadCompletionPage').then(m => ({ default: m.LeadCompletionPage })));
 
 // Suspense wrapper for lazy components
 function SuspenseWrapper({ children }: { children: React.ReactNode }) {
@@ -75,6 +76,14 @@ export const routes: RouteObject[] = [
         element: (
           <SuspenseWrapper>
             <BookTrialPage />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: '/complete-registration/:token',
+        element: (
+          <SuspenseWrapper>
+            <LeadCompletionPage />
           </SuspenseWrapper>
         ),
       },

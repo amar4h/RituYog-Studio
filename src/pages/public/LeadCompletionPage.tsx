@@ -1,47 +1,101 @@
-import { useState, FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Card, Button, Input, Select, Textarea, Alert, Modal } from '../../components/common';
-import { leadService, slotService, settingsService } from '../../services';
+import { useState, useEffect, FormEvent } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Card, Button, Input, Select, Alert, Modal } from '../../components/common';
+import { leadService, settingsService, slotService } from '../../services';
 import { validateEmail, validatePhone } from '../../utils/validationUtils';
 import { getToday } from '../../utils/dateUtils';
-import type { MedicalCondition, ConsentRecord } from '../../types';
+import { GENDER_OPTIONS } from '../../constants';
+import type { Lead, MedicalCondition, ConsentRecord } from '../../types';
 
-export function RegisterPage() {
+export function LeadCompletionPage() {
+  const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
+
+  const [lead, setLead] = useState<Lead | null>(null);
+  const [completedLeadId, setCompletedLeadId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [tokenError, setTokenError] = useState('');
+  const [submitError, setSubmitError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  // Form state - personal info (editable)
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState<'' | 'male' | 'female' | 'other'>('');
+  const [preferredSlotId, setPreferredSlotId] = useState('');
+
+  // Get available slots
   const slots = slotService.getActive();
-  const settings = settingsService.getOrDefault();
 
-  const [createdLeadId, setCreatedLeadId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    age: '',
-    gender: '' as '' | 'male' | 'female' | 'other',
-    preferredSlotId: '',
-    source: 'online',
-    notes: '',
-  });
-
+  // Form state - health & consent
   const [medicalConditions, setMedicalConditions] = useState<MedicalCondition[]>([]);
   const [newCondition, setNewCondition] = useState('');
-
   const [consents, setConsents] = useState({
     termsAndConditions: false,
     healthDisclaimer: false,
   });
-
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [submitError, setSubmitError] = useState('');
-  const [success, setSuccess] = useState(false);
-  const [loading, setLoading] = useState(false);
 
-  // Modal states for T&C and health disclaimer
+  // Modal states
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showDisclaimerModal, setShowDisclaimerModal] = useState(false);
 
-  // Render markdown-like content (basic)
+  const settings = settingsService.getOrDefault();
+
+  // Fetch lead by token on mount
+  useEffect(() => {
+    const fetchLead = async () => {
+      if (!token) {
+        setTokenError('Invalid registration link');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const foundLead = await leadService.async.getByToken(token);
+        if (!foundLead) {
+          setTokenError('This registration link is invalid or has expired. Please contact the studio for a new link.');
+          setLoading(false);
+          return;
+        }
+
+        setLead(foundLead);
+        // Pre-fill all fields from the lead
+        setFirstName(foundLead.firstName || '');
+        setLastName(foundLead.lastName || '');
+        setPhone(foundLead.phone || '');
+        if (foundLead.email) {
+          setEmail(foundLead.email);
+        }
+        if (foundLead.age) {
+          setAge(foundLead.age.toString());
+        }
+        if (foundLead.gender) {
+          setGender(foundLead.gender);
+        }
+        if (foundLead.preferredSlotId) {
+          setPreferredSlotId(foundLead.preferredSlotId);
+        }
+        // Pre-fill medical conditions if any
+        if (foundLead.medicalConditions?.length > 0) {
+          setMedicalConditions(foundLead.medicalConditions);
+        }
+      } catch (error) {
+        console.error('Failed to fetch lead:', error);
+        setTokenError('Unable to load registration. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLead();
+  }, [token]);
+
+  // Render markdown-like content
   const renderContent = (content: string) => {
     return content.split('\n').map((line, i) => {
       if (line.startsWith('# ')) {
@@ -57,13 +111,6 @@ export function RegisterPage() {
         return <p key={i} className="mb-2" dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />;
       }
     });
-  };
-
-  const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
   };
 
   const addMedicalCondition = () => {
@@ -86,33 +133,31 @@ export function RegisterPage() {
 
     const newErrors: Record<string, string> = {};
 
-    if (!formData.firstName.trim()) {
+    // Validate personal info
+    if (!firstName.trim()) {
       newErrors.firstName = 'First name is required';
     }
-    if (!formData.lastName.trim()) {
+    if (!lastName.trim()) {
       newErrors.lastName = 'Last name is required';
     }
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!validateEmail(formData.email)) {
-      newErrors.email = 'Invalid email format';
-    }
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'Phone is required';
-    } else if (!validatePhone(formData.phone)) {
-      newErrors.phone = 'Invalid phone number (10 digits required)';
-    }
-    if (!formData.age.trim()) {
-      newErrors.age = 'Age is required';
+    if (!phone.trim()) {
+      newErrors.phone = 'Phone number is required';
     } else {
-      const ageNum = parseInt(formData.age, 10);
-      if (isNaN(ageNum) || ageNum < 5 || ageNum > 100) {
-        newErrors.age = 'Please enter a valid age (5-100)';
+      const phoneValidation = validatePhone(phone);
+      if (!phoneValidation.isValid) {
+        newErrors.phone = phoneValidation.error || 'Please enter a valid 10-digit phone number';
       }
     }
-    if (!formData.gender) {
-      newErrors.gender = 'Gender is required';
+    if (!email.trim()) {
+      newErrors.email = 'Email is required';
+    } else {
+      const emailValidation = validateEmail(email);
+      if (!emailValidation.isValid) {
+        newErrors.email = emailValidation.error || 'Invalid email format';
+      }
     }
+
+    // Validate consents
     if (!consents.termsAndConditions) {
       newErrors.termsAndConditions = 'You must accept the terms and conditions';
     }
@@ -125,7 +170,9 @@ export function RegisterPage() {
       return;
     }
 
-    setLoading(true);
+    if (!token) return;
+
+    setSubmitting(true);
 
     try {
       const consentRecords: ConsentRecord[] = [
@@ -141,51 +188,77 @@ export function RegisterPage() {
         },
       ];
 
-      // Handle 'personal-training' special case - store in notes instead of preferredSlotId
-      // (preferredSlotId has FK constraint to session_slots table)
-      const isPersonalTraining = formData.preferredSlotId === 'personal-training';
-      const notesWithPreference = isPersonalTraining
-        ? `[Preferred: Personal Training] ${formData.notes.trim()}`.trim()
-        : formData.notes.trim() || undefined;
-
-      const createdLead = await leadService.create({
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
-        email: formData.email.trim().toLowerCase(),
-        phone: formData.phone.replace(/\D/g, ''),
-        age: parseInt(formData.age, 10),
-        gender: formData.gender as 'male' | 'female' | 'other',
-        status: 'new',
-        source: 'online',
-        preferredSlotId: isPersonalTraining ? undefined : (formData.preferredSlotId || undefined),
-        notes: notesWithPreference,
+      const result = await leadService.async.completeRegistration(token, {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        phone: phone.replace(/\D/g, ''),
+        email: email.trim().toLowerCase(),
+        age: age ? parseInt(age, 10) : undefined,
+        gender: gender || undefined,
+        preferredSlotId: preferredSlotId || undefined,
         medicalConditions,
         consentRecords,
       });
 
-      setCreatedLeadId(createdLead.id);
+      if (!result) {
+        throw new Error('Registration failed. The link may have expired.');
+      }
+
+      setCompletedLeadId(result.id);
       setSuccess(true);
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to submit registration');
+    } catch (error) {
+      console.error('Failed to complete registration:', error);
+      setSubmitError(error instanceof Error ? error.message : 'Failed to complete registration');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
-  const handleBookTrial = () => {
-    // Navigate to book-trial with lead data to skip directly to slot selection
-    const preferredSlotId = formData.preferredSlotId !== 'personal-training'
-      ? formData.preferredSlotId
-      : undefined;
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your registration...</p>
+        </div>
+      </div>
+    );
+  }
 
+  // Token error state
+  if (tokenError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4">
+        <Card className="max-w-md w-full text-center">
+          <div className="py-8">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Link Expired or Invalid</h2>
+            <p className="text-gray-600 mb-6">{tokenError}</p>
+            <Link to="/">
+              <Button fullWidth>Go to Home</Button>
+            </Link>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // Handle navigation to book trial with lead data
+  const handleBookTrial = () => {
     navigate('/book-trial', {
       state: {
-        leadId: createdLeadId,
+        leadId: completedLeadId,
         preferredSlotId: preferredSlotId || undefined,
       },
     });
   };
 
+  // Success state
   if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4">
@@ -196,10 +269,9 @@ export function RegisterPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Registration Successful!</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Registration Complete!</h2>
             <p className="text-gray-600 mb-6">
-              Thank you for your interest! Our team will contact you shortly to discuss
-              membership options and schedule your trial session.
+              Thank you for completing your registration, {lead?.firstName}! Our team will be in touch with you soon to discuss next steps and schedule your first session.
             </p>
             <div className="space-y-3">
               <Button fullWidth onClick={handleBookTrial}>
@@ -220,7 +292,10 @@ export function RegisterPage() {
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Register Your Interest</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Complete Your Registration</h1>
+          <p className="text-gray-600 mt-2">
+            Hi {lead?.firstName}! Please provide a few more details to complete your registration.
+          </p>
         </div>
 
         {submitError && (
@@ -230,94 +305,86 @@ export function RegisterPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Personal Information */}
+          {/* Personal Information (editable) */}
           <Card title="Personal Information">
+            <p className="text-sm text-gray-600 mb-4">
+              Please verify and update your information if needed.
+            </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
                 label="First Name"
-                value={formData.firstName}
-                onChange={(e) => handleChange('firstName', e.target.value)}
+                value={firstName}
+                onChange={(e) => {
+                  setFirstName(e.target.value);
+                  if (errors.firstName) setErrors(prev => ({ ...prev, firstName: '' }));
+                }}
                 error={errors.firstName}
+                placeholder="Enter first name"
                 required
               />
               <Input
                 label="Last Name"
-                value={formData.lastName}
-                onChange={(e) => handleChange('lastName', e.target.value)}
+                value={lastName}
+                onChange={(e) => {
+                  setLastName(e.target.value);
+                  if (errors.lastName) setErrors(prev => ({ ...prev, lastName: '' }));
+                }}
                 error={errors.lastName}
+                placeholder="Enter last name"
                 required
               />
               <Input
-                label="Email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleChange('email', e.target.value)}
-                error={errors.email}
-                required
-              />
-              <Input
-                label="Phone"
-                value={formData.phone}
-                onChange={(e) => handleChange('phone', e.target.value)}
+                label="Phone Number"
+                type="tel"
+                value={phone}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  if (errors.phone) setErrors(prev => ({ ...prev, phone: '' }));
+                }}
                 error={errors.phone}
                 placeholder="10-digit mobile number"
+                maxLength={10}
                 required
+              />
+              <Input
+                label="Email Address"
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (errors.email) setErrors(prev => ({ ...prev, email: '' }));
+                }}
+                error={errors.email}
+                placeholder="your.email@example.com"
+                required
+              />
+              <Select
+                label="Gender"
+                value={gender}
+                onChange={(e) => setGender(e.target.value as typeof gender)}
+                options={GENDER_OPTIONS.map(g => ({ value: g.value, label: g.label }))}
+                placeholder="Select gender"
               />
               <Input
                 label="Age"
                 type="number"
+                value={age}
+                onChange={(e) => setAge(e.target.value)}
+                placeholder="Optional"
                 min={5}
                 max={100}
-                value={formData.age}
-                onChange={(e) => handleChange('age', e.target.value)}
-                error={errors.age}
-                placeholder="Your age"
-                required
               />
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Gender <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.gender}
-                  onChange={(e) => handleChange('gender', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                    errors.gender ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  required
-                >
-                  <option value="">Select gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-                {errors.gender && (
-                  <p className="text-sm text-red-600 mt-1">{errors.gender}</p>
-                )}
-              </div>
+              <Select
+                label="Preferred Session"
+                value={preferredSlotId}
+                onChange={(e) => setPreferredSlotId(e.target.value)}
+                options={[
+                  { value: '', label: 'No preference' },
+                  ...slots.map(s => ({ value: s.id, label: s.displayName })),
+                ]}
+                placeholder="Select preferred session"
+              />
             </div>
-          </Card>
-
-          {/* Preferred Slot */}
-          <Card title="Preferred Session Time">
-            <Select
-              label="Which time slot works best for you?"
-              value={formData.preferredSlotId}
-              onChange={(e) => handleChange('preferredSlotId', e.target.value)}
-              options={[
-                { value: '', label: 'No preference' },
-                ...slots.map(slot => ({
-                  value: slot.id,
-                  label: `${slot.displayName} (${slot.startTime} - ${slot.endTime})`,
-                })),
-                { value: 'personal-training', label: 'Personal Training' },
-              ]}
-            />
-            <p className="text-sm text-gray-500 mt-2">
-              {formData.preferredSlotId === 'personal-training'
-                ? 'Our team will contact you to discuss your preferred schedule and training requirements.'
-                : 'Sessions are held Monday to Friday. Select your preferred timing.'}
-            </p>
           </Card>
 
           {/* Medical Conditions */}
@@ -358,18 +425,7 @@ export function RegisterPage() {
             </div>
           </Card>
 
-          {/* Additional Notes */}
-          <Card title="Additional Information">
-            <Textarea
-              label="Anything else you'd like us to know?"
-              value={formData.notes}
-              onChange={(e) => handleChange('notes', e.target.value)}
-              rows={3}
-              placeholder="Previous yoga experience, specific goals, questions, etc."
-            />
-          </Card>
-
-          {/* Consents with hyperlinks */}
+          {/* Consents */}
           <Card title="Acknowledgements">
             <div className="space-y-4">
               <div>
@@ -378,7 +434,10 @@ export function RegisterPage() {
                     type="checkbox"
                     id="termsCheckbox"
                     checked={consents.termsAndConditions}
-                    onChange={(e) => setConsents(prev => ({ ...prev, termsAndConditions: e.target.checked }))}
+                    onChange={(e) => {
+                      setConsents(prev => ({ ...prev, termsAndConditions: e.target.checked }));
+                      if (errors.termsAndConditions) setErrors(prev => ({ ...prev, termsAndConditions: '' }));
+                    }}
                     className="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                   />
                   <label htmlFor="termsCheckbox" className="text-sm text-gray-700">
@@ -403,7 +462,10 @@ export function RegisterPage() {
                     type="checkbox"
                     id="disclaimerCheckbox"
                     checked={consents.healthDisclaimer}
-                    onChange={(e) => setConsents(prev => ({ ...prev, healthDisclaimer: e.target.checked }))}
+                    onChange={(e) => {
+                      setConsents(prev => ({ ...prev, healthDisclaimer: e.target.checked }));
+                      if (errors.healthDisclaimer) setErrors(prev => ({ ...prev, healthDisclaimer: '' }));
+                    }}
                     className="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                   />
                   <label htmlFor="disclaimerCheckbox" className="text-sm text-gray-700">
@@ -425,17 +487,9 @@ export function RegisterPage() {
           </Card>
 
           {/* Submit */}
-          <div className="flex flex-col gap-4">
-            <Button type="submit" fullWidth loading={loading}>
-              Submit Registration
-            </Button>
-            <p className="text-center text-sm text-gray-500">
-              Already registered?{' '}
-              <Link to="/book-trial" className="text-indigo-600 hover:text-indigo-700">
-                Book a trial session
-              </Link>
-            </p>
-          </div>
+          <Button type="submit" fullWidth loading={submitting}>
+            Complete Registration
+          </Button>
         </form>
 
         {/* Terms and Conditions Modal */}

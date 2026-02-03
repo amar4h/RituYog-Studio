@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Alert, WhatsAppTemplateModal, PageLoading } from '../../components/common';
+import { QuickAddLeadModal } from '../../components/leads/QuickAddLeadModal';
 import { leadService, slotService, whatsappService } from '../../services';
 import { formatPhone } from '../../utils/formatUtils';
 import { formatDate } from '../../utils/dateUtils';
@@ -10,7 +11,7 @@ import type { Column } from '../../components/common';
 
 export function LeadListPage() {
   // Fetch fresh data from API on mount
-  const { isLoading } = useFreshData(['leads']);
+  const { isLoading, refetch } = useFreshData(['leads']);
 
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
@@ -19,6 +20,8 @@ export function LeadListPage() {
   const [success, setSuccess] = useState('');
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [quickAddModalOpen, setQuickAddModalOpen] = useState(false);
+  const [newlyCreatedLead, setNewlyCreatedLead] = useState<Lead | null>(null);
 
   // Show loading state while fetching data
   if (isLoading) {
@@ -112,9 +115,22 @@ export function LeadListPage() {
       key: 'actions',
       header: '',
       render: (lead) => (
-        <div className="flex gap-2 justify-end">
+        <div className="flex gap-2 justify-end flex-wrap">
           {lead.status !== 'converted' && lead.status !== 'lost' && (
             <>
+              {/* Share Registration Link - only for quick-added leads with incomplete profiles */}
+              {lead.completionToken && !lead.isProfileComplete && (
+                <button
+                  onClick={() => handleShareRegistrationLink(lead)}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded hover:bg-blue-200 transition-colors"
+                  title="Share registration link via WhatsApp"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                  </svg>
+                  Share Link
+                </button>
+              )}
               <button
                 onClick={() => {
                   setSelectedLead(lead);
@@ -142,22 +158,41 @@ export function LeadListPage() {
     },
   ];
 
+  // Handle sharing registration link via WhatsApp
+  const handleShareRegistrationLink = (lead: Lead) => {
+    if (!lead.completionToken) return;
+
+    const registrationUrl = leadService.getRegistrationUrl(lead);
+    const { link } = whatsappService.generateLeadRegistrationLink({
+      lead,
+      registrationLink: registrationUrl,
+    });
+
+    window.open(link, '_blank');
+  };
+
+  // Handle quick add success
+  const handleQuickAddSuccess = (lead: Lead) => {
+    setQuickAddModalOpen(false);
+    setNewlyCreatedLead(lead);
+    setSuccess(`Lead "${lead.firstName} ${lead.lastName}" created! Click "Share Link" to send them a registration form.`);
+    refetch(); // Refresh the leads list
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
           <p className="text-gray-600">Manage prospective members and trial bookings</p>
         </div>
-        <Link to="/admin/leads/new">
-          <Button>
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Add Lead
-          </Button>
-        </Link>
+        <Button onClick={() => setQuickAddModalOpen(true)}>
+          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Add Lead
+        </Button>
       </div>
 
       {error && (
@@ -282,6 +317,13 @@ export function LeadListPage() {
             templateIndex,
           }).link;
         }}
+      />
+
+      {/* Quick Add Lead Modal */}
+      <QuickAddLeadModal
+        isOpen={quickAddModalOpen}
+        onClose={() => setQuickAddModalOpen(false)}
+        onSuccess={handleQuickAddSuccess}
       />
     </div>
   );

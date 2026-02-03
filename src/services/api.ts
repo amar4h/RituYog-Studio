@@ -93,13 +93,14 @@ interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: unknown;
   params?: Record<string, string | number | boolean | undefined>;
+  skipAuth?: boolean; // For public endpoints that don't require API key
 }
 
 /**
  * Make an API request
  */
 async function apiRequest<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, params } = options;
+  const { method = 'GET', body, params, skipAuth = false } = options;
 
   // Build URL with query parameters
   const url = new URL(`${API_BASE_URL}/${endpoint}`, window.location.origin);
@@ -115,8 +116,12 @@ async function apiRequest<T>(endpoint: string, options: RequestOptions = {}): Pr
   // Build headers
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'X-API-Key': API_KEY,
   };
+
+  // Add API key unless this is a public endpoint
+  if (!skipAuth) {
+    headers['X-API-Key'] = API_KEY;
+  }
 
   // Add session token if authenticated
   const session = getSession();
@@ -254,6 +259,29 @@ export const leadsApi = {
     method: 'POST',
     params: { action: 'markConverted', id },
     body: { memberId }
+  }),
+
+  // Public endpoints (no auth required - token-based)
+  getByToken: (token: string) => apiRequest<unknown | null>('leads', {
+    params: { action: 'getByToken', token },
+    skipAuth: true, // Public endpoint
+  }),
+
+  completeRegistration: (token: string, data: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email: string;
+    age?: number;
+    gender?: 'male' | 'female' | 'other';
+    preferredSlotId?: string;
+    medicalConditions: unknown[];
+    consentRecords: unknown[];
+  }) => apiRequest<unknown | null>('leads', {
+    method: 'POST',
+    params: { action: 'completeRegistration' },
+    body: { token, ...data },
+    skipAuth: true, // Public endpoint
   }),
 };
 

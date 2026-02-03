@@ -320,6 +320,44 @@ export function getLeadFollowUpTemplates(): { name: string; template: string }[]
 }
 
 // ============================================
+// LEAD REGISTRATION LINK MESSAGE
+// ============================================
+
+export interface LeadRegistrationLinkData {
+  lead: Lead;
+  registrationLink: string;
+}
+
+/**
+ * Generate a WhatsApp message with registration completion link
+ */
+export function generateLeadRegistrationLink(data: LeadRegistrationLinkData): { phone: string; message: string; link: string } {
+  const { lead, registrationLink } = data;
+  const templates = getWhatsAppTemplates();
+  const studioInfo = getStudioPlaceholders();
+
+  const placeholders: Record<string, string> = {
+    leadName: `${lead.firstName} ${lead.lastName}`,
+    leadPhone: lead.phone,
+    registrationLink,
+    ...studioInfo,
+  };
+
+  // Use leadRegistrationLink template, fallback to a simple message if not configured
+  const template = templates.leadRegistrationLink?.template ||
+    `Hi {leadName}, please complete your registration at {studioName}: {registrationLink}`;
+
+  const message = formatMessage(template, placeholders);
+  const phone = lead.whatsappNumber || lead.phone;
+
+  return {
+    phone,
+    message,
+    link: generateWhatsAppLink(phone, message),
+  };
+}
+
+// ============================================
 // EXPORTED SERVICE
 // ============================================
 
@@ -341,6 +379,7 @@ export const whatsappService = {
   generatePaymentConfirmation,
   generatePaymentReminder,
   generateLeadFollowUp,
+  generateLeadRegistrationLink,
 
   // Quick send methods (opens WhatsApp directly)
   sendRenewalReminder: (data: RenewalReminderData) => {
@@ -361,6 +400,10 @@ export const whatsappService = {
   },
   sendLeadFollowUp: (data: LeadFollowUpData) => {
     const { phone, message } = generateLeadFollowUp(data);
+    openWhatsApp(phone, message);
+  },
+  sendLeadRegistrationLink: (data: LeadRegistrationLinkData) => {
+    const { phone, message } = generateLeadRegistrationLink(data);
     openWhatsApp(phone, message);
   },
 };

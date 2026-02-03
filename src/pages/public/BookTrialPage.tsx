@@ -1,19 +1,46 @@
-import { useState, FormEvent, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, FormEvent, useMemo } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { Card, Button, Input, Textarea, Alert, Modal, SlotSelector } from '../../components/common';
 import { leadService, slotService, trialBookingService, settingsService } from '../../services';
 import { validateEmail, validatePhone } from '../../utils/validationUtils';
 import { getToday, formatDate, isHoliday, getHolidayName } from '../../utils/dateUtils';
 import { format, addMonths, addWeeks, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isWeekend, isBefore, isAfter, startOfToday } from 'date-fns';
-import type { MedicalCondition, ConsentRecord, Holiday } from '../../types';
+import type { MedicalCondition, ConsentRecord, Holiday, Lead } from '../../types';
+
+// Route state interface for pre-filled data
+interface LocationState {
+  leadId?: string;
+  preferredSlotId?: string;
+}
 
 export function BookTrialPage() {
+  const location = useLocation();
+  const locationState = location.state as LocationState | null;
+
   const slots = slotService.getActive();
   const settings = settingsService.getOrDefault();
   const holidays: Holiday[] = settings.holidays || [];
 
+  // Check if we have a pre-existing lead from navigation state
   const [step, setStep] = useState<'form' | 'slots' | 'success'>('form');
   const [leadId, setLeadId] = useState<string | null>(null);
+  const [prefilledLead, setPrefilledLead] = useState<Lead | null>(null);
+
+  // Initialize from location state (e.g., coming from lead completion page)
+  useEffect(() => {
+    if (locationState?.leadId) {
+      const lead = leadService.getById(locationState.leadId);
+      if (lead) {
+        setLeadId(lead.id);
+        setPrefilledLead(lead);
+        setStep('slots'); // Skip form step - go directly to slot selection
+        // Pre-select preferred slot if available
+        if (locationState.preferredSlotId || lead.preferredSlotId) {
+          setSelectedSlotId(locationState.preferredSlotId || lead.preferredSlotId || '');
+        }
+      }
+    }
+  }, [locationState]);
 
   const [formData, setFormData] = useState({
     firstName: '',

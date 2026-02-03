@@ -13,17 +13,12 @@ require_once __DIR__ . '/config.php';
 // Set CORS headers
 setCorsHeaders();
 
-// Validate API key for all requests
-if (!validateApiKey()) {
-    errorResponse('Invalid or missing API key', 401);
-}
-
 // Get endpoint and action from query params or path
 $endpoint = getQueryParam('endpoint', '');
 $action = getQueryParam('action', '');
 $id = getQueryParam('id', '');
 
-// Parse path if using pretty URLs
+// Parse path if using pretty URLs (e.g., /api/leads?action=getByToken)
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $pathParts = explode('/', trim($path, '/'));
 
@@ -41,6 +36,21 @@ if (empty($action) && !empty($pathParts[1])) {
 }
 if (empty($id) && !empty($pathParts[2])) {
     $id = $pathParts[2];
+}
+
+// Define public endpoints that don't require API key
+// Format: 'endpoint' => ['action1', 'action2']
+$publicEndpoints = [
+    'leads' => ['getByToken', 'completeRegistration'],
+];
+
+// Check if this is a public endpoint (after parsing endpoint/action from path)
+$isPublicEndpoint = isset($publicEndpoints[$endpoint]) &&
+                    in_array($action, $publicEndpoints[$endpoint]);
+
+// Validate API key for all requests (except public endpoints)
+if (!$isPublicEndpoint && !validateApiKey()) {
+    errorResponse('Invalid or missing API key', 401);
 }
 
 // Map HTTP method to action if not specified

@@ -273,6 +273,23 @@ _This is an automated message. Reply STOP to opt-out._`,
       template: 'Hi {leadName}, this is {studioName} checking in! We noticed you were interested in joining us. Do you have any questions about our yoga classes? We\'re happy to help! Reply or call {studioPhone}.\n\n_This is an automated message. Reply STOP to opt-out._',
     },
   ],
+  leadRegistrationLink: {
+    name: 'Registration Link',
+    template: `Hi {leadName} Namaste 🌸
+
+Thank you for your interest in {studioName}! 🙏
+
+Please complete your registration by clicking the link below 👇
+
+📝 {registrationLink}
+
+This link will expire in 7 days. If you have any questions, feel free to reply to this message.
+
+Warm regards,
+{studioName} ✨
+
+_This is an automated message. Reply STOP to opt-out._`,
+  },
 };
 
 // Available placeholders for WhatsApp templates
@@ -313,6 +330,7 @@ export const WHATSAPP_PLACEHOLDERS = {
   lead: [
     { key: '{leadName}', description: 'Lead full name' },
     { key: '{leadPhone}', description: 'Lead phone number' },
+    { key: '{registrationLink}', description: 'Registration completion link' },
   ],
   studio: [
     { key: '{studioName}', description: 'Studio name' },
