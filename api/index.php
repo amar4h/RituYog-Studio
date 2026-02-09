@@ -93,6 +93,11 @@ $validEndpoints = [
     'products',
     'inventory',
     'expenses',
+    // Session Planning
+    'asanas',
+    'session-plans',
+    'session-allocations',
+    'session-executions',
 ];
 
 if (!in_array($endpoint, $validEndpoints)) {

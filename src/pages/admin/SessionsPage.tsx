@@ -200,37 +200,37 @@ export function SessionsPage() {
           >
             <div className="space-y-4">
               {/* Capacity Info */}
-              <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-                <div className="grid grid-cols-3 gap-8">
+              <div className="p-4 bg-gray-50 rounded-lg space-y-3">
+                <div className="grid grid-cols-3 gap-3 sm:gap-8">
                   <div>
-                    <p className="text-sm text-gray-500">Booked / Capacity</p>
-                    <p className={`text-2xl font-bold ${data.isOverbooked ? 'text-red-600' : 'text-gray-900'}`}>
+                    <p className="text-xs sm:text-sm text-gray-500">Booked / Capacity</p>
+                    <p className={`text-xl sm:text-2xl font-bold ${data.isOverbooked ? 'text-red-600' : 'text-gray-900'}`}>
                       {data.totalBooked}/{slot.capacity}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Available</p>
-                    <p className={`text-2xl font-bold ${data.isOverbooked ? 'text-red-600' : 'text-green-600'}`}>
+                    <p className="text-xs sm:text-sm text-gray-500">Available</p>
+                    <p className={`text-xl sm:text-2xl font-bold ${data.isOverbooked ? 'text-red-600' : 'text-green-600'}`}>
                       {data.available}
                     </p>
                   </div>
                   {data.isOverbooked ? (
                     <div>
-                      <p className="text-sm text-gray-500">Status</p>
-                      <p className="text-lg font-bold text-red-600">
+                      <p className="text-xs sm:text-sm text-gray-500">Status</p>
+                      <p className="text-base sm:text-lg font-bold text-red-600">
                         Overbooked +{data.overbookedBy}
                       </p>
                     </div>
                   ) : (
                     <div>
-                      <p className="text-sm text-gray-500">Exception Slots</p>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">Exception Slots</p>
+                      <p className="text-xl sm:text-2xl font-bold text-gray-900">
                         {data.exceptionCount}/{slot.exceptionCapacity}
                       </p>
                     </div>
                   )}
                 </div>
-                <Button variant="outline" onClick={() => handleEditCapacity(slot)}>
+                <Button variant="outline" className="w-full sm:w-auto" onClick={() => handleEditCapacity(slot)}>
                   Edit Capacity
                 </Button>
               </div>

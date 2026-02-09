@@ -238,25 +238,25 @@ export function SubscriptionListPage() {
       });
 
       // Update the associated invoice if it exists
-      if (editingSubscription.invoiceId) {
-        const invoice = invoiceService.getById(editingSubscription.invoiceId);
-        if (invoice) {
-          await invoiceService.async.update(editingSubscription.invoiceId, {
-            amount: editOriginalAmount,
-            discount: editDiscountAmount,
-            discountReason: editDiscountReason.trim() || undefined,
-            totalAmount: editPayableAmount,
-            dueDate: editStartDate,
-            items: [
-              {
-                description: `${editSelectedPlan?.name} Membership (${editSelectedPlan?.durationMonths} ${editSelectedPlan?.durationMonths === 1 ? 'month' : 'months'})${slot ? ` - ${slot.displayName}` : ''}`,
-                quantity: 1,
-                unitPrice: editOriginalAmount,
-                total: editOriginalAmount,
-              },
-            ],
-          });
-        }
+      const invoice = editingSubscription.invoiceId
+        ? invoiceService.getById(editingSubscription.invoiceId)
+        : invoiceService.getBySubscriptionId(editingSubscription.id);
+      if (invoice) {
+        await invoiceService.async.update(invoice.id, {
+          amount: editOriginalAmount,
+          discount: editDiscountAmount,
+          discountReason: editDiscountReason.trim() || undefined,
+          totalAmount: editPayableAmount,
+          dueDate: editStartDate,
+          items: [
+            {
+              description: `${editSelectedPlan?.name} Membership (${editSelectedPlan?.durationMonths} ${editSelectedPlan?.durationMonths === 1 ? 'month' : 'months'})${slot ? ` - ${slot.displayName}` : ''}`,
+              quantity: 1,
+              unitPrice: editOriginalAmount,
+              total: editOriginalAmount,
+            },
+          ],
+        });
       }
 
       setEditingSubscription(null);

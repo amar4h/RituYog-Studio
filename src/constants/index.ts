@@ -3,7 +3,7 @@
  * Phase 1: Core Operations
  */
 
-import type { SessionSlot, MembershipPlan, StudioSettings, WeeklyAvailability, InvoiceTemplate, WhatsAppTemplates } from '../types';
+import type { SessionSlot, MembershipPlan, StudioSettings, WeeklyAvailability, InvoiceTemplate, WhatsAppTemplates, BodyArea, DifficultyLevel, AsanaType, IntensityLevel, BreathingCue } from '../types';
 
 // ============================================
 // SESSION SLOTS (Fixed 4 slots)
@@ -603,6 +603,12 @@ export const STORAGE_KEYS = {
   INVENTORY_TRANSACTIONS: 'yoga_studio_inventory_transactions',
   EXPENSES: 'yoga_studio_expenses',
 
+  // Session Planning
+  ASANAS: 'yoga_studio_asanas',
+  SESSION_PLANS: 'yoga_studio_session_plans',
+  SESSION_PLAN_ALLOCATIONS: 'yoga_studio_session_plan_allocations',
+  SESSION_EXECUTIONS: 'yoga_studio_session_executions',
+
   // Settings & Auth
   SETTINGS: 'yoga_studio_settings',
   AUTH: 'yoga_studio_auth',
@@ -617,3 +623,89 @@ export const STORAGE_KEYS = {
 } as const;
 
 export type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];
+
+// ============================================
+// SESSION PLANNING - BODY AREA LABELS
+// ============================================
+
+export const BODY_AREA_LABELS: Record<BodyArea, string> = {
+  spine: 'Spine',
+  shoulders: 'Shoulders',
+  hips: 'Hips',
+  knees: 'Knees',
+  hamstrings: 'Hamstrings',
+  calves: 'Calves',
+  ankles: 'Ankles',
+  core: 'Core',
+  neck: 'Neck',
+  respiratory: 'Respiratory System',
+  nervous_system: 'Nervous System'
+};
+
+export const BODY_AREA_OPTIONS = [
+  { value: 'spine' as BodyArea, label: 'Spine' },
+  { value: 'shoulders' as BodyArea, label: 'Shoulders' },
+  { value: 'hips' as BodyArea, label: 'Hips' },
+  { value: 'knees' as BodyArea, label: 'Knees' },
+  { value: 'hamstrings' as BodyArea, label: 'Hamstrings' },
+  { value: 'calves' as BodyArea, label: 'Calves' },
+  { value: 'ankles' as BodyArea, label: 'Ankles' },
+  { value: 'core' as BodyArea, label: 'Core' },
+  { value: 'neck' as BodyArea, label: 'Neck' },
+  { value: 'respiratory' as BodyArea, label: 'Respiratory System' },
+  { value: 'nervous_system' as BodyArea, label: 'Nervous System' },
+] as const;
+
+// ============================================
+// SESSION PLANNING - DIFFICULTY LEVELS
+// ============================================
+
+export const DIFFICULTY_LEVEL_OPTIONS = [
+  { value: 'beginner' as DifficultyLevel, label: 'Beginner', color: 'green' },
+  { value: 'intermediate' as DifficultyLevel, label: 'Intermediate', color: 'yellow' },
+  { value: 'advanced' as DifficultyLevel, label: 'Advanced', color: 'red' },
+] as const;
+
+// ============================================
+// SESSION PLANNING - ASANA TYPES
+// ============================================
+
+export const ASANA_TYPE_OPTIONS = [
+  { value: 'asana' as AsanaType, label: 'Asana', color: 'blue' },
+  { value: 'pranayama' as AsanaType, label: 'Pranayama', color: 'purple' },
+  { value: 'kriya' as AsanaType, label: 'Kriya', color: 'cyan' },
+  { value: 'exercise' as AsanaType, label: 'Exercise', color: 'orange' },
+  { value: 'relaxation' as AsanaType, label: 'Relaxation', color: 'green' },
+  { value: 'vinyasa' as AsanaType, label: 'Vinyasa', color: 'pink' },
+  { value: 'surya_namaskar' as AsanaType, label: 'Surya Namaskar', color: 'amber' },
+] as const;
+
+// ============================================
+// SESSION PLANNING - INTENSITY LEVELS
+// ============================================
+
+export const INTENSITY_LEVEL_OPTIONS = [
+  { value: 'low' as IntensityLevel, label: 'Low', color: 'green' },
+  { value: 'medium' as IntensityLevel, label: 'Medium', color: 'yellow' },
+  { value: 'high' as IntensityLevel, label: 'High', color: 'red' },
+] as const;
+
+// ============================================
+// SESSION PLANNING - BREATHING CUES
+// ============================================
+
+export const BREATHING_CUE_OPTIONS = [
+  { value: 'inhale' as BreathingCue, label: 'Inhale', color: 'blue' },
+  { value: 'exhale' as BreathingCue, label: 'Exhale', color: 'purple' },
+  { value: 'hold' as BreathingCue, label: 'Hold', color: 'orange' },
+] as const;
+
+// ============================================
+// SESSION PLANNING - ALLOCATION STATUS
+// ============================================
+
+export const ALLOCATION_STATUS_OPTIONS = [
+  { value: 'scheduled', label: 'Scheduled', color: 'blue' },
+  { value: 'executed', label: 'Executed', color: 'green' },
+  { value: 'cancelled', label: 'Cancelled', color: 'gray' },
+] as const;

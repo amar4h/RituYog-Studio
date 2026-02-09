@@ -61,9 +61,7 @@ export function MemberDetailPage() {
   const memberSlot = member.assignedSlotId ? slotService.getById(member.assignedSlotId) : null;
   const monthStart = getMonthStart();
   const monthEnd = getMonthEnd();
-  const monthSummary = member.assignedSlotId
-    ? attendanceService.getMemberSummaryForPeriod(member.id, member.assignedSlotId, monthStart, monthEnd)
-    : null;
+  const monthSummary = attendanceService.getMemberSummaryForPeriod(member.id, member.assignedSlotId || '', monthStart, monthEnd);
   const attendanceRate = monthSummary && monthSummary.totalWorkingDays > 0
     ? Math.round((monthSummary.presentDays / monthSummary.totalWorkingDays) * 100)
     : 0;

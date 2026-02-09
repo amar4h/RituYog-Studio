@@ -865,3 +865,166 @@ export interface AttendanceLockRecord {
   isLocked: boolean;
   lockedAt?: string;         // ISO timestamp when lock state was changed
 }
+
+// ============================================
+// SESSION PLANNING - BODY AREAS & ASANA TYPES
+// ============================================
+
+export const BODY_AREAS = [
+  'spine', 'shoulders', 'hips', 'knees', 'hamstrings',
+  'calves', 'ankles', 'core', 'neck', 'respiratory', 'nervous_system'
+] as const;
+export type BodyArea = typeof BODY_AREAS[number];
+
+export const ASANA_TYPES = ['asana', 'pranayama', 'kriya', 'exercise', 'relaxation', 'vinyasa', 'surya_namaskar'] as const;
+export type AsanaType = typeof ASANA_TYPES[number];
+
+// Vinyasa Item - child asana in a vinyasa sequence
+export interface VinyasaItem {
+  asanaId: string;  // Reference to a regular (non-vinyasa) asana
+  order: number;    // 1-based sequence order
+}
+
+export const DIFFICULTY_LEVELS = ['beginner', 'intermediate', 'advanced'] as const;
+export type DifficultyLevel = typeof DIFFICULTY_LEVELS[number];
+
+export const SECTION_TYPES = [
+  'WARM_UP',
+  'SURYA_NAMASKARA',
+  'ASANA_SEQUENCE',
+  'PRANAYAMA',
+  'SHAVASANA'
+] as const;
+export type SectionType = typeof SECTION_TYPES[number];
+
+export const SECTION_ORDER: Record<SectionType, number> = {
+  WARM_UP: 1,
+  SURYA_NAMASKARA: 2,
+  ASANA_SEQUENCE: 3,
+  PRANAYAMA: 4,
+  SHAVASANA: 5
+};
+
+export const SECTION_LABELS: Record<SectionType, string> = {
+  WARM_UP: 'Warm Up',
+  SURYA_NAMASKARA: 'Surya Namaskara',
+  ASANA_SEQUENCE: 'Main Asana Sequence',
+  PRANAYAMA: 'Pranayama',
+  SHAVASANA: 'Shavasana'
+};
+
+export const INTENSITY_LEVELS = ['low', 'medium', 'high'] as const;
+export type IntensityLevel = typeof INTENSITY_LEVELS[number];
+
+export const BREATHING_CUES = ['inhale', 'exhale', 'hold'] as const;
+export type BreathingCue = typeof BREATHING_CUES[number];
+
+// ============================================
+// SESSION PLANNING - ASANA (Master Data)
+// ============================================
+
+export interface Asana extends BaseEntity {
+  name: string;
+  sanskritName?: string;
+  type: AsanaType;
+  primaryBodyAreas: BodyArea[];
+  secondaryBodyAreas: BodyArea[];
+  benefits: string[];  // Structured list, NOT paragraph
+  difficulty: DifficultyLevel;
+  contraindications?: string[];
+  breathingCue?: BreathingCue;  // Optional: inhale, exhale, or hold
+  isActive: boolean;
+  // Only populated when type === 'vinyasa' or 'surya_namaskar'
+  childAsanas?: VinyasaItem[];
+}
+
+// ============================================
+// SESSION PLANNING - SECTION ITEM
+// ============================================
+
+export interface SectionItem {
+  asanaId: string;
+  order: number;  // Explicit order for drag-and-drop (1-based)
+  variation?: string;
+  durationMinutes?: number;
+  reps?: number;
+  intensity: IntensityLevel;
+  notes?: string;
+}
+
+// ============================================
+// SESSION PLANNING - SESSION PLAN SECTION
+// ============================================
+
+export interface SessionPlanSection {
+  sectionType: SectionType;
+  order: number;  // 1-5
+  items: SectionItem[];
+}
+
+// ============================================
+// SESSION PLANNING - SESSION PLAN (Template)
+// ============================================
+
+export interface SessionPlan extends BaseEntity {
+  name: string;
+  description?: string;  // General notes/guidance (e.g., "Good for monsoon", "Stress relief focus")
+  level: DifficultyLevel;
+  version: number;
+  sections: SessionPlanSection[];
+  createdBy?: string;
+  lastUsedAt?: string;
+  usageCount: number;
+  isActive: boolean;
+}
+
+// ============================================
+// SESSION PLANNING - ALLOCATION (Pre-scheduling)
+// ============================================
+
+// Allocate a plan to a slot+date BEFORE the class happens
+export interface SessionPlanAllocation extends BaseEntity {
+  sessionPlanId: string;
+  slotId: string;
+  date: string;  // YYYY-MM-DD
+  allocatedBy?: string;
+  status: 'scheduled' | 'executed' | 'cancelled';
+  executionId?: string;  // Links to SessionExecution once conducted
+}
+
+// ============================================
+// SESSION PLANNING - EXECUTION (Immutable History)
+// ============================================
+
+// Uses SNAPSHOT approach - stores plan data at execution time
+// (matches Invoice.items pattern - stores what was actually practiced)
+export interface SessionExecution extends BaseEntity {
+  sessionPlanId: string;
+  sessionPlanName: string;  // Snapshot
+  sessionPlanLevel: DifficultyLevel;  // Snapshot
+  sectionsSnapshot: SessionPlanSection[];  // Full snapshot of sections at execution time
+  slotId: string;
+  date: string;  // YYYY-MM-DD
+  instructor?: string;
+  notes?: string;
+  // Attendance Integration - members present for this session
+  memberIds: string[];  // Auto-populated from attendance records on execution
+  attendeeCount: number;  // Cached count for quick display
+}
+
+// ============================================
+// SESSION PLANNING - FILTER TYPES
+// ============================================
+
+export interface AsanaFilters {
+  search?: string;
+  type?: AsanaType;
+  difficulty?: DifficultyLevel;
+  bodyArea?: BodyArea;
+}
+
+export interface SessionPlanFilters {
+  search?: string;
+  level?: DifficultyLevel;
+  lastUsedAfter?: string;
+}

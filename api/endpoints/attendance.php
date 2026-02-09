@@ -191,32 +191,30 @@ class AttendanceHandler extends BaseHandler {
      */
     public function getMemberSummary(): array {
         $memberId = getQueryParam('memberId');
-        $slotId = getQueryParam('slotId');
+        $slotId = getQueryParam('slotId'); // Accepted but ignored - count across all slots
         $periodStart = getQueryParam('periodStart');
         $periodEnd = getQueryParam('periodEnd');
 
-        if (empty($memberId) || empty($slotId) || empty($periodStart) || empty($periodEnd)) {
-            throw new Exception('memberId, slotId, periodStart, and periodEnd parameters are required');
+        if (empty($memberId) || empty($periodStart) || empty($periodEnd)) {
+            throw new Exception('memberId, periodStart, and periodEnd parameters are required');
         }
 
-        // Count present days
+        // Count unique present DATES across ALL slots (slot transfer should not reset count)
         $stmt = $this->db->prepare(
-            "SELECT COUNT(*) as count FROM {$this->table}
-             WHERE member_id = :memberId AND slot_id = :slotId
+            "SELECT COUNT(DISTINCT date) as count FROM {$this->table}
+             WHERE member_id = :memberId
              AND date >= :periodStart AND date <= :periodEnd
              AND status = 'present'"
         );
         $stmt->execute([
             'memberId' => $memberId,
-            'slotId' => $slotId,
             'periodStart' => $periodStart,
             'periodEnd' => $periodEnd
         ]);
         $presentDays = (int) $stmt->fetch()['count'];
 
-        // Calculate working days (simplified - count weekdays in subscription period overlap)
-        // This would need to exclude weekends and holidays for accuracy
-        $totalWorkingDays = $this->calculateWorkingDays($memberId, $slotId, $periodStart, $periodEnd);
+        // Calculate working days based on period only (not slot-specific)
+        $totalWorkingDays = $this->calculateWorkingDays($memberId, $periodStart, $periodEnd);
 
         return [
             'presentDays' => $presentDays,
@@ -259,9 +257,8 @@ class AttendanceHandler extends BaseHandler {
             );
             $isPresent = $attendance && $attendance['status'] === 'present';
 
-            // Get summary for period
+            // Get summary for period (across all slots)
             $_GET['memberId'] = $sub['memberId'];
-            $_GET['slotId'] = $slotId;
             $_GET['periodStart'] = $periodStart;
             $_GET['periodEnd'] = $periodEnd;
             $summary = $this->getMemberSummary();
@@ -287,14 +284,14 @@ class AttendanceHandler extends BaseHandler {
     /**
      * Calculate working days for a member's subscription within a period
      */
-    private function calculateWorkingDays(string $memberId, string $slotId, string $periodStart, string $periodEnd): int {
-        // Get member's subscriptions for this slot
+    private function calculateWorkingDays(string $memberId, string $periodStart, string $periodEnd): int {
+        // Get member's subscriptions across ALL slots (slot transfer should not affect working days)
         $subscriptions = $this->query(
             "SELECT start_date, end_date FROM membership_subscriptions
-             WHERE member_id = :memberId AND slot_id = :slotId
+             WHERE member_id = :memberId
              AND status IN ('active', 'expired')
              AND start_date <= :periodEnd AND end_date >= :periodStart",
-            ['memberId' => $memberId, 'slotId' => $slotId, 'periodStart' => $periodStart, 'periodEnd' => $periodEnd]
+            ['memberId' => $memberId, 'periodStart' => $periodStart, 'periodEnd' => $periodEnd]
         );
 
         $workingDays = 0;

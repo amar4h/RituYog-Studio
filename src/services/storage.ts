@@ -58,6 +58,17 @@ import type {
   ExpensePaymentStatus,
   ExpenseItem,
   PaymentMethod,
+  // Session Planning types
+  Asana,
+  AsanaType,
+  BodyArea,
+  DifficultyLevel,
+  SessionPlan,
+  SessionPlanSection,
+  SessionPlanAllocation,
+  SessionExecution,
+  SectionItem,
+  IntensityLevel,
   // Legacy types
   Instructor,
   YogaClass,
@@ -263,6 +274,11 @@ const STORAGE_KEY_TO_ENDPOINT: Record<string, string> = {
   [STORAGE_KEYS.PRODUCTS]: 'products',
   [STORAGE_KEYS.INVENTORY_TRANSACTIONS]: 'inventory',
   [STORAGE_KEYS.EXPENSES]: 'expenses',
+  // Session Planning
+  [STORAGE_KEYS.ASANAS]: 'asanas',
+  [STORAGE_KEYS.SESSION_PLANS]: 'session-plans',
+  [STORAGE_KEYS.SESSION_PLAN_ALLOCATIONS]: 'session-plan-allocations',
+  [STORAGE_KEYS.SESSION_EXECUTIONS]: 'session-executions',
 };
 
 // Dual-mode create: updates localStorage AND immediately writes to API
@@ -1654,6 +1670,9 @@ export const subscriptionService = {
         ],
       });
 
+      // Link invoice back to subscription (critical for edit/update flow)
+      await subscriptionService.async.update(subscription.id, { invoiceId: invoice.id });
+
       // Update member status and assigned slot via API
       await memberService.async.update(memberId, {
         status: 'active',
@@ -1668,9 +1687,9 @@ export const subscriptionService = {
         saveAll(STORAGE_KEYS.MEMBERS, members);
       }
 
-      // Update subscriptions in localStorage
+      // Update subscriptions in localStorage (include invoiceId link)
       const subscriptions = getAll<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS);
-      subscriptions.push(subscription);
+      subscriptions.push({ ...subscription, invoiceId: invoice.id });
       saveAll(STORAGE_KEYS.SUBSCRIPTIONS, subscriptions);
 
       // Update invoices in localStorage
@@ -3397,6 +3416,173 @@ export function seedDemoData(): void {
     });
   });
 
+  // ============================================
+  // CREATE SESSION PLANNING SEED DATA
+  // ============================================
+  const seedAsanas = [
+    // Warm Up / Standing Poses
+    { name: 'Tadasana', sanskritName: 'Mountain Pose', type: 'asana' as const, difficulty: 'beginner' as const,
+      primaryBodyAreas: ['spine' as const, 'core' as const], secondaryBodyAreas: ['ankles' as const],
+      benefits: ['Improves posture', 'Strengthens thighs', 'Increases awareness'], breathingCue: 'inhale' as const, isActive: true },
+    { name: 'Uttanasana', sanskritName: 'Standing Forward Bend', type: 'asana' as const, difficulty: 'beginner' as const,
+      primaryBodyAreas: ['hamstrings' as const, 'spine' as const], secondaryBodyAreas: ['calves' as const, 'hips' as const],
+      benefits: ['Stretches hamstrings', 'Calms the mind', 'Relieves stress'], breathingCue: 'exhale' as const, isActive: true },
+    { name: 'Adho Mukha Svanasana', sanskritName: 'Downward Facing Dog', type: 'asana' as const, difficulty: 'beginner' as const,
+      primaryBodyAreas: ['shoulders' as const, 'hamstrings' as const], secondaryBodyAreas: ['spine' as const, 'calves' as const],
+      benefits: ['Full body stretch', 'Builds strength', 'Energizes the body'], breathingCue: 'exhale' as const, isActive: true },
+    { name: 'Virabhadrasana I', sanskritName: 'Warrior I', type: 'asana' as const, difficulty: 'beginner' as const,
+      primaryBodyAreas: ['hips' as const, 'core' as const], secondaryBodyAreas: ['shoulders' as const, 'spine' as const],
+      benefits: ['Strengthens legs', 'Opens chest', 'Improves balance'], breathingCue: 'inhale' as const, isActive: true },
+    { name: 'Virabhadrasana II', sanskritName: 'Warrior II', type: 'asana' as const, difficulty: 'beginner' as const,
+      primaryBodyAreas: ['hips' as const, 'shoulders' as const], secondaryBodyAreas: ['core' as const, 'knees' as const],
+      benefits: ['Builds stamina', 'Strengthens legs', 'Opens hips'], breathingCue: 'exhale' as const, isActive: true },
+    { name: 'Trikonasana', sanskritName: 'Triangle Pose', type: 'asana' as const, difficulty: 'beginner' as const,
+      primaryBodyAreas: ['hips' as const, 'hamstrings' as const], secondaryBodyAreas: ['spine' as const, 'shoulders' as const],
+      benefits: ['Stretches sides', 'Strengthens legs', 'Improves digestion'], breathingCue: 'exhale' as const, isActive: true },
+    // Surya Namaskara (no specific cue - it's a flow with alternating breaths)
+    { name: 'Surya Namaskar A', sanskritName: 'Sun Salutation A', type: 'asana' as const, difficulty: 'beginner' as const,
+      primaryBodyAreas: ['spine' as const, 'shoulders' as const, 'core' as const], secondaryBodyAreas: ['hamstrings' as const, 'hips' as const],
+      benefits: ['Full body warm-up', 'Increases flexibility', 'Builds strength'], isActive: true },
+    { name: 'Surya Namaskar B', sanskritName: 'Sun Salutation B', type: 'asana' as const, difficulty: 'intermediate' as const,
+      primaryBodyAreas: ['spine' as const, 'core' as const, 'hips' as const], secondaryBodyAreas: ['shoulders' as const, 'hamstrings' as const],
+      benefits: ['Builds heat', 'Strengthens legs', 'Improves stamina'], isActive: true },
+    // Main Asana Sequence
+    { name: 'Bhujangasana', sanskritName: 'Cobra Pose', type: 'asana' as const, difficulty: 'beginner' as const,
+      primaryBodyAreas: ['spine' as const], secondaryBodyAreas: ['shoulders' as const, 'core' as const],
+      benefits: ['Strengthens spine', 'Opens chest', 'Stimulates organs'], breathingCue: 'inhale' as const, isActive: true },
+    { name: 'Setu Bandhasana', sanskritName: 'Bridge Pose', type: 'asana' as const, difficulty: 'beginner' as const,
+      primaryBodyAreas: ['spine' as const, 'hips' as const], secondaryBodyAreas: ['core' as const, 'hamstrings' as const],
+      benefits: ['Strengthens back', 'Opens chest', 'Calms brain'], breathingCue: 'inhale' as const, isActive: true },
+    { name: 'Paschimottanasana', sanskritName: 'Seated Forward Bend', type: 'asana' as const, difficulty: 'beginner' as const,
+      primaryBodyAreas: ['hamstrings' as const, 'spine' as const], secondaryBodyAreas: ['calves' as const],
+      benefits: ['Stretches spine', 'Calms mind', 'Aids digestion'], breathingCue: 'exhale' as const, isActive: true },
+    { name: 'Ardha Matsyendrasana', sanskritName: 'Half Lord of the Fishes', type: 'asana' as const, difficulty: 'intermediate' as const,
+      primaryBodyAreas: ['spine' as const, 'hips' as const], secondaryBodyAreas: ['shoulders' as const],
+      benefits: ['Spinal twist', 'Stimulates digestion', 'Increases flexibility'], breathingCue: 'exhale' as const, isActive: true },
+    { name: 'Balasana', sanskritName: 'Child\'s Pose', type: 'relaxation' as const, difficulty: 'beginner' as const,
+      primaryBodyAreas: ['spine' as const, 'hips' as const], secondaryBodyAreas: ['shoulders' as const],
+      benefits: ['Rest pose', 'Releases tension', 'Calms mind'], breathingCue: 'exhale' as const, isActive: true },
+    { name: 'Marjaryasana-Bitilasana', sanskritName: 'Cat-Cow Pose', type: 'asana' as const, difficulty: 'beginner' as const,
+      primaryBodyAreas: ['spine' as const], secondaryBodyAreas: ['core' as const, 'neck' as const],
+      benefits: ['Warms spine', 'Improves flexibility', 'Relieves stress'], isActive: true },
+    // Pranayama
+    { name: 'Anulom Vilom', sanskritName: 'Alternate Nostril Breathing', type: 'pranayama' as const, difficulty: 'beginner' as const,
+      primaryBodyAreas: ['respiratory' as const, 'nervous_system' as const], secondaryBodyAreas: [],
+      benefits: ['Balances nervous system', 'Reduces stress', 'Improves focus'], isActive: true },
+    { name: 'Kapalbhati', sanskritName: 'Skull Shining Breath', type: 'pranayama' as const, difficulty: 'intermediate' as const,
+      primaryBodyAreas: ['core' as const, 'respiratory' as const], secondaryBodyAreas: ['nervous_system' as const],
+      benefits: ['Cleanses respiratory system', 'Energizes body', 'Strengthens abdominals'],
+      contraindications: ['High blood pressure', 'Heart disease', 'Pregnancy'], breathingCue: 'exhale' as const, isActive: true },
+    { name: 'Bhramari', sanskritName: 'Humming Bee Breath', type: 'pranayama' as const, difficulty: 'beginner' as const,
+      primaryBodyAreas: ['respiratory' as const, 'nervous_system' as const], secondaryBodyAreas: ['neck' as const],
+      benefits: ['Calms the mind', 'Reduces anxiety', 'Improves sleep'], breathingCue: 'exhale' as const, isActive: true },
+    { name: 'Ujjayi', sanskritName: 'Ocean Breath', type: 'pranayama' as const, difficulty: 'beginner' as const,
+      primaryBodyAreas: ['respiratory' as const], secondaryBodyAreas: ['nervous_system' as const],
+      benefits: ['Builds heat', 'Calms nervous system', 'Improves focus'], isActive: true },
+    // Relaxation
+    { name: 'Shavasana', sanskritName: 'Corpse Pose', type: 'relaxation' as const, difficulty: 'beginner' as const,
+      primaryBodyAreas: ['nervous_system' as const], secondaryBodyAreas: ['spine' as const],
+      benefits: ['Deep relaxation', 'Reduces stress', 'Integrates practice'], isActive: true },
+  ];
+
+  // Create seed asanas
+  const createdAsanas: Record<string, string> = {}; // name -> id mapping
+  seedAsanas.forEach(asanaData => {
+    const asana = asanaService.create(asanaData);
+    createdAsanas[asanaData.name] = asana.id;
+  });
+
+  // Create sample session plans
+  const beginnerPlan = sessionPlanService.create({
+    name: 'Beginner Morning Flow',
+    description: 'Gentle morning sequence suitable for beginners. Focus on awakening the body and building foundation.',
+    level: 'beginner',
+    sections: [
+      { sectionType: 'WARM_UP', order: 1, items: [
+        { asanaId: createdAsanas['Marjaryasana-Bitilasana'], order: 1, durationMinutes: 3, intensity: 'low' },
+        { asanaId: createdAsanas['Tadasana'], order: 2, durationMinutes: 2, intensity: 'low' },
+      ]},
+      { sectionType: 'SURYA_NAMASKARA', order: 2, items: [
+        { asanaId: createdAsanas['Surya Namaskar A'], order: 1, reps: 3, intensity: 'medium' },
+      ]},
+      { sectionType: 'ASANA_SEQUENCE', order: 3, items: [
+        { asanaId: createdAsanas['Virabhadrasana I'], order: 1, durationMinutes: 2, intensity: 'medium' },
+        { asanaId: createdAsanas['Virabhadrasana II'], order: 2, durationMinutes: 2, intensity: 'medium' },
+        { asanaId: createdAsanas['Trikonasana'], order: 3, durationMinutes: 2, intensity: 'medium' },
+        { asanaId: createdAsanas['Bhujangasana'], order: 4, durationMinutes: 2, intensity: 'low' },
+        { asanaId: createdAsanas['Setu Bandhasana'], order: 5, durationMinutes: 3, intensity: 'medium' },
+        { asanaId: createdAsanas['Paschimottanasana'], order: 6, durationMinutes: 3, intensity: 'low' },
+      ]},
+      { sectionType: 'PRANAYAMA', order: 4, items: [
+        { asanaId: createdAsanas['Anulom Vilom'], order: 1, durationMinutes: 5, intensity: 'low' },
+      ]},
+      { sectionType: 'SHAVASANA', order: 5, items: [
+        { asanaId: createdAsanas['Shavasana'], order: 1, durationMinutes: 5, intensity: 'low' },
+      ]},
+    ],
+    isActive: true,
+  });
+
+  const intermediatePlan = sessionPlanService.create({
+    name: 'Intermediate Power Flow',
+    description: 'Dynamic sequence for intermediate practitioners. Builds strength and stamina.',
+    level: 'intermediate',
+    sections: [
+      { sectionType: 'WARM_UP', order: 1, items: [
+        { asanaId: createdAsanas['Marjaryasana-Bitilasana'], order: 1, durationMinutes: 2, intensity: 'medium' },
+        { asanaId: createdAsanas['Adho Mukha Svanasana'], order: 2, durationMinutes: 2, intensity: 'medium' },
+      ]},
+      { sectionType: 'SURYA_NAMASKARA', order: 2, items: [
+        { asanaId: createdAsanas['Surya Namaskar A'], order: 1, reps: 3, intensity: 'medium' },
+        { asanaId: createdAsanas['Surya Namaskar B'], order: 2, reps: 3, intensity: 'high' },
+      ]},
+      { sectionType: 'ASANA_SEQUENCE', order: 3, items: [
+        { asanaId: createdAsanas['Virabhadrasana I'], order: 1, durationMinutes: 2, intensity: 'high' },
+        { asanaId: createdAsanas['Virabhadrasana II'], order: 2, durationMinutes: 2, intensity: 'high' },
+        { asanaId: createdAsanas['Trikonasana'], order: 3, durationMinutes: 2, intensity: 'medium' },
+        { asanaId: createdAsanas['Ardha Matsyendrasana'], order: 4, durationMinutes: 3, intensity: 'medium' },
+        { asanaId: createdAsanas['Setu Bandhasana'], order: 5, durationMinutes: 3, intensity: 'medium' },
+      ]},
+      { sectionType: 'PRANAYAMA', order: 4, items: [
+        { asanaId: createdAsanas['Kapalbhati'], order: 1, durationMinutes: 3, reps: 3, intensity: 'high' },
+        { asanaId: createdAsanas['Anulom Vilom'], order: 2, durationMinutes: 5, intensity: 'low' },
+      ]},
+      { sectionType: 'SHAVASANA', order: 5, items: [
+        { asanaId: createdAsanas['Shavasana'], order: 1, durationMinutes: 5, intensity: 'low' },
+      ]},
+    ],
+    isActive: true,
+  });
+
+  const relaxationPlan = sessionPlanService.create({
+    name: 'Evening Relaxation',
+    description: 'Calming sequence for stress relief and better sleep. Gentle stretches and deep breathing.',
+    level: 'beginner',
+    sections: [
+      { sectionType: 'WARM_UP', order: 1, items: [
+        { asanaId: createdAsanas['Marjaryasana-Bitilasana'], order: 1, durationMinutes: 3, intensity: 'low' },
+        { asanaId: createdAsanas['Balasana'], order: 2, durationMinutes: 2, intensity: 'low' },
+      ]},
+      { sectionType: 'SURYA_NAMASKARA', order: 2, items: []},
+      { sectionType: 'ASANA_SEQUENCE', order: 3, items: [
+        { asanaId: createdAsanas['Uttanasana'], order: 1, durationMinutes: 3, intensity: 'low' },
+        { asanaId: createdAsanas['Paschimottanasana'], order: 2, durationMinutes: 4, intensity: 'low' },
+        { asanaId: createdAsanas['Setu Bandhasana'], order: 3, durationMinutes: 3, intensity: 'low' },
+        { asanaId: createdAsanas['Ardha Matsyendrasana'], order: 4, durationMinutes: 3, intensity: 'low' },
+      ]},
+      { sectionType: 'PRANAYAMA', order: 4, items: [
+        { asanaId: createdAsanas['Bhramari'], order: 1, durationMinutes: 5, intensity: 'low' },
+        { asanaId: createdAsanas['Anulom Vilom'], order: 2, durationMinutes: 5, intensity: 'low' },
+      ]},
+      { sectionType: 'SHAVASANA', order: 5, items: [
+        { asanaId: createdAsanas['Shavasana'], order: 1, durationMinutes: 10, intensity: 'low' },
+      ]},
+    ],
+    isActive: true,
+  });
+
+  console.log(`Created ${seedAsanas.length} seed asanas and 3 session plans`);
+
   // Mark seed data as initialized
   localStorage.setItem(SEED_DATA_KEY, 'true');
   console.log('Seed data created successfully: 12 regular members, 3 expiring members, 6 fill members, 1 transfer test member, 4 leads, 3 leads with trials');
@@ -3633,29 +3819,28 @@ export const attendanceService = {
   // - This ensures consistent "X / Y" display across all members for same period
   getMemberSummaryForPeriod: (
     memberId: string,
-    slotId: string,
+    _slotId: string,
     periodStart: string,
     periodEnd: string
   ): { presentDays: number; totalWorkingDays: number } => {
-    // Get attendance records for this member and slot in the period
+    // Get attendance records for this member across ALL slots in the period
+    // (slot transfer should not reset attendance count)
     const records = getAll<AttendanceRecord>(STORAGE_KEYS.ATTENDANCE);
 
-    // Debug: Log all records for this member
-    const allMemberRecords = records.filter(r => r.memberId === memberId && r.slotId === slotId);
-    console.log('[Attendance] All records for member:', memberId, allMemberRecords.map(r => ({ date: r.date, status: r.status })));
-    console.log('[Attendance] Period:', periodStart, 'to', periodEnd);
-
-    const memberRecords = records.filter(r =>
-      r.memberId === memberId &&
-      r.slotId === slotId &&
-      r.date >= periodStart &&
-      r.date <= periodEnd &&
-      r.status === 'present'
+    // Count unique present DATES (not records) to avoid double-counting
+    // if a member somehow has records in multiple slots for the same date
+    const presentDates = new Set(
+      records
+        .filter(r =>
+          r.memberId === memberId &&
+          r.date >= periodStart &&
+          r.date <= periodEnd &&
+          r.status === 'present'
+        )
+        .map(r => r.date)
     );
 
-    console.log('[Attendance] Records in period with present status:', memberRecords.length);
-
-    const presentDays = memberRecords.length;
+    const presentDays = presentDates.size;
 
     // CHANGE 1: Calculate working days based ONLY on selected period (not membership dates)
     // Get holidays from settings to exclude them
@@ -4792,6 +4977,681 @@ export function clearApiSync(): void {
 }
 
 // ============================================
+// ASANA SERVICE (Session Planning)
+// Dual-mode: localStorage (default) or API
+// ============================================
+
+export const asanaService = {
+  // Synchronous CRUD methods
+  getAll: () => getAll<Asana>(STORAGE_KEYS.ASANAS),
+  getById: (id: string) => getById<Asana>(STORAGE_KEYS.ASANAS, id),
+  create: (data: Omit<Asana, 'id' | 'createdAt' | 'updatedAt'>) =>
+    createDual<Asana>(STORAGE_KEYS.ASANAS, data),
+  update: (id: string, data: Partial<Asana>) =>
+    updateDual<Asana>(STORAGE_KEYS.ASANAS, id, data),
+  delete: (id: string) => removeDual<Asana>(STORAGE_KEYS.ASANAS, id),
+
+  // Business logic queries
+  getActive: (): Asana[] => {
+    return getAll<Asana>(STORAGE_KEYS.ASANAS).filter(a => a.isActive);
+  },
+
+  getByType: (type: AsanaType): Asana[] => {
+    return asanaService.getActive().filter(a => a.type === type);
+  },
+
+  getByDifficulty: (difficulty: DifficultyLevel): Asana[] => {
+    return asanaService.getActive().filter(a => a.difficulty === difficulty);
+  },
+
+  getByBodyArea: (bodyArea: BodyArea): Asana[] => {
+    return asanaService.getActive().filter(a =>
+      a.primaryBodyAreas.includes(bodyArea) || a.secondaryBodyAreas.includes(bodyArea)
+    );
+  },
+
+  search: (query: string): Asana[] => {
+    const lower = query.toLowerCase();
+    return asanaService.getActive().filter(a =>
+      a.name.toLowerCase().includes(lower) ||
+      (a.sanskritName && a.sanskritName.toLowerCase().includes(lower))
+    );
+  },
+
+  // Filter with multiple criteria
+  filter: (filters: {
+    search?: string;
+    type?: AsanaType;
+    difficulty?: DifficultyLevel;
+    bodyArea?: BodyArea;
+  }): Asana[] => {
+    let results = asanaService.getActive();
+
+    if (filters.search) {
+      const lower = filters.search.toLowerCase();
+      results = results.filter(a =>
+        a.name.toLowerCase().includes(lower) ||
+        (a.sanskritName && a.sanskritName.toLowerCase().includes(lower))
+      );
+    }
+
+    if (filters.type) {
+      results = results.filter(a => a.type === filters.type);
+    }
+
+    if (filters.difficulty) {
+      results = results.filter(a => a.difficulty === filters.difficulty);
+    }
+
+    if (filters.bodyArea) {
+      results = results.filter(a =>
+        a.primaryBodyAreas.includes(filters.bodyArea!) ||
+        a.secondaryBodyAreas.includes(filters.bodyArea!)
+      );
+    }
+
+    return results;
+  },
+
+  // Vinyasa/Surya Namaskar helper methods
+  // These sequence types contain child asanas
+
+  // Check if asana is a sequence type (vinyasa or surya_namaskar)
+  isSequenceType: (asana: Asana): boolean => {
+    return asana.type === 'vinyasa' || asana.type === 'surya_namaskar';
+  },
+
+  // Get all non-sequence asanas (for vinyasa/surya_namaskar picker - prevent circular references)
+  getNonVinyasaAsanas: (): Asana[] => {
+    return asanaService.getActive().filter(a => a.type !== 'vinyasa' && a.type !== 'surya_namaskar');
+  },
+
+  // Get computed body areas for a sequence (aggregated from child asanas)
+  getVinyasaBodyAreas: (asana: Asana): { primary: BodyArea[]; secondary: BodyArea[] } => {
+    const isSequence = asana.type === 'vinyasa' || asana.type === 'surya_namaskar';
+    if (!isSequence || !asana.childAsanas?.length) {
+      return { primary: asana.primaryBodyAreas, secondary: asana.secondaryBodyAreas };
+    }
+
+    const primarySet = new Set<BodyArea>();
+    const secondarySet = new Set<BodyArea>();
+
+    for (const item of asana.childAsanas) {
+      const childAsana = asanaService.getById(item.asanaId);
+      if (childAsana) {
+        childAsana.primaryBodyAreas.forEach(a => primarySet.add(a));
+        childAsana.secondaryBodyAreas.forEach(a => secondarySet.add(a));
+      }
+    }
+
+    // Primary areas override secondary (remove from secondary if in primary)
+    secondarySet.forEach(a => {
+      if (primarySet.has(a)) secondarySet.delete(a);
+    });
+
+    return {
+      primary: Array.from(primarySet),
+      secondary: Array.from(secondarySet),
+    };
+  },
+
+  // Get computed benefits for a sequence (aggregated from child asanas)
+  getVinyasaBenefits: (asana: Asana): string[] => {
+    const isSequence = asana.type === 'vinyasa' || asana.type === 'surya_namaskar';
+    if (!isSequence || !asana.childAsanas?.length) {
+      return asana.benefits;
+    }
+
+    const benefitSet = new Set<string>();
+    for (const item of asana.childAsanas) {
+      const childAsana = asanaService.getById(item.asanaId);
+      if (childAsana) {
+        childAsana.benefits.forEach(b => benefitSet.add(b));
+      }
+    }
+    return Array.from(benefitSet);
+  },
+
+  // Get sequence display string with child asanas separated by arrows
+  getVinyasaDisplayString: (asana: Asana): string => {
+    const isSequence = asana.type === 'vinyasa' || asana.type === 'surya_namaskar';
+    if (!isSequence || !asana.childAsanas?.length) {
+      return asana.name;
+    }
+
+    const childNames = asana.childAsanas
+      .sort((a, b) => a.order - b.order)
+      .map(child => asanaService.getById(child.asanaId)?.name || '?')
+      .join(' → ');
+    return `${asana.name}: ${childNames}`;
+  },
+};
+
+// ============================================
+// SESSION PLAN SERVICE (Session Planning)
+// Dual-mode: localStorage (default) or API
+// ============================================
+
+export const sessionPlanService = {
+  // Synchronous CRUD methods
+  getAll: () => getAll<SessionPlan>(STORAGE_KEYS.SESSION_PLANS),
+  getById: (id: string) => getById<SessionPlan>(STORAGE_KEYS.SESSION_PLANS, id),
+
+  create: (data: Omit<SessionPlan, 'id' | 'createdAt' | 'updatedAt' | 'version' | 'usageCount'>) => {
+    const planData = {
+      ...data,
+      version: 1,
+      usageCount: 0,
+      isActive: data.isActive ?? true,
+    };
+    return createDual<SessionPlan>(STORAGE_KEYS.SESSION_PLANS, planData as Omit<SessionPlan, 'id' | 'createdAt' | 'updatedAt'>);
+  },
+
+  update: (id: string, data: Partial<SessionPlan>): SessionPlan | null => {
+    const existing = sessionPlanService.getById(id);
+    if (!existing) return null;
+
+    // Increment version on any edit (for tracking, not FK integrity)
+    // Snapshot approach means executions store full plan data
+    return updateDual<SessionPlan>(STORAGE_KEYS.SESSION_PLANS, id, {
+      ...data,
+      version: existing.version + 1,
+    });
+  },
+
+  delete: (id: string) => removeDual<SessionPlan>(STORAGE_KEYS.SESSION_PLANS, id),
+
+  // Business logic queries
+  getActive: (): SessionPlan[] => {
+    return getAll<SessionPlan>(STORAGE_KEYS.SESSION_PLANS).filter(p => p.isActive);
+  },
+
+  getByLevel: (level: DifficultyLevel): SessionPlan[] => {
+    return sessionPlanService.getActive().filter(p => p.level === level);
+  },
+
+  // For plan picker UI - show reuse intelligence
+  getWithMetadata: () => {
+    const plans = sessionPlanService.getActive();
+    return plans.map(plan => ({
+      ...plan,
+      dominantBodyAreas: sessionPlanService.getDominantBodyAreas(plan),
+      keyBenefits: sessionPlanService.getKeyBenefits(plan),
+    }));
+  },
+
+  getDominantBodyAreas: (plan: SessionPlan): BodyArea[] => {
+    const areaCount: Record<string, number> = {};
+    for (const section of plan.sections) {
+      for (const item of section.items) {
+        const asana = asanaService.getById(item.asanaId);
+        if (!asana) continue;
+        for (const area of [...asana.primaryBodyAreas, ...asana.secondaryBodyAreas]) {
+          areaCount[area] = (areaCount[area] || 0) + 1;
+        }
+      }
+    }
+    return Object.entries(areaCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([area]) => area as BodyArea);
+  },
+
+  getKeyBenefits: (plan: SessionPlan): string[] => {
+    const benefitCount: Record<string, number> = {};
+    for (const section of plan.sections) {
+      for (const item of section.items) {
+        const asana = asanaService.getById(item.asanaId);
+        if (!asana) continue;
+        for (const benefit of asana.benefits) {
+          benefitCount[benefit] = (benefitCount[benefit] || 0) + 1;
+        }
+      }
+    }
+    return Object.entries(benefitCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([benefit]) => benefit);
+  },
+
+  updateUsageStats: (id: string, date: string): void => {
+    const plan = sessionPlanService.getById(id);
+    if (!plan) return;
+
+    // Check if already used on this date (across any slot)
+    // Only increment usageCount once per day
+    const existingExecutionsToday = sessionExecutionService.getByPlan(id)
+      .filter(e => e.date === date);
+
+    // If this is the first execution for this plan on this date, increment count
+    // (The current execution hasn't been created yet, so length === 0 means this is the first)
+    const shouldIncrementCount = existingExecutionsToday.length === 0;
+
+    updateDual<SessionPlan>(STORAGE_KEYS.SESSION_PLANS, id, {
+      usageCount: shouldIncrementCount ? plan.usageCount + 1 : plan.usageCount,
+      lastUsedAt: new Date().toISOString(),
+    });
+  },
+
+  // Clone a session plan
+  clone: (id: string, newName?: string): SessionPlan => {
+    const original = sessionPlanService.getById(id);
+    if (!original) throw new Error('Session plan not found');
+
+    const clonedData = {
+      name: newName || `${original.name} (Copy)`,
+      description: original.description,
+      level: original.level,
+      sections: JSON.parse(JSON.stringify(original.sections)), // Deep copy
+      createdBy: original.createdBy,
+      isActive: true,
+    };
+    return sessionPlanService.create(clonedData);
+  },
+
+  // Overuse Detection
+  getOveruseWarning: (planId: string): { isOverused: boolean; reason?: string } => {
+    const plan = sessionPlanService.getById(planId);
+    if (!plan) return { isOverused: false };
+
+    // Check if used in last 3 days
+    if (plan.lastUsedAt) {
+      const daysSinceUse = Math.floor(
+        (Date.now() - new Date(plan.lastUsedAt).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      if (daysSinceUse <= 3) {
+        return {
+          isOverused: true,
+          reason: `Used ${daysSinceUse === 0 ? 'today' : daysSinceUse + ' day' + (daysSinceUse > 1 ? 's' : '') + ' ago'}`,
+        };
+      }
+    }
+
+    // Check if used more than 5 unique days in last 30 days
+    // (same plan used across multiple slots on same day counts as 1 usage)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const recentExecutions = sessionExecutionService.getByPlan(planId)
+      .filter(e => new Date(e.date) >= thirtyDaysAgo);
+
+    // Count unique days, not individual slot executions
+    const uniqueDays = new Set(recentExecutions.map(e => e.date));
+    const uniqueDayCount = uniqueDays.size;
+
+    if (uniqueDayCount >= 5) {
+      return {
+        isOverused: true,
+        reason: `Used on ${uniqueDayCount} days in last 30 days`,
+      };
+    }
+
+    return { isOverused: false };
+  },
+
+  // Search plans
+  search: (query: string): SessionPlan[] => {
+    const lower = query.toLowerCase();
+    return sessionPlanService.getActive().filter(p =>
+      p.name.toLowerCase().includes(lower) ||
+      (p.description && p.description.toLowerCase().includes(lower))
+    );
+  },
+};
+
+// ============================================
+// SESSION PLAN ALLOCATION SERVICE (Session Planning)
+// Dual-mode: localStorage (default) or API
+// ============================================
+
+export const sessionPlanAllocationService = {
+  // Synchronous CRUD methods
+  getAll: () => getAll<SessionPlanAllocation>(STORAGE_KEYS.SESSION_PLAN_ALLOCATIONS),
+  getById: (id: string) => getById<SessionPlanAllocation>(STORAGE_KEYS.SESSION_PLAN_ALLOCATIONS, id),
+
+  // Allocate plan to a specific slot+date
+  allocate: (
+    planId: string,
+    slotId: string,
+    date: string,
+    allocatedBy?: string
+  ): SessionPlanAllocation => {
+    // Check for existing allocation
+    const existing = sessionPlanAllocationService.getBySlotAndDate(slotId, date);
+    if (existing && existing.status !== 'cancelled') {
+      throw new Error('A plan is already allocated to this slot on this date');
+    }
+
+    return createDual<SessionPlanAllocation>(STORAGE_KEYS.SESSION_PLAN_ALLOCATIONS, {
+      sessionPlanId: planId,
+      slotId,
+      date,
+      allocatedBy,
+      status: 'scheduled',
+    });
+  },
+
+  // Bulk allocate same plan to ALL slots on a date
+  allocateToAllSlots: (
+    planId: string,
+    date: string,
+    allocatedBy?: string
+  ): SessionPlanAllocation[] => {
+    const slots = slotService.getActive();
+    const allocations: SessionPlanAllocation[] = [];
+
+    for (const slot of slots) {
+      try {
+        const allocation = sessionPlanAllocationService.allocate(planId, slot.id, date, allocatedBy);
+        allocations.push(allocation);
+      } catch {
+        // Skip if already allocated
+        console.warn(`Slot ${slot.id} already has allocation for ${date}`);
+      }
+    }
+    return allocations;
+  },
+
+  getBySlotAndDate: (slotId: string, date: string): SessionPlanAllocation | null => {
+    const allocations = sessionPlanAllocationService.getAll();
+    return allocations.find(a =>
+      a.slotId === slotId &&
+      a.date === date &&
+      a.status !== 'cancelled'
+    ) || null;
+  },
+
+  getByDate: (date: string): SessionPlanAllocation[] => {
+    return sessionPlanAllocationService.getAll()
+      .filter(a => a.date === date && a.status !== 'cancelled');
+  },
+
+  getByDateRange: (startDate: string, endDate: string): SessionPlanAllocation[] => {
+    return sessionPlanAllocationService.getAll()
+      .filter(a => a.date >= startDate && a.date <= endDate && a.status !== 'cancelled');
+  },
+
+  cancel: (id: string): SessionPlanAllocation | null => {
+    return updateDual<SessionPlanAllocation>(STORAGE_KEYS.SESSION_PLAN_ALLOCATIONS, id, {
+      status: 'cancelled',
+    });
+  },
+
+  markExecuted: (id: string, executionId: string): SessionPlanAllocation | null => {
+    return updateDual<SessionPlanAllocation>(STORAGE_KEYS.SESSION_PLAN_ALLOCATIONS, id, {
+      status: 'executed',
+      executionId,
+    });
+  },
+
+  delete: (id: string) => removeDual<SessionPlanAllocation>(STORAGE_KEYS.SESSION_PLAN_ALLOCATIONS, id),
+};
+
+// ============================================
+// SESSION EXECUTION SERVICE (Session Planning)
+// Dual-mode: localStorage (default) or API
+// ============================================
+
+export const sessionExecutionService = {
+  // Synchronous CRUD methods
+  getAll: () => getAll<SessionExecution>(STORAGE_KEYS.SESSION_EXECUTIONS),
+  getById: (id: string) => getById<SessionExecution>(STORAGE_KEYS.SESSION_EXECUTIONS, id),
+
+  // Check if execution already exists for slot+date
+  getBySlotAndDate: (slotId: string, date: string): SessionExecution | null => {
+    const executions = sessionExecutionService.getAll();
+    return executions.find(e => e.slotId === slotId && e.date === date) || null;
+  },
+
+  // Create with snapshot + attendance integration
+  create: (
+    planId: string,
+    slotId: string,
+    date: string,
+    instructor?: string,
+    notes?: string
+  ): SessionExecution => {
+    const plan = sessionPlanService.getById(planId);
+    if (!plan) throw new Error('Session plan not found');
+
+    // DUPLICATE PREVENTION: Check if execution already exists
+    const existing = sessionExecutionService.getBySlotAndDate(slotId, date);
+    if (existing) {
+      throw new Error(`Execution already recorded for this slot on ${date}`);
+    }
+
+    // ATTENDANCE INTEGRATION: Get members marked present for this slot+date
+    const attendanceRecords = attendanceService.getBySlotAndDate(slotId, date);
+    const presentMemberIds = attendanceRecords
+      .filter(a => a.status === 'present')
+      .map(a => a.memberId);
+
+    const executionData: Omit<SessionExecution, 'id' | 'createdAt' | 'updatedAt'> = {
+      sessionPlanId: planId,
+      sessionPlanName: plan.name,  // Snapshot
+      sessionPlanLevel: plan.level,  // Snapshot
+      sectionsSnapshot: JSON.parse(JSON.stringify(plan.sections)),  // Deep copy snapshot
+      slotId,
+      date,
+      instructor,
+      notes,
+      memberIds: presentMemberIds,  // Auto-linked from attendance
+      attendeeCount: presentMemberIds.length,
+    };
+
+    const execution = createDual<SessionExecution>(STORAGE_KEYS.SESSION_EXECUTIONS, executionData);
+
+    // Update plan usage stats (only increments once per day, not per slot)
+    sessionPlanService.updateUsageStats(planId, date);
+
+    // Update allocation status if exists
+    const allocation = sessionPlanAllocationService.getBySlotAndDate(slotId, date);
+    if (allocation) {
+      sessionPlanAllocationService.markExecuted(allocation.id, execution.id);
+    }
+
+    return execution;
+  },
+
+  // Executions are immutable - no update/delete in normal use
+
+  getByDateRange: (startDate: string, endDate: string): SessionExecution[] => {
+    return sessionExecutionService.getAll().filter(e =>
+      e.date >= startDate && e.date <= endDate
+    );
+  },
+
+  getBySlot: (slotId: string): SessionExecution[] => {
+    return sessionExecutionService.getAll().filter(e => e.slotId === slotId);
+  },
+
+  getByPlan: (planId: string): SessionExecution[] => {
+    return sessionExecutionService.getAll().filter(e => e.sessionPlanId === planId);
+  },
+
+  // Get member's session history (for member detail page)
+  getByMember: (memberId: string): SessionExecution[] => {
+    return sessionExecutionService.getAll()
+      .filter(e => e.memberIds.includes(memberId))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  },
+
+  // Get recent executions for dashboard/reports
+  getRecent: (limit: number = 10): SessionExecution[] => {
+    return sessionExecutionService.getAll()
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, limit);
+  },
+};
+
+// ============================================
+// SESSION ANALYTICS SERVICE (Session Planning)
+// Computed from execution snapshots
+// ============================================
+
+export const sessionAnalyticsService = {
+  // Helper to filter executions by slot
+  _filterBySlot: (executions: SessionExecution[], slotId?: string) => {
+    if (!slotId) return executions;
+    return executions.filter(e => e.slotId === slotId);
+  },
+
+  // Asana Usage Report - uses snapshot data from executions
+  getAsanaUsage: (startDate: string, endDate: string, slotId?: string) => {
+    const allExecutions = sessionExecutionService.getByDateRange(startDate, endDate);
+    const executions = sessionAnalyticsService._filterBySlot(allExecutions, slotId);
+    const asanaStats: Record<string, { count: number; totalDuration: number }> = {};
+
+    for (const execution of executions) {
+      // Use sectionsSnapshot from execution (not current plan state)
+      for (const section of execution.sectionsSnapshot) {
+        for (const item of section.items) {
+          if (!asanaStats[item.asanaId]) {
+            asanaStats[item.asanaId] = { count: 0, totalDuration: 0 };
+          }
+          asanaStats[item.asanaId].count++;
+          asanaStats[item.asanaId].totalDuration += item.durationMinutes || 0;
+        }
+      }
+    }
+
+    // Look up current asana names for display
+    return Object.entries(asanaStats).map(([asanaId, stats]) => {
+      const asana = asanaService.getById(asanaId);
+      return {
+        asanaId,
+        asanaName: asana?.name || 'Unknown/Deleted',
+        sanskritName: asana?.sanskritName,
+        type: asana?.type,
+        timesUsed: stats.count,
+        totalDuration: stats.totalDuration,
+        avgDuration: stats.count > 0 ? Math.round(stats.totalDuration / stats.count) : 0,
+      };
+    }).sort((a, b) => b.timesUsed - a.timesUsed);
+  },
+
+  // Body Area Focus Report
+  getBodyAreaFocus: (startDate: string, endDate: string, slotId?: string) => {
+    const allExecutions = sessionExecutionService.getByDateRange(startDate, endDate);
+    const executions = sessionAnalyticsService._filterBySlot(allExecutions, slotId);
+    const areaStats: Record<BodyArea, { primary: number; secondary: number }> = {} as Record<BodyArea, { primary: number; secondary: number }>;
+
+    // Initialize all areas
+    const bodyAreas: BodyArea[] = ['spine', 'shoulders', 'hips', 'knees', 'hamstrings', 'calves', 'ankles', 'core', 'neck', 'respiratory', 'nervous_system'];
+    for (const area of bodyAreas) {
+      areaStats[area] = { primary: 0, secondary: 0 };
+    }
+
+    for (const execution of executions) {
+      for (const section of execution.sectionsSnapshot) {
+        for (const item of section.items) {
+          const asana = asanaService.getById(item.asanaId);
+          if (!asana) continue;
+
+          for (const area of asana.primaryBodyAreas) {
+            if (areaStats[area]) {
+              areaStats[area].primary++;
+            }
+          }
+          for (const area of asana.secondaryBodyAreas) {
+            if (areaStats[area]) {
+              areaStats[area].secondary++;
+            }
+          }
+        }
+      }
+    }
+
+    const total = Object.values(areaStats).reduce(
+      (sum, s) => sum + s.primary + s.secondary, 0
+    );
+
+    return Object.entries(areaStats).map(([area, stats]) => ({
+      area: area as BodyArea,
+      primaryCount: stats.primary,
+      secondaryCount: stats.secondary,
+      totalCount: stats.primary + stats.secondary,
+      percentage: total > 0 ? Math.round(((stats.primary + stats.secondary) / total) * 100) : 0,
+    })).sort((a, b) => b.totalCount - a.totalCount);
+  },
+
+  // Benefit Coverage Report
+  getBenefitCoverage: (startDate: string, endDate: string, slotId?: string) => {
+    const allExecutions = sessionExecutionService.getByDateRange(startDate, endDate);
+    const executions = sessionAnalyticsService._filterBySlot(allExecutions, slotId);
+    const benefitCounts: Record<string, number> = {};
+
+    for (const execution of executions) {
+      for (const section of execution.sectionsSnapshot) {
+        for (const item of section.items) {
+          const asana = asanaService.getById(item.asanaId);
+          if (!asana) continue;
+
+          for (const benefit of asana.benefits) {
+            benefitCounts[benefit] = (benefitCounts[benefit] || 0) + 1;
+          }
+        }
+      }
+    }
+
+    return Object.entries(benefitCounts)
+      .map(([benefit, count]) => ({ benefit, sessionCount: count }))
+      .sort((a, b) => b.sessionCount - a.sessionCount);
+  },
+
+  // Session Plan Effectiveness Report (can also filter by slot usage)
+  getPlanEffectiveness: (slotId?: string) => {
+    const plans = sessionPlanService.getActive();
+    const executions = sessionExecutionService.getAll();
+    const filteredExecutions = sessionAnalyticsService._filterBySlot(executions, slotId);
+
+    // Build usage stats from filtered executions
+    const planUsage: Record<string, { count: number; lastUsed: string | null }> = {};
+    for (const e of filteredExecutions) {
+      if (!planUsage[e.sessionPlanId]) {
+        planUsage[e.sessionPlanId] = { count: 0, lastUsed: null };
+      }
+      planUsage[e.sessionPlanId].count++;
+      if (!planUsage[e.sessionPlanId].lastUsed || e.date > planUsage[e.sessionPlanId].lastUsed!) {
+        planUsage[e.sessionPlanId].lastUsed = e.date;
+      }
+    }
+
+    return plans.map(plan => {
+      const usage = planUsage[plan.id] || { count: 0, lastUsed: null };
+      return {
+        planId: plan.id,
+        planName: plan.name,
+        level: plan.level,
+        usageCount: slotId ? usage.count : plan.usageCount, // Use filtered count if slot selected
+        lastUsedAt: slotId ? usage.lastUsed : plan.lastUsedAt,
+        daysSinceLastUse: (slotId ? usage.lastUsed : plan.lastUsedAt)
+          ? Math.floor((Date.now() - new Date((slotId ? usage.lastUsed : plan.lastUsedAt)!).getTime()) / (1000 * 60 * 60 * 24))
+          : null,
+        dominantBodyAreas: sessionPlanService.getDominantBodyAreas(plan),
+        keyBenefits: sessionPlanService.getKeyBenefits(plan),
+      };
+    }).sort((a, b) => b.usageCount - a.usageCount);
+  },
+
+  // Summary stats for dashboard
+  getSummary: (startDate: string, endDate: string, slotId?: string) => {
+    const allExecutions = sessionExecutionService.getByDateRange(startDate, endDate);
+    const executions = sessionAnalyticsService._filterBySlot(allExecutions, slotId);
+    const uniquePlans = new Set(executions.map(e => e.sessionPlanId));
+    const totalAttendees = executions.reduce((sum, e) => sum + e.attendeeCount, 0);
+
+    return {
+      totalSessions: executions.length,
+      uniquePlansUsed: uniquePlans.size,
+      totalAttendees,
+      avgAttendeesPerSession: executions.length > 0
+        ? Math.round(totalAttendees / executions.length)
+        : 0,
+    };
+  },
+};
+
+// ============================================
 // TIERED DATA SYNC FUNCTIONS
 // For faster initial page load
 // ============================================
@@ -4923,6 +5783,31 @@ export async function syncFeatureData(features: string[]): Promise<void> {
     expenses: async () => {
       const data = await expensesApi.getAll().catch(() => []);
       saveAll(STORAGE_KEYS.EXPENSES, data as Expense[]);
+    },
+    // Session Planning
+    asanas: async () => {
+      const data = await fetch(`${TIERED_API_URL}/asanas`, {
+        headers: { 'X-API-Key': TIERED_API_KEY },
+      }).then(r => r.json()).catch(() => []);
+      saveAll(STORAGE_KEYS.ASANAS, Array.isArray(data) ? data : data.data || []);
+    },
+    'session-plans': async () => {
+      const data = await fetch(`${TIERED_API_URL}/session-plans`, {
+        headers: { 'X-API-Key': TIERED_API_KEY },
+      }).then(r => r.json()).catch(() => []);
+      saveAll(STORAGE_KEYS.SESSION_PLANS, Array.isArray(data) ? data : data.data || []);
+    },
+    'session-plan-allocations': async () => {
+      const data = await fetch(`${TIERED_API_URL}/session-plan-allocations`, {
+        headers: { 'X-API-Key': TIERED_API_KEY },
+      }).then(r => r.json()).catch(() => []);
+      saveAll(STORAGE_KEYS.SESSION_PLAN_ALLOCATIONS, Array.isArray(data) ? data : data.data || []);
+    },
+    'session-executions': async () => {
+      const data = await fetch(`${TIERED_API_URL}/session-executions`, {
+        headers: { 'X-API-Key': TIERED_API_KEY },
+      }).then(r => r.json()).catch(() => []);
+      saveAll(STORAGE_KEYS.SESSION_EXECUTIONS, Array.isArray(data) ? data : data.data || []);
     },
   };
 

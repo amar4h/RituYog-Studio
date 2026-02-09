@@ -39,6 +39,17 @@ const ExpenseFormPage = lazy(() => import('../pages/admin/expenses/ExpenseFormPa
 const ProductSalePage = lazy(() => import('../pages/admin/sales/ProductSalePage').then(m => ({ default: m.ProductSalePage })));
 const FinancialReportsPage = lazy(() => import('../pages/admin/reports/FinancialReportsPage').then(m => ({ default: m.FinancialReportsPage })));
 
+// Session Planning - lazy loaded
+const AsanaListPage = lazy(() => import('../pages/admin/session-planning/AsanaListPage').then(m => ({ default: m.AsanaListPage })));
+const AsanaFormPage = lazy(() => import('../pages/admin/session-planning/AsanaFormPage').then(m => ({ default: m.AsanaFormPage })));
+const SessionPlanListPage = lazy(() => import('../pages/admin/session-planning/SessionPlanListPage').then(m => ({ default: m.SessionPlanListPage })));
+const SessionPlanFormPage = lazy(() => import('../pages/admin/session-planning/SessionPlanFormPage').then(m => ({ default: m.SessionPlanFormPage })));
+const SessionPlanDetailPage = lazy(() => import('../pages/admin/session-planning/SessionPlanDetailPage').then(m => ({ default: m.SessionPlanDetailPage })));
+const SessionAllocationPage = lazy(() => import('../pages/admin/session-planning/SessionAllocationPage').then(m => ({ default: m.SessionAllocationPage })));
+const SessionExecutionListPage = lazy(() => import('../pages/admin/session-planning/SessionExecutionListPage').then(m => ({ default: m.SessionExecutionListPage })));
+const RecordExecutionPage = lazy(() => import('../pages/admin/session-planning/RecordExecutionPage').then(m => ({ default: m.RecordExecutionPage })));
+const SessionReportsPage = lazy(() => import('../pages/admin/session-planning/SessionReportsPage').then(m => ({ default: m.SessionReportsPage })));
+
 // Public pages - lazy loaded
 const HomePage = lazy(() => import('../pages/public/HomePage').then(m => ({ default: m.HomePage })));
 const RegisterPage = lazy(() => import('../pages/public/RegisterPage').then(m => ({ default: m.RegisterPage })));
@@ -355,6 +366,104 @@ export const routes: RouteObject[] = [
             element: (
               <SuspenseWrapper>
                 <FinancialReportsPage />
+              </SuspenseWrapper>
+            ),
+          },
+
+          // Session Planning - Asanas
+          {
+            path: '/admin/asanas',
+            element: (
+              <SuspenseWrapper>
+                <AsanaListPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/admin/asanas/new',
+            element: (
+              <SuspenseWrapper>
+                <AsanaFormPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/admin/asanas/:id',
+            element: (
+              <SuspenseWrapper>
+                <AsanaFormPage />
+              </SuspenseWrapper>
+            ),
+          },
+
+          // Session Planning - Session Plans
+          {
+            path: '/admin/session-plans',
+            element: (
+              <SuspenseWrapper>
+                <SessionPlanListPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/admin/session-plans/new',
+            element: (
+              <SuspenseWrapper>
+                <SessionPlanFormPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/admin/session-plans/:id',
+            element: (
+              <SuspenseWrapper>
+                <SessionPlanDetailPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/admin/session-plans/:id/edit',
+            element: (
+              <SuspenseWrapper>
+                <SessionPlanFormPage />
+              </SuspenseWrapper>
+            ),
+          },
+
+          // Session Planning - Allocations
+          {
+            path: '/admin/session-allocations',
+            element: (
+              <SuspenseWrapper>
+                <SessionAllocationPage />
+              </SuspenseWrapper>
+            ),
+          },
+
+          // Session Planning - Executions
+          {
+            path: '/admin/session-executions',
+            element: (
+              <SuspenseWrapper>
+                <SessionExecutionListPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/admin/session-executions/record',
+            element: (
+              <SuspenseWrapper>
+                <RecordExecutionPage />
+              </SuspenseWrapper>
+            ),
+          },
+
+          // Session Planning - Reports
+          {
+            path: '/admin/session-reports',
+            element: (
+              <SuspenseWrapper>
+                <SessionReportsPage />
               </SuspenseWrapper>
             ),
           },

@@ -758,3 +758,137 @@ export const expensesApi = {
     params: { action: 'getTotal', startDate, endDate }
   }),
 };
+
+// ============================================
+// SESSION PLANNING API CLIENTS
+// ============================================
+
+export const asanasApi = {
+  ...createCrudClient('asanas'),
+
+  getActive: () => apiRequest<unknown[]>('asanas', {
+    params: { action: 'getActive' }
+  }),
+
+  getByType: (type: string) => apiRequest<unknown[]>('asanas', {
+    params: { action: 'getByType', type }
+  }),
+
+  getByDifficulty: (difficulty: string) => apiRequest<unknown[]>('asanas', {
+    params: { action: 'getByDifficulty', difficulty }
+  }),
+
+  getByBodyArea: (bodyArea: string) => apiRequest<unknown[]>('asanas', {
+    params: { action: 'getByBodyArea', bodyArea }
+  }),
+
+  search: (query: string) => apiRequest<unknown[]>('asanas', {
+    params: { action: 'search', query }
+  }),
+};
+
+export const sessionPlansApi = {
+  ...createCrudClient('session-plans'),
+
+  getActive: () => apiRequest<unknown[]>('session-plans', {
+    params: { action: 'getActive' }
+  }),
+
+  getByLevel: (level: string) => apiRequest<unknown[]>('session-plans', {
+    params: { action: 'getByLevel', level }
+  }),
+
+  search: (query: string) => apiRequest<unknown[]>('session-plans', {
+    params: { action: 'search', query }
+  }),
+
+  clone: (id: string, newName?: string) => apiRequest<unknown>('session-plans', {
+    method: 'POST',
+    params: { action: 'clone', id },
+    body: { newName }
+  }),
+
+  updateUsageStats: (id: string) => apiRequest<unknown>('session-plans', {
+    method: 'POST',
+    params: { action: 'updateUsageStats', id }
+  }),
+};
+
+export const sessionPlanAllocationsApi = {
+  ...createCrudClient('session-plan-allocations'),
+
+  getBySlotAndDate: (slotId: string, date: string) => apiRequest<unknown | null>('session-plan-allocations', {
+    params: { action: 'getBySlotAndDate', slotId, date }
+  }),
+
+  getByDate: (date: string) => apiRequest<unknown[]>('session-plan-allocations', {
+    params: { action: 'getByDate', date }
+  }),
+
+  getByDateRange: (startDate: string, endDate: string) => apiRequest<unknown[]>('session-plan-allocations', {
+    params: { action: 'getByDateRange', startDate, endDate }
+  }),
+
+  allocate: (planId: string, slotId: string, date: string, allocatedBy?: string) => apiRequest<unknown>('session-plan-allocations', {
+    method: 'POST',
+    params: { action: 'allocate' },
+    body: { planId, slotId, date, allocatedBy }
+  }),
+
+  allocateToAllSlots: (planId: string, date: string, allocatedBy?: string) => apiRequest<unknown[]>('session-plan-allocations', {
+    method: 'POST',
+    params: { action: 'allocateToAllSlots' },
+    body: { planId, date, allocatedBy }
+  }),
+
+  cancel: (id: string) => apiRequest<unknown>('session-plan-allocations', {
+    method: 'POST',
+    params: { action: 'cancel', id }
+  }),
+
+  markExecuted: (id: string, executionId: string) => apiRequest<unknown>('session-plan-allocations', {
+    method: 'POST',
+    params: { action: 'markExecuted', id },
+    body: { executionId }
+  }),
+};
+
+export const sessionExecutionsApi = {
+  ...createCrudClient('session-executions'),
+
+  getBySlotAndDate: (slotId: string, date: string) => apiRequest<unknown | null>('session-executions', {
+    params: { action: 'getBySlotAndDate', slotId, date }
+  }),
+
+  getByDateRange: (startDate: string, endDate: string) => apiRequest<unknown[]>('session-executions', {
+    params: { action: 'getByDateRange', startDate, endDate }
+  }),
+
+  getBySlot: (slotId: string) => apiRequest<unknown[]>('session-executions', {
+    params: { action: 'getBySlot', slotId }
+  }),
+
+  getByPlan: (planId: string) => apiRequest<unknown[]>('session-executions', {
+    params: { action: 'getByPlan', planId }
+  }),
+
+  getByMember: (memberId: string) => apiRequest<unknown[]>('session-executions', {
+    params: { action: 'getByMember', memberId }
+  }),
+
+  record: (data: {
+    planId: string;
+    slotId: string;
+    date: string;
+    instructor?: string;
+    notes?: string;
+  }) => apiRequest<unknown>('session-executions', {
+    method: 'POST',
+    params: { action: 'record' },
+    body: data
+  }),
+
+  getRecent: (limit?: number) => apiRequest<unknown[]>('session-executions', {
+    params: { action: 'getRecent', limit }
+  }),
+};

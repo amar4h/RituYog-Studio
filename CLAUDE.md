@@ -519,3 +519,123 @@ $nextNumber = max($maxNum, $startNumber - 1) + 1;
 
 ## Related Repositories
 - **Monorepo**: `c:\Working\YogaStudio\` - Contains this app at `apps/admin/` plus static website at `apps/website/`
+
+---
+
+## Planned Feature: Yoga Session Planning, Execution & Analytics
+
+**Full Implementation Plan**: [docs/session-planning-plan.md](docs/session-planning-plan.md)
+
+### Overview
+A structured system for defining reusable yoga session plans, allocating them to classes, tracking execution history, and generating analytics on asanas, body areas, and benefits.
+
+### Core Concept (Data Flow)
+```
+Asana (Master Data)
+       ↓
+Session Plan Sections (5 fixed sections)
+       ↓
+Session Plan (Reusable template)
+       ↓
+Session Execution (Immutable historical record with attendance)
+       ↓
+Reports & Analytics
+```
+
+### Fixed 5-Section Structure (Non-Negotiable)
+1. **WARM_UP** - Warm Up
+2. **SURYA_NAMASKARA** - Surya Namaskara
+3. **ASANA_SEQUENCE** - Main Asana Sequence
+4. **PRANAYAMA** - Pranayama
+5. **SHAVASANA** - Shavasana
+
+### Key Entities
+
+| Entity | Purpose | Storage Key |
+|--------|---------|-------------|
+| `Asana` | Master data (poses, pranayama, kriyas) | `yoga_studio_asanas` |
+| `SessionPlan` | Reusable template with 5 sections | `yoga_studio_session_plans` |
+| `SessionPlanAllocation` | Pre-schedule plan to slot+date | `yoga_studio_session_plan_allocations` |
+| `SessionExecution` | Immutable record of conducted class | `yoga_studio_session_executions` |
+
+### Body Areas (Controlled Vocabulary)
+```typescript
+const BODY_AREAS = [
+  'spine', 'shoulders', 'hips', 'knees', 'hamstrings',
+  'calves', 'ankles', 'core', 'neck', 'respiratory', 'nervous_system'
+] as const;
+```
+
+### Asana Types
+```typescript
+const ASANA_TYPES = ['asana', 'pranayama', 'kriya', 'exercise', 'relaxation'] as const;
+```
+
+### Key Design Decisions
+
+1. **Snapshot Approach for Versioning**: SessionExecution stores `sectionsSnapshot` - full plan data at execution time (matches Invoice.items pattern). No complex FK versioning needed.
+
+2. **Attendance Integration**: When recording execution, `memberIds[]` auto-populated from attendance records for that slot+date.
+
+3. **Duplicate Prevention**: Unique constraint on `slot_id + date` in executions table.
+
+4. **Overuse Warning**: Warns if plan used in last 3 days OR 5+ times in last 30 days.
+
+5. **Hybrid Data Seeding**: Pre-seed ~50 asanas from [alexcumplido/yoga-api](https://github.com/alexcumplido/yoga-api), enriched with body areas. Pranayama/kriyas added manually.
+
+### Enhancements Beyond Original Spec
+1. ✅ Session Allocation (pre-scheduling with bulk "Apply to all slots")
+2. ✅ Duplicate Execution Prevention
+3. ✅ Plan Description/Notes Field
+4. ✅ Explicit Order in SectionItem (robust drag-and-drop)
+5. ✅ Overuse Warning System
+6. ✅ Session Plan Clone
+7. ✅ Attendance Integration (auto-link members to executions)
+
+### New Services (to add to `src/services/storage.ts`)
+- `asanaService` - CRUD for asana master data
+- `sessionPlanService` - CRUD + `clone()` + `getOveruseWarning()`
+- `sessionPlanAllocationService` - `allocate()`, `allocateToAllSlots()`, `cancel()`, `markExecuted()`
+- `sessionExecutionService` - Create with snapshot + attendance integration (immutable)
+- `sessionAnalyticsService` - Computed reports from execution history
+
+### New Pages (in `src/pages/admin/session-planning/`)
+| Route | Page | Purpose |
+|-------|------|---------|
+| `/admin/asanas` | AsanaListPage | List/manage asanas |
+| `/admin/asanas/new`, `/admin/asanas/:id` | AsanaFormPage | Create/edit asana |
+| `/admin/session-plans` | SessionPlanListPage | List with Clone button |
+| `/admin/session-plans/new`, `/admin/session-plans/:id/edit` | SessionPlanFormPage | Builder with 5 sections |
+| `/admin/session-plans/:id` | SessionPlanDetailPage | Read-only view |
+| `/admin/session-allocations` | SessionAllocationPage | Allocate plans to slots/dates |
+| `/admin/session-executions` | SessionExecutionListPage | List with attendee count |
+| `/admin/session-executions/record` | RecordExecutionPage | Record with attendance preview |
+| `/admin/session-reports` | SessionReportsPage | Analytics dashboard |
+
+### Sidebar Navigation (after "Attendance")
+```tsx
+<SidebarSection title="Session Planning">
+  <SidebarLink to="/admin/asanas" icon={BookOpen}>Asanas</SidebarLink>
+  <SidebarLink to="/admin/session-plans" icon={Layout}>Session Plans</SidebarLink>
+  <SidebarLink to="/admin/session-allocations" icon={Calendar}>Allocations</SidebarLink>
+  <SidebarLink to="/admin/session-executions" icon={CheckCircle}>Executions</SidebarLink>
+  <SidebarLink to="/admin/session-reports" icon={BarChart}>Reports</SidebarLink>
+</SidebarSection>
+```
+
+### Implementation Phases
+1. **Phase 1**: Foundation (Types, Constants, Asana Service + Pages)
+2. **Phase 2**: Session Plans (Builder + Clone + Overuse Warning)
+3. **Phase 3**: Session Allocation (with bulk assign)
+4. **Phase 4**: Execution Tracking (with Attendance Integration)
+5. **Phase 5**: Reports & Analytics
+6. **Phase 6**: Seed Data (Hybrid API + Manual)
+7. **Phase 7**: Database & API (Post-MVP)
+
+### NOT in Scope
+- Instructor feedback
+- Injury-aware planning
+- AI-based plan suggestions
+- Custom sections (fixed 5 only)
+- Free-text body areas (controlled vocabulary only)
+- Recurring allocation templates

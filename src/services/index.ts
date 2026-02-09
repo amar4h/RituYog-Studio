@@ -33,6 +33,12 @@ export {
   productService,
   inventoryService,
   expenseService,
+  // Session Planning
+  asanaService,
+  sessionPlanService,
+  sessionPlanAllocationService,
+  sessionExecutionService,
+  sessionAnalyticsService,
   initializeStorage,
   seedDemoData,
   resetAndSeedData,

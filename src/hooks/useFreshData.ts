@@ -22,11 +22,17 @@ export type DataType =
   | 'settings'
   | 'products'
   | 'inventory'
-  | 'expenses';
+  | 'expenses'
+  // Session Planning
+  | 'asanas'
+  | 'session-plans'
+  | 'session-plan-allocations'
+  | 'session-executions';
 
 interface UseFreshDataResult {
   isLoading: boolean;
   error: string | null;
+  refetch: () => Promise<void>;
 }
 
 /**
@@ -46,7 +52,7 @@ export function useFreshData(dataTypes: DataType[]): UseFreshDataResult {
   const [isLoading, setIsLoading] = useState(isApiMode());
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchData = async () => {
     // In localStorage mode, no need to fetch - data is already available
     if (!isApiMode()) {
       setIsLoading(false);
@@ -57,16 +63,24 @@ export function useFreshData(dataTypes: DataType[]): UseFreshDataResult {
     setIsLoading(true);
     setError(null);
 
-    syncFeatureData(dataTypes)
-      .then(() => {
-        setIsLoading(false);
-      })
-      .catch((err) => {
-        console.error('Failed to fetch data:', err);
-        setError(err.message || 'Failed to load data');
-        setIsLoading(false);
-      });
+    try {
+      await syncFeatureData(dataTypes);
+      setIsLoading(false);
+    } catch (err) {
+      console.error('Failed to fetch data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
   }, []); // Empty dependency - runs once on mount
 
-  return { isLoading, error };
+  // Refetch function for manual refresh
+  const refetch = async () => {
+    await fetchData();
+  };
+
+  return { isLoading, error, refetch };
 }

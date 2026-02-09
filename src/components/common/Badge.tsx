@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 
-export type BadgeVariant = 'gray' | 'red' | 'yellow' | 'green' | 'blue' | 'indigo' | 'purple' | 'pink' | 'cyan' | 'teal' | 'orange' | 'emerald' | 'outline' | 'success' | 'error' | 'warning' | 'info';
+export type BadgeVariant = 'gray' | 'red' | 'yellow' | 'green' | 'blue' | 'indigo' | 'purple' | 'pink' | 'cyan' | 'teal' | 'orange' | 'amber' | 'emerald' | 'outline' | 'success' | 'error' | 'warning' | 'info';
 type BadgeSize = 'sm' | 'md' | 'lg';
 
 interface BadgeProps {
@@ -23,6 +23,7 @@ const variantStyles: Record<BadgeVariant, string> = {
   cyan: 'bg-cyan-100 text-cyan-800',
   teal: 'bg-teal-100 text-teal-800',
   orange: 'bg-orange-100 text-orange-800',
+  amber: 'bg-amber-100 text-amber-800',
   emerald: 'bg-emerald-100 text-emerald-800',
   outline: 'bg-transparent border border-gray-300 text-gray-600',
   success: 'bg-green-100 text-green-800',
@@ -43,6 +44,7 @@ const dotStyles: Record<BadgeVariant, string> = {
   cyan: 'bg-cyan-500',
   teal: 'bg-teal-500',
   orange: 'bg-orange-500',
+  amber: 'bg-amber-500',
   emerald: 'bg-emerald-500',
   outline: 'bg-gray-500',
   success: 'bg-green-500',
