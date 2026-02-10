@@ -290,6 +290,55 @@ Warm regards,
 
 _This is an automated message. Reply STOP to opt-out._`,
   },
+  generalNotifications: [
+    {
+      name: 'Holiday Notification',
+      template: `Hi {memberName} Namaste 🌸
+
+We'd like to inform you that {studioName} will be closed for *{nextHolidayName}* on *{nextHolidayDate}*.
+
+Regular classes will resume the next working day. We wish you a wonderful celebration! 🎉
+
+Warm regards,
+{studioName} 🙏
+
+_This is an automated message. Reply STOP to opt-out._`,
+    },
+    {
+      name: 'Google Review Request',
+      template: `Hi {memberName} Namaste 🌸
+
+We hope you're enjoying your yoga journey with us! 🧘‍♀️
+
+Your feedback means the world to us. Would you kindly take a moment to share your experience on Google? It helps others discover our studio too!
+
+📝 {googleReviewUrl}
+
+Thank you for being part of our community! 🙏
+
+Warm regards,
+{studioName} ✨
+
+_This is an automated message. Reply STOP to opt-out._`,
+    },
+    {
+      name: 'Welcome Message',
+      template: `Hi {memberName} Namaste 🌸
+
+Welcome to {studioName}! 🙏
+
+We're thrilled to have you as part of our yoga family. Your wellness journey begins here! 🧘‍♀️✨
+
+Your session: *{slotName}*
+
+Feel free to reply to this message if you have any questions. See you on the mat!
+
+Warm regards,
+{studioName} ✨
+
+_This is an automated message. Reply STOP to opt-out._`,
+    },
+  ],
 };
 
 // Available placeholders for WhatsApp templates
@@ -336,6 +385,11 @@ export const WHATSAPP_PLACEHOLDERS = {
     { key: '{studioName}', description: 'Studio name' },
     { key: '{studioPhone}', description: 'Studio phone' },
     { key: '{studioWebsite}', description: 'Studio website' },
+    { key: '{googleReviewUrl}', description: 'Google review link' },
+  ],
+  holiday: [
+    { key: '{nextHolidayName}', description: 'Name of next upcoming holiday' },
+    { key: '{nextHolidayDate}', description: 'Date of next upcoming holiday' },
   ],
 };
 

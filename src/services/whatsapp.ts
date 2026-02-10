@@ -73,6 +73,7 @@ export function getWhatsAppTemplates(): WhatsAppTemplates {
     paymentConfirmation: stored.paymentConfirmation || DEFAULT_WHATSAPP_TEMPLATES.paymentConfirmation,
     paymentReminders: stored.paymentReminders?.length ? stored.paymentReminders : DEFAULT_WHATSAPP_TEMPLATES.paymentReminders,
     leadFollowUps: stored.leadFollowUps?.length ? stored.leadFollowUps : DEFAULT_WHATSAPP_TEMPLATES.leadFollowUps,
+    generalNotifications: stored.generalNotifications?.length ? stored.generalNotifications : DEFAULT_WHATSAPP_TEMPLATES.generalNotifications,
   };
 }
 
@@ -358,6 +359,97 @@ export function generateLeadRegistrationLink(data: LeadRegistrationLinkData): { 
 }
 
 // ============================================
+// GENERAL NOTIFICATION MESSAGE
+// ============================================
+
+/**
+ * Get next upcoming holiday from settings
+ */
+function getNextHoliday(): { name: string; date: string } | null {
+  const settings = settingsService.get();
+  if (!settings?.holidays || settings.holidays.length === 0) {
+    return null;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const upcomingHolidays = settings.holidays
+    .map(holiday => ({
+      ...holiday,
+      dateObj: parseISO(holiday.date),
+    }))
+    .filter(holiday => holiday.dateObj >= today)
+    .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
+
+  if (upcomingHolidays.length === 0) {
+    return null;
+  }
+
+  return {
+    name: upcomingHolidays[0].name,
+    date: format(upcomingHolidays[0].dateObj, 'd MMM yyyy'),
+  };
+}
+
+export interface GeneralNotificationData {
+  member: Member;
+  slot?: SessionSlot;
+  templateIndex: number; // 0=Holiday, 1=Google Review, 2=Welcome
+}
+
+export function generateGeneralNotification(data: GeneralNotificationData): { phone: string; message: string; link: string } {
+  const { member, slot, templateIndex } = data;
+  const templates = getWhatsAppTemplates();
+  const studioInfo = getStudioPlaceholders();
+  const settings = settingsService.get();
+
+  const placeholders: Record<string, string> = {
+    memberName: `${member.firstName} ${member.lastName}`,
+    memberFirstName: member.firstName,
+    memberPhone: member.phone,
+    memberEmail: member.email,
+    googleReviewUrl: settings?.googleReviewUrl || '',
+    slotName: slot?.displayName || '',
+    ...studioInfo,
+  };
+
+  // Add holiday placeholders
+  const nextHoliday = getNextHoliday();
+  if (nextHoliday) {
+    placeholders.nextHolidayName = nextHoliday.name;
+    placeholders.nextHolidayDate = nextHoliday.date;
+  } else {
+    placeholders.nextHolidayName = '';
+    placeholders.nextHolidayDate = '';
+  }
+
+  const templateArray = templates.generalNotifications || [];
+  const selectedTemplate = templateArray[Math.min(templateIndex, templateArray.length - 1)];
+
+  if (!selectedTemplate) {
+    return { phone: '', message: '', link: '' };
+  }
+
+  const message = formatMessage(selectedTemplate.template, placeholders);
+  const phone = member.whatsappNumber || member.phone;
+
+  return {
+    phone,
+    message,
+    link: generateWhatsAppLink(phone, message),
+  };
+}
+
+/**
+ * Get available general notification templates
+ */
+export function getGeneralNotificationTemplates(): { name: string; template: string }[] {
+  const templates = getWhatsAppTemplates();
+  return templates.generalNotifications || [];
+}
+
+// ============================================
 // EXPORTED SERVICE
 // ============================================
 
@@ -372,6 +464,7 @@ export const whatsappService = {
   getRenewalReminderTemplates,
   getPaymentReminderTemplates,
   getLeadFollowUpTemplates,
+  getGeneralNotificationTemplates,
 
   // Message generators
   generateRenewalReminder,
@@ -380,6 +473,7 @@ export const whatsappService = {
   generatePaymentReminder,
   generateLeadFollowUp,
   generateLeadRegistrationLink,
+  generateGeneralNotification,
 
   // Quick send methods (opens WhatsApp directly)
   sendRenewalReminder: (data: RenewalReminderData) => {
@@ -404,6 +498,10 @@ export const whatsappService = {
   },
   sendLeadRegistrationLink: (data: LeadRegistrationLinkData) => {
     const { phone, message } = generateLeadRegistrationLink(data);
+    openWhatsApp(phone, message);
+  },
+  sendGeneralNotification: (data: GeneralNotificationData) => {
+    const { phone, message } = generateGeneralNotification(data);
     openWhatsApp(phone, message);
   },
 };

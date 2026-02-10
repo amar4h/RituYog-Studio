@@ -7,6 +7,7 @@ interface MemberAttendanceTileProps {
   totalWorkingDays: number;
   onToggle: () => void;
   disabled?: boolean;
+  isTopAttender?: boolean;
 }
 
 export function MemberAttendanceTile({
@@ -16,6 +17,7 @@ export function MemberAttendanceTile({
   totalWorkingDays,
   onToggle,
   disabled = false,
+  isTopAttender = false,
 }: MemberAttendanceTileProps) {
   // Get initials for avatar
   const initials = `${member.firstName[0]}${member.lastName[0]}`.toUpperCase();
@@ -36,6 +38,12 @@ export function MemberAttendanceTile({
         ${!disabled && !isPresent ? 'hover:bg-red-200' : ''}
       `}
     >
+      {/* Crown for top attender */}
+      {isTopAttender && (
+        <div className="absolute -top-1.5 left-1/2 -translate-x-1/2">
+          <span className="text-[12px]">👑</span>
+        </div>
+      )}
       {/* Lock indicator when disabled - transparent background, visible icon */}
       {disabled && (
         <div className="absolute top-0 right-0.5">

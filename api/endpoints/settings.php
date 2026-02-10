@@ -13,7 +13,7 @@ class SettingsHandler extends BaseHandler {
     // Valid columns in the studio_settings table (snake_case)
     private array $validColumns = [
         'studio_name', 'logo_url', 'logo_data', 'address', 'phone', 'email',
-        'website', 'whatsapp_business_number', 'currency', 'timezone',
+        'website', 'google_review_url', 'whatsapp_business_number', 'currency', 'timezone',
         'working_hours', 'terms_and_conditions', 'health_disclaimer',
         'renewal_reminder_days', 'class_reminder_hours', 'tax_rate',
         'invoice_prefix', 'receipt_prefix', 'invoice_start_number', 'receipt_start_number',

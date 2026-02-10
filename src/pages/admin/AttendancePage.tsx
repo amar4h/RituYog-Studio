@@ -80,6 +80,38 @@ function getDefaultPeriodPresetId(today: string): string {
   return 'current-month';
 }
 
+/**
+ * Selects the most relevant slot based on current time.
+ * Each slot runs for 1 hour. A slot stays selected until 10 minutes
+ * after it ends (i.e., 70 min after start), then switches to the next slot.
+ * Example with 7:30 AM slot: stays default until 8:40 AM, then 8:45 AM takes over.
+ */
+function getDefaultSlotId(slots: { id: string; startTime: string }[]): string {
+  if (slots.length === 0) return '';
+
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+  // Sort slots by start time
+  const sorted = [...slots].sort((a, b) => {
+    const [ah, am] = a.startTime.split(':').map(Number);
+    const [bh, bm] = b.startTime.split(':').map(Number);
+    return (ah * 60 + am) - (bh * 60 + bm);
+  });
+
+  // Each slot becomes default 10 min before its start,
+  // and stays default until 10 min before the next slot starts
+  let defaultSlot = sorted[0];
+  for (const slot of sorted) {
+    const [h, m] = slot.startTime.split(':').map(Number);
+    if (nowMinutes >= h * 60 + m - 10) {
+      defaultSlot = slot;
+    }
+  }
+
+  return defaultSlot.id;
+}
+
 export function AttendancePage() {
   // Fetch fresh data from API on mount
   const { isLoading } = useFreshData(['members', 'subscriptions', 'attendance', 'attendance-locks']);
@@ -99,11 +131,11 @@ export function AttendancePage() {
   // Current date for marking attendance
   const [selectedDate, setSelectedDate] = useState(today);
 
-  // Get slots and default to first slot (7:30 AM)
+  // Get slots and default to the slot closest to current time
   const slots = slotService.getActive();
 
-  // Selected slot - default to first slot (7:30 AM)
-  const [selectedSlotId, setSelectedSlotId] = useState<string>(slots[0]?.id || '');
+  // Selected slot - default based on current time
+  const [selectedSlotId, setSelectedSlotId] = useState<string>(() => getDefaultSlotId(slots));
 
   // Period selection state - initialized with default preset
   const [selectedPresetId, setSelectedPresetId] = useState<string>(defaultPresetId);
@@ -171,10 +203,16 @@ export function AttendancePage() {
   const isFutureDate = !attendanceCheck.allowed && attendanceCheck.reason === 'Cannot mark attendance for future dates';
   const isTooOld = !attendanceCheck.allowed && attendanceCheck.reason === 'Cannot mark attendance for more than 3 days in the past';
 
-  // Get attendance data for the selected slot and date
-  const attendanceData = selectedSlotId && !isWeekendDay
+  // Get attendance data for the selected slot and date, sorted alphabetically by member name
+  const attendanceData = (selectedSlotId && !isWeekendDay
     ? attendanceService.getSlotAttendanceWithMembers(selectedSlotId, selectedDate, periodStart, periodEnd)
-    : [];
+    : []
+  ).sort((a, b) => `${a.member.firstName} ${a.member.lastName}`.localeCompare(`${b.member.firstName} ${b.member.lastName}`));
+
+  // Find max attendance for crown indicator
+  const maxPresentDays = attendanceData.length > 0
+    ? Math.max(...attendanceData.map(a => a.presentDays))
+    : 0;
 
   // Count present/total for today's summary
   const presentToday = attendanceData.filter(a => a.isPresent).length;
@@ -413,6 +451,7 @@ export function AttendancePage() {
                   totalWorkingDays={totalWorkingDays}
                   onToggle={() => handleToggleAttendance(member.id, isPresent)}
                   disabled={!attendanceCheck.allowed}
+                  isTopAttender={maxPresentDays > 0 && presentDays === maxPresentDays}
                 />
               ))}
             </div>

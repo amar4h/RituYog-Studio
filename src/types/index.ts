@@ -532,7 +532,7 @@ export interface ProfitLossSummary {
 // WHATSAPP MESSAGE TEMPLATES
 // ============================================
 
-export type NotificationType = 'renewal-reminder' | 'class-reminder' | 'payment-confirmation' | 'lead-followup';
+export type NotificationType = 'renewal-reminder' | 'class-reminder' | 'payment-confirmation' | 'lead-followup' | 'general-notification';
 
 export interface WhatsAppMessageTemplate {
   name: string;
@@ -546,6 +546,7 @@ export interface WhatsAppTemplates {
   paymentReminders: WhatsAppMessageTemplate[];  // Array of templates for payment due reminders
   leadFollowUps: WhatsAppMessageTemplate[];  // Array of templates (2 options)
   leadRegistrationLink?: WhatsAppMessageTemplate;  // Template for sharing registration completion link
+  generalNotifications: WhatsAppMessageTemplate[];  // 3 templates: Holiday, Google Review, Welcome
 }
 
 // ============================================
@@ -587,6 +588,7 @@ export interface StudioSettings {
   phone?: string;
   email?: string;
   website?: string;
+  googleReviewUrl?: string;
   whatsappBusinessNumber?: string;
 
   // Currency & Timezone

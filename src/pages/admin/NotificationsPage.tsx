@@ -13,7 +13,7 @@ import {
 } from '../../services';
 import { getDaysRemaining, formatDate } from '../../utils/dateUtils';
 import { useFreshData } from '../../hooks';
-import type { NotificationType, Member, Lead, MembershipSubscription, MembershipPlan } from '../../types';
+import type { NotificationType, Member, Lead, MembershipSubscription, MembershipPlan, SessionSlot } from '../../types';
 
 type TabType = 'pending' | 'sent' | 'all';
 
@@ -32,6 +32,7 @@ interface TemplateSelectionContext {
     lead?: Lead;
     subscription?: MembershipSubscription;
     plan?: MembershipPlan;
+    slot?: SessionSlot;
   } | null;
 }
 
@@ -49,7 +50,11 @@ export function NotificationsPage() {
 
   // Bulk template selection modal state
   const [bulkTemplateModalOpen, setBulkTemplateModalOpen] = useState(false);
-  const [bulkNotificationType, setBulkNotificationType] = useState<'renewal-reminder' | 'lead-followup' | null>(null);
+  const [bulkNotificationType, setBulkNotificationType] = useState<'renewal-reminder' | 'lead-followup' | 'general-notification' | null>(null);
+
+  // General notifications state
+  const [generalSectionExpanded, setGeneralSectionExpanded] = useState(false);
+  const [generalSelectedIds, setGeneralSelectedIds] = useState<Set<string>>(new Set());
 
   // Get notification logs (re-fetch when logsVersion changes)
   // Must be called before loading check to maintain hooks order
@@ -200,6 +205,36 @@ export function NotificationsPage() {
     return notifications;
   }, [isLoading]);
 
+  // Build general notifications list (all active members)
+  const generalNotifications = useMemo(() => {
+    if (isLoading) return [];
+
+    const activeMembers = memberService.getActive();
+    const slots = slotService.getActive();
+    const subscriptions = subscriptionService.getAll();
+
+    return activeMembers
+      .map(member => {
+        const memberSub = subscriptions.find(
+          sub => sub.memberId === member.id && sub.status === 'active'
+        );
+        const slot = memberSub ? slots.find(s => s.id === memberSub.slotId) : undefined;
+
+        return {
+          id: `general-${member.id}`,
+          type: 'general-notification' as NotificationType,
+          recipientName: `${member.firstName} ${member.lastName}`,
+          recipientPhone: member.whatsappNumber || member.phone,
+          recipientId: member.id,
+          recipientType: 'member' as const,
+          details: slot ? `${slot.displayName}` : 'No active slot',
+          member,
+          slot,
+        };
+      })
+      .sort((a, b) => a.recipientName.localeCompare(b.recipientName));
+  }, [isLoading]);
+
   // Show loading state while fetching data
   if (isLoading) {
     return <PageLoading />;
@@ -269,6 +304,26 @@ export function NotificationsPage() {
       return result.link;
     }
 
+    if (notification.type === 'general-notification' && notification.member) {
+      const result = whatsappService.generateGeneralNotification({
+        member: notification.member,
+        slot: notification.slot,
+        templateIndex,
+      });
+
+      notificationLogService.create({
+        type: 'general-notification',
+        recipientType: 'member',
+        recipientId: notification.member.id,
+        recipientName: `${notification.member.firstName} ${notification.member.lastName}`,
+        recipientPhone: notification.member.phone,
+        message: result.message,
+        status: 'pending',
+      });
+
+      return result.link;
+    }
+
     return '';
   };
 
@@ -290,6 +345,9 @@ export function NotificationsPage() {
     }
     if (notification.type === 'lead-followup') {
       return whatsappService.getLeadFollowUpTemplates();
+    }
+    if (notification.type === 'general-notification') {
+      return whatsappService.getGeneralNotificationTemplates();
     }
     return [];
   };
@@ -314,6 +372,9 @@ export function NotificationsPage() {
     }
     if (notification.type === 'lead-followup') {
       return 'Send Follow-up Message';
+    }
+    if (notification.type === 'general-notification') {
+      return 'Send General Notification';
     }
     return 'Select Template';
   };
@@ -350,6 +411,35 @@ export function NotificationsPage() {
     }
   };
 
+  // General notifications handlers
+  const toggleGeneralSelection = (id: string) => {
+    const newSelection = new Set(generalSelectedIds);
+    if (newSelection.has(id)) {
+      newSelection.delete(id);
+    } else {
+      newSelection.add(id);
+    }
+    setGeneralSelectedIds(newSelection);
+  };
+
+  const selectAllGeneral = () => {
+    if (generalSelectedIds.size === generalNotifications.length) {
+      setGeneralSelectedIds(new Set());
+    } else {
+      setGeneralSelectedIds(new Set(generalNotifications.map(n => n.id)));
+    }
+  };
+
+  const handleSendGeneralNotification = (notification: typeof generalNotifications[0]) => {
+    setTemplateContext({ notification });
+    setTemplateModalOpen(true);
+  };
+
+  const handleBulkSendGeneral = () => {
+    setBulkNotificationType('general-notification');
+    setBulkTemplateModalOpen(true);
+  };
+
   // Get the notification type of selected items (for bulk send)
   const getSelectedNotificationType = (): 'renewal-reminder' | 'lead-followup' | 'mixed' | null => {
     const selected = pendingNotifications.filter(n => selectedIds.has(n.id));
@@ -374,9 +464,14 @@ export function NotificationsPage() {
 
   // Execute bulk send with selected template
   const executeBulkSend = (templateIndex: number) => {
-    pendingNotifications
-      .filter(n => selectedIds.has(n.id))
-      .forEach(n => {
+    const isGeneralBulk = bulkNotificationType === 'general-notification';
+    const targetIds = isGeneralBulk ? generalSelectedIds : selectedIds;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const targetList: any[] = isGeneralBulk ? generalNotifications : pendingNotifications;
+
+    targetList
+      .filter((n: any) => targetIds.has(n.id))
+      .forEach((n: any) => {
         let link = '';
         let message = '';
 
@@ -416,6 +511,24 @@ export function NotificationsPage() {
             message,
             status: 'pending',
           });
+        } else if (n.type === 'general-notification' && n.member) {
+          const result = whatsappService.generateGeneralNotification({
+            member: n.member,
+            slot: n.slot,
+            templateIndex,
+          });
+          link = result.link;
+          message = result.message;
+
+          notificationLogService.create({
+            type: 'general-notification',
+            recipientType: 'member',
+            recipientId: n.member.id,
+            recipientName: `${n.member.firstName} ${n.member.lastName}`,
+            recipientPhone: n.member.phone,
+            message,
+            status: 'pending',
+          });
         }
 
         if (link) {
@@ -423,7 +536,12 @@ export function NotificationsPage() {
         }
       });
 
-    setSelectedIds(new Set()); // Clear selection after sending
+    if (isGeneralBulk) {
+      setGeneralSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set());
+    }
+    setLogsVersion(v => v + 1);
   };
 
   // Generate bulk send link (called by modal)
@@ -442,11 +560,17 @@ export function NotificationsPage() {
     if (bulkNotificationType === 'lead-followup') {
       return whatsappService.getLeadFollowUpTemplates();
     }
+    if (bulkNotificationType === 'general-notification') {
+      return whatsappService.getGeneralNotificationTemplates();
+    }
     return [];
   };
 
   // Get bulk modal title
   const getBulkModalTitle = () => {
+    if (bulkNotificationType === 'general-notification') {
+      return `Send General Notifications (${generalSelectedIds.size} members)`;
+    }
     const count = selectedIds.size;
     if (bulkNotificationType === 'renewal-reminder') {
       return `Send Renewal Reminders (${count} members)`;
@@ -470,6 +594,8 @@ export function NotificationsPage() {
         return <Badge variant="success">Payment</Badge>;
       case 'lead-followup':
         return <Badge variant="purple">Lead</Badge>;
+      case 'general-notification':
+        return <Badge variant="info">General</Badge>;
       default:
         return <Badge>{type}</Badge>;
     }
@@ -601,6 +727,74 @@ export function NotificationsPage() {
         )}
       </Card>
 
+      {/* General Notifications - Collapsible */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <button
+          onClick={() => setGeneralSectionExpanded(!generalSectionExpanded)}
+          className="w-full flex items-center justify-between p-4 sm:p-6 text-left hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <svg
+              className={`w-5 h-5 text-gray-400 transition-transform ${generalSectionExpanded ? 'rotate-90' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">General Notifications</h3>
+              <p className="text-sm text-gray-500">Holiday announcements, review requests, welcome messages</p>
+            </div>
+          </div>
+          <Badge variant="info">{generalNotifications.length} active members</Badge>
+        </button>
+
+        {generalSectionExpanded && (
+          <div className="px-4 sm:px-6 pb-4 sm:pb-6 border-t border-gray-100">
+            {generalNotifications.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>No active members found.</p>
+              </div>
+            ) : (
+              <div className="space-y-4 pt-4">
+                {/* Bulk actions */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-3 border-b">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={generalSelectedIds.size === generalNotifications.length && generalNotifications.length > 0}
+                      onChange={selectAllGeneral}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                    />
+                    <span className="text-sm text-gray-600">Select all</span>
+                  </label>
+                  {generalSelectedIds.size > 0 && (
+                    <Button size="sm" onClick={handleBulkSendGeneral}>
+                      Send Selected ({generalSelectedIds.size})
+                    </Button>
+                  )}
+                </div>
+
+                {/* Member list */}
+                <div className="space-y-2">
+                  {generalNotifications.map(notification => (
+                    <NotificationRow
+                      key={notification.id}
+                      notification={notification}
+                      isSelected={generalSelectedIds.has(notification.id)}
+                      onToggle={() => toggleGeneralSelection(notification.id)}
+                      onSend={() => handleSendGeneralNotification(notification)}
+                      getTypeBadge={getTypeBadge}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Notification History */}
       <Card title="Message History">
         {/* Tabs */}
@@ -709,7 +903,7 @@ export function NotificationsPage() {
         }}
         templates={getBulkTemplates()}
         title={getBulkModalTitle()}
-        recipientName={`${selectedIds.size} recipients`}
+        recipientName={`${bulkNotificationType === 'general-notification' ? generalSelectedIds.size : selectedIds.size} recipients`}
         onSelect={handleBulkTemplateSelect}
         skipNavigation
       />

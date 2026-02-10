@@ -96,6 +96,7 @@ export function SettingsPage() {
     phone: settings.phone || '',
     email: settings.email || '',
     website: settings.website || '',
+    googleReviewUrl: settings.googleReviewUrl || '',
   });
 
   // Invoice numbering state
@@ -168,6 +169,9 @@ export function SettingsPage() {
         : oldSaved.leadFollowUp
           ? [oldSaved.leadFollowUp]
           : DEFAULT_WHATSAPP_TEMPLATES.leadFollowUps,
+      generalNotifications: Array.isArray(saved.generalNotifications)
+        ? saved.generalNotifications
+        : DEFAULT_WHATSAPP_TEMPLATES.generalNotifications,
     };
   });
 
@@ -201,6 +205,7 @@ export function SettingsPage() {
         phone: studioData.phone.trim() || undefined,
         email: studioData.email.trim() || undefined,
         website: studioData.website.trim() || undefined,
+        googleReviewUrl: studioData.googleReviewUrl.trim() || undefined,
       });
       setSuccess('Studio information saved to database');
     } catch (err) {
@@ -697,6 +702,16 @@ export function SettingsPage() {
             />
             <p className="text-xs text-gray-500 -mt-2">
               Clicking the logo in the sidebar will open this website in a new tab.
+            </p>
+            <Input
+              label="Google Review URL"
+              type="url"
+              value={studioData.googleReviewUrl}
+              onChange={(e) => setStudioData(prev => ({ ...prev, googleReviewUrl: e.target.value }))}
+              placeholder="https://g.page/r/..."
+            />
+            <p className="text-xs text-gray-500 -mt-2">
+              Used in Google Review Request notification template.
             </p>
             <div className="flex gap-3 items-center">
               <Button type="submit" loading={loading === 'studio'}>
@@ -1387,6 +1402,47 @@ export function SettingsPage() {
             </div>
             <p className="mt-2 text-xs text-gray-500">
               Available: {WHATSAPP_PLACEHOLDERS.lead.map(p => p.key).join(', ')}, {WHATSAPP_PLACEHOLDERS.studio.map(p => p.key).join(', ')}
+            </p>
+          </div>
+
+          {/* General Notifications (Multiple) */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              General Notifications <span className="text-gray-500 font-normal">({whatsappTemplates.generalNotifications.length} templates)</span>
+            </label>
+            <div className="space-y-4">
+              {whatsappTemplates.generalNotifications.map((template, index) => (
+                <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="inline-flex items-center justify-center w-6 h-6 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
+                      {index + 1}
+                    </span>
+                    <Input
+                      value={template.name}
+                      onChange={(e) => setWhatsappTemplates(prev => {
+                        const newTemplates = [...prev.generalNotifications];
+                        newTemplates[index] = { ...newTemplates[index], name: e.target.value };
+                        return { ...prev, generalNotifications: newTemplates };
+                      })}
+                      placeholder="Template name"
+                      className="flex-1"
+                    />
+                  </div>
+                  <Textarea
+                    value={template.template}
+                    onChange={(e) => setWhatsappTemplates(prev => {
+                      const newTemplates = [...prev.generalNotifications];
+                      newTemplates[index] = { ...newTemplates[index], template: e.target.value };
+                      return { ...prev, generalNotifications: newTemplates };
+                    })}
+                    rows={8}
+                    placeholder="Hi {memberName}, ..."
+                  />
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              Available: {WHATSAPP_PLACEHOLDERS.member.map(p => p.key).join(', ')}, {WHATSAPP_PLACEHOLDERS.studio.map(p => p.key).join(', ')}, {WHATSAPP_PLACEHOLDERS.holiday.map(p => p.key).join(', ')}, {WHATSAPP_PLACEHOLDERS.class.filter(p => p.key === '{slotName}').map(p => p.key).join(', ')}
             </p>
           </div>
 
