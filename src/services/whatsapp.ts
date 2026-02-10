@@ -73,8 +73,17 @@ export function getWhatsAppTemplates(): WhatsAppTemplates {
     paymentConfirmation: stored.paymentConfirmation || DEFAULT_WHATSAPP_TEMPLATES.paymentConfirmation,
     paymentReminders: stored.paymentReminders?.length ? stored.paymentReminders : DEFAULT_WHATSAPP_TEMPLATES.paymentReminders,
     leadFollowUps: stored.leadFollowUps?.length ? stored.leadFollowUps : DEFAULT_WHATSAPP_TEMPLATES.leadFollowUps,
-    generalNotifications: stored.generalNotifications?.length ? stored.generalNotifications : DEFAULT_WHATSAPP_TEMPLATES.generalNotifications,
+    generalNotifications: stored.generalNotifications?.length
+      ? mergeGeneralNotifications(stored.generalNotifications)
+      : DEFAULT_WHATSAPP_TEMPLATES.generalNotifications,
   };
+}
+
+// Append new default general notification templates added in code updates
+function mergeGeneralNotifications(saved: WhatsAppTemplates['generalNotifications']): WhatsAppTemplates['generalNotifications'] {
+  const defaults = DEFAULT_WHATSAPP_TEMPLATES.generalNotifications;
+  if (saved.length >= defaults.length) return saved;
+  return [...saved, ...defaults.slice(saved.length)];
 }
 
 /**
@@ -395,7 +404,8 @@ function getNextHoliday(): { name: string; date: string } | null {
 export interface GeneralNotificationData {
   member: Member;
   slot?: SessionSlot;
-  templateIndex: number; // 0=Holiday, 1=Google Review, 2=Welcome
+  templateIndex: number; // 0=Holiday, 1=Google Review, 2=Welcome, 3=We Miss You, 4=Extra Membership Days
+  extraDays?: number;
 }
 
 export function generateGeneralNotification(data: GeneralNotificationData): { phone: string; message: string; link: string } {
@@ -411,6 +421,7 @@ export function generateGeneralNotification(data: GeneralNotificationData): { ph
     memberEmail: member.email,
     googleReviewUrl: settings?.googleReviewUrl || '',
     slotName: slot?.displayName || '',
+    extraDays: data.extraDays ? String(data.extraDays) : '',
     ...studioInfo,
   };
 

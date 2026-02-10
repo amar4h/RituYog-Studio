@@ -6,6 +6,14 @@ import { formatCurrency } from '../../utils/formatUtils';
 import type { Holiday, InvoiceTemplate, WhatsAppTemplates, MembershipPlan } from '../../types';
 import { DEFAULT_INVOICE_TEMPLATE, CURRENCY_SYMBOLS, DEFAULT_WHATSAPP_TEMPLATES, WHATSAPP_PLACEHOLDERS } from '../../constants';
 
+// Merge saved general notifications with any new defaults added in code updates
+function mergeGeneralNotifications(saved: WhatsAppTemplates['generalNotifications']): WhatsAppTemplates['generalNotifications'] {
+  const defaults = DEFAULT_WHATSAPP_TEMPLATES.generalNotifications;
+  if (saved.length >= defaults.length) return saved;
+  // Append new default templates that don't exist in saved
+  return [...saved, ...defaults.slice(saved.length)];
+}
+
 // Tab definitions
 type SettingsTab = 'studio' | 'memberships' | 'invoices' | 'whatsapp' | 'holidays' | 'legal' | 'security';
 
@@ -170,7 +178,7 @@ export function SettingsPage() {
           ? [oldSaved.leadFollowUp]
           : DEFAULT_WHATSAPP_TEMPLATES.leadFollowUps,
       generalNotifications: Array.isArray(saved.generalNotifications)
-        ? saved.generalNotifications
+        ? mergeGeneralNotifications(saved.generalNotifications)
         : DEFAULT_WHATSAPP_TEMPLATES.generalNotifications,
     };
   });

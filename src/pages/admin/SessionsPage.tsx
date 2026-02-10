@@ -24,9 +24,16 @@ export function SessionsPage() {
     const slotMembershipSubs = allMembershipSubscriptions.filter(s => s.slotId === slot.id);
 
     // Filter for currently active subscriptions (status active AND within date range)
-    const currentlyActiveSubscriptions = slotMembershipSubs.filter(s =>
+    // Deduplicate by memberId - if a member has overlapping subscriptions, count them once
+    const activeSubsAll = slotMembershipSubs.filter(s =>
       s.status === 'active' && s.startDate <= today && s.endDate >= today
     );
+    const seenMemberIds = new Set<string>();
+    const currentlyActiveSubscriptions = activeSubsAll.filter(s => {
+      if (seenMemberIds.has(s.memberId)) return false;
+      seenMemberIds.add(s.memberId);
+      return true;
+    });
 
     // Filter for scheduled subscriptions (future members)
     const scheduledSubscriptions = slotMembershipSubs.filter(s =>

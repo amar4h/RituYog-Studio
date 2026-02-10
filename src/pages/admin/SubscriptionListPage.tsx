@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Modal, ConfirmDialog, Alert } from '../../components/common';
 import { subscriptionService, memberService, membershipPlanService, invoiceService, slotService, isApiMode } from '../../services';
 import { formatCurrency } from '../../utils/formatUtils';
-import { formatDate, getDaysRemaining, calculateSubscriptionEndDate } from '../../utils/dateUtils';
+import { formatDate, getDaysRemaining, calculateSubscriptionEndDate, getToday } from '../../utils/dateUtils';
 import type { MembershipSubscription } from '../../types';
 import type { Column } from '../../components/common';
 
@@ -226,6 +226,21 @@ export function SubscriptionListPage() {
     try {
       const slot = slotService.getById(editingSubscription.slotId);
 
+      // Check for overlapping subscriptions (exclude current one being edited)
+      const memberSubs = await subscriptionService.async.getByMember(editingSubscription.memberId);
+      const overlapping = memberSubs.find(s => {
+        if (s.id === editingSubscription!.id) return false;
+        if (!['active', 'pending', 'scheduled'].includes(s.status)) return false;
+        return editStartDate <= s.endDate && editEndDate >= s.startDate;
+      });
+      if (overlapping) {
+        const overlapPlan = membershipPlanService.getById(overlapping.planId);
+        throw new Error(
+          `This change would overlap with another subscription (${overlapPlan?.name || 'Unknown'}) ` +
+          `from ${overlapping.startDate} to ${overlapping.endDate}.`
+        );
+      }
+
       // Update subscription
       await subscriptionService.async.update(editingSubscription.id, {
         startDate: editStartDate,
@@ -350,8 +365,13 @@ export function SubscriptionListPage() {
     }
   };
 
-  // Stats
-  const activeCount = allSubscriptions.filter(s => s.status === 'active').length;
+  // Stats - count unique members with currently active subscriptions (within today's dates)
+  const todayStr = getToday();
+  const activeCount = new Set(
+    allSubscriptions
+      .filter(s => s.status === 'active' && s.startDate <= todayStr && s.endDate >= todayStr)
+      .map(s => s.memberId)
+  ).size;
   const expiringSoonCount = subscriptionService.getExpiringSoon(7).length;
   const pendingPayments = allSubscriptions.filter(s => s.paymentStatus === 'pending').length;
   const totalRevenue = allSubscriptions
@@ -395,7 +415,7 @@ export function SubscriptionListPage() {
         <Card>
           <div className="text-center">
             <p className="text-2xl font-bold text-green-600">{activeCount}</p>
-            <p className="text-sm text-gray-600">Active</p>
+            <p className="text-sm text-gray-600">Active Members</p>
           </div>
         </Card>
         <Card>

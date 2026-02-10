@@ -11,7 +11,7 @@ import {
   notificationLogService,
   whatsappService,
 } from '../../services';
-import { getDaysRemaining, formatDate } from '../../utils/dateUtils';
+import { getDaysRemaining, formatDate, getToday } from '../../utils/dateUtils';
 import { useFreshData } from '../../hooks';
 import type { NotificationType, Member, Lead, MembershipSubscription, MembershipPlan, SessionSlot } from '../../types';
 
@@ -205,20 +205,49 @@ export function NotificationsPage() {
     return notifications;
   }, [isLoading]);
 
-  // Build general notifications list (all active members)
+  // Build general notifications list (active members + recently expired within 15 days)
   const generalNotifications = useMemo(() => {
     if (isLoading) return [];
 
-    const activeMembers = memberService.getActive();
+    const allMembers = memberService.getAll();
     const slots = slotService.getActive();
     const subscriptions = subscriptionService.getAll();
+    const today = getToday();
 
-    return activeMembers
+    // Calculate date 15 days ago
+    const fifteenDaysAgo = new Date();
+    fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
+    const fifteenDaysAgoStr = fifteenDaysAgo.toISOString().split('T')[0];
+
+    // Find unique member IDs with currently active subscriptions
+    const activeMemberIds = new Set(
+      subscriptions
+        .filter(s => s.status === 'active' && s.startDate <= today && s.endDate >= today)
+        .map(s => s.memberId)
+    );
+
+    // Find unique member IDs with recently expired subscriptions (last 15 days)
+    const recentlyExpiredMemberIds = new Set(
+      subscriptions
+        .filter(s =>
+          (s.status === 'expired' || (s.status === 'active' && s.endDate < today)) &&
+          s.endDate >= fifteenDaysAgoStr &&
+          !activeMemberIds.has(s.memberId) // exclude if they also have an active sub
+        )
+        .map(s => s.memberId)
+    );
+
+    // Combine both sets
+    const eligibleMemberIds = new Set([...activeMemberIds, ...recentlyExpiredMemberIds]);
+    const eligibleMembers = allMembers.filter(m => eligibleMemberIds.has(m.id));
+
+    return eligibleMembers
       .map(member => {
         const memberSub = subscriptions.find(
-          sub => sub.memberId === member.id && sub.status === 'active'
+          sub => sub.memberId === member.id && sub.status === 'active' && sub.startDate <= today && sub.endDate >= today
         );
         const slot = memberSub ? slots.find(s => s.id === memberSub.slotId) : undefined;
+        const isExpired = !activeMemberIds.has(member.id);
 
         return {
           id: `general-${member.id}`,
@@ -227,7 +256,8 @@ export function NotificationsPage() {
           recipientPhone: member.whatsappNumber || member.phone,
           recipientId: member.id,
           recipientType: 'member' as const,
-          details: slot ? `${slot.displayName}` : 'No active slot',
+          details: isExpired ? 'Expired' : (slot ? `${slot.displayName}` : 'No active slot'),
+          isExpired,
           member,
           slot,
         };
@@ -747,14 +777,14 @@ export function NotificationsPage() {
               <p className="text-sm text-gray-500">Holiday announcements, review requests, welcome messages</p>
             </div>
           </div>
-          <Badge variant="info">{generalNotifications.length} active members</Badge>
+          <Badge variant="info">{generalNotifications.length} members</Badge>
         </button>
 
         {generalSectionExpanded && (
           <div className="px-4 sm:px-6 pb-4 sm:pb-6 border-t border-gray-100">
             {generalNotifications.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
-                <p>No active members found.</p>
+                <p>No members found.</p>
               </div>
             ) : (
               <div className="space-y-4 pt-4">
@@ -935,7 +965,11 @@ function NotificationRow({ notification, isSelected, onToggle, onSend, getTypeBa
     : `/admin/leads/${notification.recipientId}`;
 
   return (
-    <div className={`flex items-center justify-between p-3 rounded-lg border ${isSelected ? 'bg-indigo-50 border-indigo-200' : 'bg-gray-50 border-gray-200'}`}>
+    <div className={`flex items-center justify-between p-3 rounded-lg border ${
+      isSelected ? 'bg-indigo-50 border-indigo-200'
+      : notification.isExpired ? 'bg-red-50 border-red-200'
+      : 'bg-gray-50 border-gray-200'
+    }`}>
       <div className="flex items-center gap-3">
         <input
           type="checkbox"

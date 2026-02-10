@@ -36,13 +36,21 @@ export function DashboardPage() {
 
   // Get data for stats
   const members = memberService.getAll();
-  const activeMembers = members.filter(m => m.status === 'active');
   const leads = leadService.getPending();
   const allExpiringSubscriptions = subscriptionService.getExpiringSoon(7);
   const slots = slotService.getActive();
 
   // Get all subscriptions to check for renewals
   const allSubscriptions = subscriptionService.getAll();
+
+  // Active members = unique members who have a currently active subscription (within today's dates)
+  const today = getToday();
+  const activeMemberIds = new Set(
+    allSubscriptions
+      .filter(s => s.status === 'active' && s.startDate <= today && s.endDate >= today)
+      .map(s => s.memberId)
+  );
+  const activeMembers = members.filter(m => activeMemberIds.has(m.id));
 
   // Filter out members who already have a scheduled/future renewal subscription
   // and sort by expiry date (earliest first)
@@ -106,7 +114,6 @@ export function DashboardPage() {
   );
 
   // Calculate slot utilization
-  const today = getToday();
 
   // Calculate pending notifications
   const renewalReminderDays = settings.renewalReminderDays || 7;
@@ -159,9 +166,16 @@ export function DashboardPage() {
     const slotSubscriptions = allSubscriptions.filter(s => s.slotId === slot.id);
 
     // Filter for currently active subscriptions (status active AND within date range)
-    const currentlyActiveSubscriptions = slotSubscriptions.filter(s =>
+    // Deduplicate by memberId - overlapping subscriptions for same member count once
+    const activeSubsAll = slotSubscriptions.filter(s =>
       s.status === 'active' && s.startDate <= today && s.endDate >= today
     );
+    const seenSlotMembers = new Set<string>();
+    const currentlyActiveSubscriptions = activeSubsAll.filter(s => {
+      if (seenSlotMembers.has(s.memberId)) return false;
+      seenSlotMembers.add(s.memberId);
+      return true;
+    });
 
     // Filter for scheduled subscriptions (future members - either status 'scheduled' or active with future start)
     const scheduledSubscriptions = slotSubscriptions.filter(s =>
@@ -169,11 +183,11 @@ export function DashboardPage() {
     );
 
     // Get member IDs who have active subscriptions
-    const activeMemberIds = new Set(currentlyActiveSubscriptions.map(s => s.memberId));
+    const slotActiveMemberIds = new Set(currentlyActiveSubscriptions.map(s => s.memberId));
 
     // Filter scheduled subscriptions to only include NEW members (not renewals)
     // Renewals are members who already have an active subscription
-    const newScheduledSubscriptions = scheduledSubscriptions.filter(s => !activeMemberIds.has(s.memberId));
+    const newScheduledSubscriptions = scheduledSubscriptions.filter(s => !slotActiveMemberIds.has(s.memberId));
 
     // Total booked = currently active + NEW scheduled only (renewals don't double-count)
     const subscriberCount = currentlyActiveSubscriptions.length + newScheduledSubscriptions.length;

@@ -338,6 +338,36 @@ Warm regards,
 
 _This is an automated message. Reply STOP to opt-out._`,
     },
+    {
+      name: 'We Miss You',
+      template: `Hi {memberFirstName} Namaste 🌸
+
+We've noticed you've been away from your yoga sessions recently, and we truly miss your presence on the mat! 🧘‍♀️
+
+Remember, every session counts towards your well-being. Even a short practice can make a big difference.
+
+We'd love to see you back soon! Your body and mind will thank you. 💪✨
+
+Warm regards,
+{studioName} 🙏
+
+_This is an automated message. Reply STOP to opt-out._`,
+    },
+    {
+      name: 'Extra Membership Days',
+      template: `Hi {memberFirstName} Namaste 🌸
+
+Great news! 🎉 We understand that sometimes life gets busy or you may need a break, and we want to make sure you get the most out of your membership.
+
+We're happy to let you know that *{extraDays} extra days* have been added to your membership to make up for the sessions you may have missed.
+
+We hope this gives you more time to enjoy your yoga journey with us. See you on the mat! 🧘‍♀️✨
+
+Warm regards,
+{studioName} 🙏
+
+_This is an automated message. Reply STOP to opt-out._`,
+    },
   ],
 };
 
@@ -390,6 +420,9 @@ export const WHATSAPP_PLACEHOLDERS = {
   holiday: [
     { key: '{nextHolidayName}', description: 'Name of next upcoming holiday' },
     { key: '{nextHolidayDate}', description: 'Date of next upcoming holiday' },
+  ],
+  general: [
+    { key: '{extraDays}', description: 'Number of extra membership days added' },
   ],
 };
 
