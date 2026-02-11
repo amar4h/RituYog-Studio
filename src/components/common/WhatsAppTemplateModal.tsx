@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Modal } from './Modal';
 import { Button } from './Button';
 
@@ -13,8 +13,9 @@ interface WhatsAppTemplateModalProps {
   templates: WhatsAppMessageTemplate[];
   title: string;
   recipientName: string;
-  onSelect: (templateIndex: number) => string; // Returns the WhatsApp link
+  onSelect: (templateIndex: number, extraData?: { extraDays?: number }) => string; // Returns the WhatsApp link
   skipNavigation?: boolean; // If true, don't open WhatsApp - just call onSelect and close
+  showExtraDaysInput?: (templateIndex: number) => boolean; // Show extra days input for specific templates
 }
 
 export function WhatsAppTemplateModal({
@@ -25,19 +26,32 @@ export function WhatsAppTemplateModal({
   recipientName,
   onSelect,
   skipNavigation = false,
+  showExtraDaysInput,
 }: WhatsAppTemplateModalProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [previewLink, setPreviewLink] = useState('');
+  const [extraDays, setExtraDays] = useState<number>(7);
+
+  // Reset extra days when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setExtraDays(7);
+      setSelectedIndex(0);
+    }
+  }, [isOpen]);
+
+  const needsExtraDays = showExtraDaysInput?.(selectedIndex) ?? false;
 
   const handleSelect = (index: number) => {
     setSelectedIndex(index);
-    // Generate the link for preview
-    const link = onSelect(index);
+    const extra = showExtraDaysInput?.(index) ? { extraDays } : undefined;
+    const link = onSelect(index, extra);
     setPreviewLink(link);
   };
 
   const handleSend = () => {
-    const link = onSelect(selectedIndex);
+    const extra = needsExtraDays ? { extraDays } : undefined;
+    const link = onSelect(selectedIndex, extra);
     if (!skipNavigation && link) {
       window.open(link, '_blank');
     }
@@ -86,6 +100,22 @@ export function WhatsAppTemplateModal({
             </button>
           ))}
         </div>
+
+        {/* Extra Days Input - shown for Extra Membership Days template */}
+        {needsExtraDays && (
+          <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <label className="text-sm font-medium text-amber-800 whitespace-nowrap">Extra days:</label>
+            <input
+              type="number"
+              min={1}
+              max={90}
+              value={extraDays}
+              onChange={(e) => setExtraDays(Math.max(1, Math.min(90, parseInt(e.target.value) || 1)))}
+              className="w-20 px-2 py-1 border border-amber-300 rounded text-sm focus:ring-amber-500 focus:border-amber-500"
+            />
+            <span className="text-xs text-amber-600">days to add to membership</span>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex gap-3 pt-4 border-t">

@@ -243,9 +243,12 @@ export function NotificationsPage() {
 
     return eligibleMembers
       .map(member => {
+        // Find active subscription, or most recent one for expired members
         const memberSub = subscriptions.find(
           sub => sub.memberId === member.id && sub.status === 'active' && sub.startDate <= today && sub.endDate >= today
-        );
+        ) || subscriptions
+          .filter(sub => sub.memberId === member.id && (sub.status === 'active' || sub.status === 'expired'))
+          .sort((a, b) => b.endDate.localeCompare(a.endDate))[0];
         const slot = memberSub ? slots.find(s => s.id === memberSub.slotId) : undefined;
         const isExpired = !activeMemberIds.has(member.id);
 
@@ -259,6 +262,7 @@ export function NotificationsPage() {
           details: isExpired ? 'Expired' : (slot ? `${slot.displayName}` : 'No active slot'),
           isExpired,
           member,
+          subscription: memberSub,
           slot,
         };
       })
@@ -286,7 +290,7 @@ export function NotificationsPage() {
   };
 
   // Generate WhatsApp link with selected template
-  const generateLinkWithTemplate = (templateIndex: number): string => {
+  const generateLinkWithTemplate = (templateIndex: number, extraData?: { extraDays?: number }): string => {
     const notification = templateContext.notification;
     if (!notification) return '';
 
@@ -338,7 +342,9 @@ export function NotificationsPage() {
       const result = whatsappService.generateGeneralNotification({
         member: notification.member,
         slot: notification.slot,
+        subscription: notification.subscription,
         templateIndex,
+        extraDays: extraData?.extraDays,
       });
 
       notificationLogService.create({
@@ -493,7 +499,7 @@ export function NotificationsPage() {
   };
 
   // Execute bulk send with selected template
-  const executeBulkSend = (templateIndex: number) => {
+  const executeBulkSend = (templateIndex: number, extraData?: { extraDays?: number }) => {
     const isGeneralBulk = bulkNotificationType === 'general-notification';
     const targetIds = isGeneralBulk ? generalSelectedIds : selectedIds;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -545,7 +551,9 @@ export function NotificationsPage() {
           const result = whatsappService.generateGeneralNotification({
             member: n.member,
             slot: n.slot,
+            subscription: n.subscription,
             templateIndex,
+            extraDays: extraData?.extraDays,
           });
           link = result.link;
           message = result.message;
@@ -575,8 +583,8 @@ export function NotificationsPage() {
   };
 
   // Generate bulk send link (called by modal)
-  const handleBulkTemplateSelect = (templateIndex: number): string => {
-    executeBulkSend(templateIndex);
+  const handleBulkTemplateSelect = (templateIndex: number, extraData?: { extraDays?: number }): string => {
+    executeBulkSend(templateIndex, extraData);
     setBulkTemplateModalOpen(false);
     setBulkNotificationType(null);
     return ''; // Return empty string - we handle the sending ourselves
@@ -921,6 +929,10 @@ export function NotificationsPage() {
         title={getTemplateModalTitle()}
         recipientName={templateContext.notification?.recipientName || ''}
         onSelect={generateLinkWithTemplate}
+        showExtraDaysInput={templateContext.notification?.type === 'general-notification'
+          ? (idx) => getTemplatesForNotification()[idx]?.name?.toLowerCase().includes('extra membership')
+          : undefined
+        }
       />
 
       {/* Bulk Template Selection Modal */}
@@ -936,6 +948,10 @@ export function NotificationsPage() {
         recipientName={`${bulkNotificationType === 'general-notification' ? generalSelectedIds.size : selectedIds.size} recipients`}
         onSelect={handleBulkTemplateSelect}
         skipNavigation
+        showExtraDaysInput={bulkNotificationType === 'general-notification'
+          ? (idx) => getBulkTemplates()[idx]?.name?.toLowerCase().includes('extra membership')
+          : undefined
+        }
       />
     </div>
   );

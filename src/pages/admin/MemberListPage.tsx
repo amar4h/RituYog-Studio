@@ -142,6 +142,7 @@ export function MemberListPage() {
     {
       key: 'name',
       header: 'Member',
+      sortValue: (member) => `${member.firstName} ${member.lastName}`.toLowerCase(),
       render: (member) => (
         <div className="flex items-center gap-3">
           <input
@@ -166,6 +167,7 @@ export function MemberListPage() {
     {
       key: 'phone',
       header: 'Phone',
+      sortValue: (member) => member.phone,
       render: (member) => (
         <span className="text-gray-600">{formatPhone(member.phone)}</span>
       ),
@@ -173,6 +175,11 @@ export function MemberListPage() {
     {
       key: 'slot',
       header: 'Session Slot',
+      sortValue: (member) => {
+        if (!member.assignedSlotId) return null;
+        const slot = slots.find(s => s.id === member.assignedSlotId);
+        return slot?.displayName || '';
+      },
       render: (member) => {
         if (!member.assignedSlotId) {
           return <span className="text-gray-400">Not assigned</span>;
@@ -184,6 +191,11 @@ export function MemberListPage() {
     {
       key: 'subscription',
       header: 'Membership',
+      sortValue: (member) => {
+        const subscription = getRelevantSubscription(member.id);
+        if (!subscription) return null;
+        return subscription.endDate;
+      },
       render: (member) => {
         const subscription = getRelevantSubscription(member.id);
         if (!subscription) {
@@ -222,11 +234,13 @@ export function MemberListPage() {
     {
       key: 'status',
       header: 'Status',
+      sortValue: (member) => member.status,
       render: (member) => <StatusBadge status={member.status} />,
     },
     {
       key: 'actions',
       header: '',
+      sortable: false,
       render: (member) => {
         // Check for active or scheduled subscription
         const hasActiveSubscription = subscriptionService.hasActiveSubscription(member.id);

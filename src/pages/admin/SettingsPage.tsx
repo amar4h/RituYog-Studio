@@ -1450,7 +1450,7 @@ export function SettingsPage() {
               ))}
             </div>
             <p className="mt-2 text-xs text-gray-500">
-              Available: {WHATSAPP_PLACEHOLDERS.member.map(p => p.key).join(', ')}, {WHATSAPP_PLACEHOLDERS.studio.map(p => p.key).join(', ')}, {WHATSAPP_PLACEHOLDERS.holiday.map(p => p.key).join(', ')}, {WHATSAPP_PLACEHOLDERS.class.filter(p => p.key === '{slotName}').map(p => p.key).join(', ')}
+              Available: {WHATSAPP_PLACEHOLDERS.member.map(p => p.key).join(', ')}, {WHATSAPP_PLACEHOLDERS.studio.map(p => p.key).join(', ')}, {WHATSAPP_PLACEHOLDERS.holiday.map(p => p.key).join(', ')}, {WHATSAPP_PLACEHOLDERS.class.filter(p => p.key === '{slotName}').map(p => p.key).join(', ')}, {WHATSAPP_PLACEHOLDERS.general.map(p => p.key).join(', ')}
             </p>
           </div>
 

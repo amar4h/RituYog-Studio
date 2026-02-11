@@ -5,6 +5,7 @@ export interface Column<T> {
   header: string;
   render?: (item: T) => ReactNode;
   sortable?: boolean;
+  sortValue?: (item: T) => string | number | null;
   width?: string;
   align?: 'left' | 'center' | 'right';
 }
@@ -54,8 +55,10 @@ export function DataTable<T>({
   const sortedData = [...data].sort((a, b) => {
     if (!sortKey || !sortDirection) return 0;
 
-    const aValue = getNestedValue(a, sortKey);
-    const bValue = getNestedValue(b, sortKey);
+    // Use sortValue extractor if the column provides one
+    const sortColumn = columns.find(c => String(c.key) === sortKey);
+    const aValue = sortColumn?.sortValue ? sortColumn.sortValue(a) : getNestedValue(a, sortKey);
+    const bValue = sortColumn?.sortValue ? sortColumn.sortValue(b) : getNestedValue(b, sortKey);
 
     if (aValue === bValue) return 0;
     if (aValue === null || aValue === undefined) return 1;

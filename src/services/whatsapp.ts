@@ -404,6 +404,7 @@ function getNextHoliday(): { name: string; date: string } | null {
 export interface GeneralNotificationData {
   member: Member;
   slot?: SessionSlot;
+  subscription?: MembershipSubscription;
   templateIndex: number; // 0=Holiday, 1=Google Review, 2=Welcome, 3=We Miss You, 4=Extra Membership Days
   extraDays?: number;
 }
@@ -422,6 +423,8 @@ export function generateGeneralNotification(data: GeneralNotificationData): { ph
     googleReviewUrl: settings?.googleReviewUrl || '',
     slotName: slot?.displayName || '',
     extraDays: data.extraDays ? String(data.extraDays) : '',
+    membershipStartDate: data.subscription?.startDate || '',
+    membershipEndDate: data.subscription?.endDate || '',
     ...studioInfo,
   };
 

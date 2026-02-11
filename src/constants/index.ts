@@ -361,6 +361,8 @@ Great news! 🎉 We understand that sometimes life gets busy or you may need a b
 
 We're happy to let you know that *{extraDays} extra days* have been added to your membership to make up for the sessions you may have missed.
 
+Your current plan: *{membershipStartDate}* to *{membershipEndDate}*
+
 We hope this gives you more time to enjoy your yoga journey with us. See you on the mat! 🧘‍♀️✨
 
 Warm regards,
@@ -423,6 +425,8 @@ export const WHATSAPP_PLACEHOLDERS = {
   ],
   general: [
     { key: '{extraDays}', description: 'Number of extra membership days added' },
+    { key: '{membershipStartDate}', description: 'Current membership start date' },
+    { key: '{membershipEndDate}', description: 'Current membership end date' },
   ],
 };
 
