@@ -308,13 +308,18 @@ export function AttendancePage() {
             >
               ◀
             </button>
-            <input
-              type="date"
-              value={selectedDate}
-              max={today}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-indigo-500 w-32 sm:w-auto"
-            />
+            <div className="relative">
+              <input
+                type="date"
+                value={selectedDate}
+                max={today}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+              />
+              <span className="px-2 py-1 border border-gray-300 rounded text-sm bg-white whitespace-nowrap pointer-events-none">
+                {formatDate(selectedDate)}
+              </span>
+            </div>
             <button
               onClick={handleNextDay}
               disabled={selectedDate >= today}
@@ -392,19 +397,29 @@ export function AttendancePage() {
               ))}
             </div>
             {/* Date inputs for custom range */}
-            <input
-              type="date"
-              value={periodStart}
-              onChange={(e) => handleManualPeriodChange('start', e.target.value)}
-              className="px-1 sm:px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 w-28 sm:w-auto"
-            />
+            <div className="relative">
+              <input
+                type="date"
+                value={periodStart}
+                onChange={(e) => handleManualPeriodChange('start', e.target.value)}
+                className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+              />
+              <span className="px-1 sm:px-2 py-1 border border-gray-300 rounded text-xs bg-white whitespace-nowrap pointer-events-none">
+                {formatDate(periodStart)}
+              </span>
+            </div>
             <span className="text-gray-400">-</span>
-            <input
-              type="date"
-              value={periodEnd}
-              onChange={(e) => handleManualPeriodChange('end', e.target.value)}
-              className="px-1 sm:px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-indigo-500 w-28 sm:w-auto"
-            />
+            <div className="relative">
+              <input
+                type="date"
+                value={periodEnd}
+                onChange={(e) => handleManualPeriodChange('end', e.target.value)}
+                className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+              />
+              <span className="px-1 sm:px-2 py-1 border border-gray-300 rounded text-xs bg-white whitespace-nowrap pointer-events-none">
+                {formatDate(periodEnd)}
+              </span>
+            </div>
           </div>
         </div>
       </div>

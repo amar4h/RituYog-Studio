@@ -94,6 +94,9 @@ export interface Member extends BaseEntity {
   // Attendance tracking
   classesAttended: number;
 
+  // Google Review
+  googleReviewGiven?: boolean;
+
   // Notes
   notes?: string;
 

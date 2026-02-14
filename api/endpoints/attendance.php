@@ -242,9 +242,9 @@ class AttendanceHandler extends BaseHandler {
              JOIN members m ON ms.member_id = m.id
              WHERE ms.slot_id = :slotId
              AND ms.status = 'active'
-             AND ms.start_date <= :date
-             AND ms.end_date >= :date",
-            ['slotId' => $slotId, 'date' => $date]
+             AND ms.start_date <= :dateStart
+             AND ms.end_date >= :dateEnd",
+            ['slotId' => $slotId, 'dateStart' => $date, 'dateEnd' => $date]
         );
 
         $results = [];

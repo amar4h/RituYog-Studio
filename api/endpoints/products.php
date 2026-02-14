@@ -71,8 +71,8 @@ class ProductsHandler extends BaseHandler {
 
         $searchTerm = '%' . $query . '%';
         return $this->query(
-            "SELECT * FROM {$this->table} WHERE name LIKE :q OR sku LIKE :q OR description LIKE :q ORDER BY name",
-            ['q' => $searchTerm]
+            "SELECT * FROM {$this->table} WHERE name LIKE :q1 OR sku LIKE :q2 OR description LIKE :q3 ORDER BY name",
+            ['q1' => $searchTerm, 'q2' => $searchTerm, 'q3' => $searchTerm]
         );
     }
 

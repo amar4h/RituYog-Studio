@@ -929,10 +929,6 @@ export function NotificationsPage() {
         title={getTemplateModalTitle()}
         recipientName={templateContext.notification?.recipientName || ''}
         onSelect={generateLinkWithTemplate}
-        showExtraDaysInput={templateContext.notification?.type === 'general-notification'
-          ? (idx) => getTemplatesForNotification()[idx]?.name?.toLowerCase().includes('extra membership')
-          : undefined
-        }
       />
 
       {/* Bulk Template Selection Modal */}
@@ -948,10 +944,6 @@ export function NotificationsPage() {
         recipientName={`${bulkNotificationType === 'general-notification' ? generalSelectedIds.size : selectedIds.size} recipients`}
         onSelect={handleBulkTemplateSelect}
         skipNavigation
-        showExtraDaysInput={bulkNotificationType === 'general-notification'
-          ? (idx) => getBulkTemplates()[idx]?.name?.toLowerCase().includes('extra membership')
-          : undefined
-        }
       />
     </div>
   );

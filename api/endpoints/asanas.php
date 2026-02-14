@@ -63,9 +63,9 @@ class AsanasHandler extends BaseHandler {
         return $this->query(
             "SELECT * FROM {$this->table}
              WHERE is_active = 1
-             AND (JSON_CONTAINS(primary_body_areas, :bodyArea) OR JSON_CONTAINS(secondary_body_areas, :bodyArea))
+             AND (JSON_CONTAINS(primary_body_areas, :bodyArea1) OR JSON_CONTAINS(secondary_body_areas, :bodyArea2))
              ORDER BY name ASC",
-            ['bodyArea' => json_encode($bodyArea)]
+            ['bodyArea1' => json_encode($bodyArea), 'bodyArea2' => json_encode($bodyArea)]
         );
     }
 
@@ -82,9 +82,9 @@ class AsanasHandler extends BaseHandler {
         return $this->query(
             "SELECT * FROM {$this->table}
              WHERE is_active = 1
-             AND (name LIKE :term OR sanskrit_name LIKE :term)
+             AND (name LIKE :term1 OR sanskrit_name LIKE :term2)
              ORDER BY name ASC",
-            ['term' => $searchTerm]
+            ['term1' => $searchTerm, 'term2' => $searchTerm]
         );
     }
 

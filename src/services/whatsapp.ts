@@ -422,9 +422,9 @@ export function generateGeneralNotification(data: GeneralNotificationData): { ph
     memberEmail: member.email,
     googleReviewUrl: settings?.googleReviewUrl || '',
     slotName: slot?.displayName || '',
-    extraDays: data.extraDays ? String(data.extraDays) : '',
-    membershipStartDate: data.subscription?.startDate || '',
-    membershipEndDate: data.subscription?.endDate || '',
+    extraDays: String(data.subscription?.extraDays || data.extraDays || 0),
+    membershipStartDate: data.subscription?.startDate ? formatDate(data.subscription.startDate) : '',
+    membershipEndDate: data.subscription?.endDate ? formatDate(data.subscription.endDate) : '',
     ...studioInfo,
   };
 

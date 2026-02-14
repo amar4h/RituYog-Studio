@@ -43,10 +43,10 @@ class SubscriptionsHandler extends BaseHandler {
             "SELECT * FROM {$this->table}
              WHERE member_id = :memberId
              AND status = 'active'
-             AND start_date <= :today
-             AND end_date >= :today
+             AND start_date <= :todayStart
+             AND end_date >= :todayEnd
              LIMIT 1",
-            ['memberId' => $memberId, 'today' => $today]
+            ['memberId' => $memberId, 'todayStart' => $today, 'todayEnd' => $today]
         );
     }
 
@@ -83,9 +83,9 @@ class SubscriptionsHandler extends BaseHandler {
             "SELECT * FROM {$this->table}
              WHERE slot_id = :slotId
              AND status = 'active'
-             AND start_date <= :date
-             AND end_date >= :date",
-            ['slotId' => $slotId, 'date' => $date]
+             AND start_date <= :dateStart
+             AND end_date >= :dateEnd",
+            ['slotId' => $slotId, 'dateStart' => $date, 'dateEnd' => $date]
         );
     }
 
@@ -171,10 +171,10 @@ class SubscriptionsHandler extends BaseHandler {
             "SELECT id FROM {$this->table}
              WHERE member_id = :memberId
              AND status = 'active'
-             AND start_date <= :today
-             AND end_date >= :today
+             AND start_date <= :todayStart
+             AND end_date >= :todayEnd
              LIMIT 1",
-            ['memberId' => $memberId, 'today' => $today]
+            ['memberId' => $memberId, 'todayStart' => $today, 'todayEnd' => $today]
         );
 
         if (!$active) {

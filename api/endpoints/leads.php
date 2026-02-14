@@ -13,6 +13,54 @@ class LeadsHandler extends BaseHandler {
     protected array $datetimeFields = ['conversion_date', 'completion_token_expiry'];
 
     /**
+     * Override create to check for duplicate phone/email
+     */
+    public function create(): array {
+        $data = getRequestBody();
+        $phone = $data['phone'] ?? '';
+        $email = $data['email'] ?? '';
+
+        // Check for duplicate phone
+        if (!empty($phone)) {
+            $existing = $this->queryOne(
+                "SELECT id FROM {$this->table} WHERE phone = :phone",
+                ['phone' => $phone]
+            );
+            if ($existing) {
+                throw new Exception('This phone number is already registered.');
+            }
+            // Also check members table
+            $existingMember = $this->queryOne(
+                "SELECT id FROM members WHERE phone = :phone",
+                ['phone' => $phone]
+            );
+            if ($existingMember) {
+                throw new Exception('You are already registered as a member.');
+            }
+        }
+
+        // Check for duplicate email
+        if (!empty($email)) {
+            $existing = $this->queryOne(
+                "SELECT id FROM {$this->table} WHERE LOWER(email) = LOWER(:email)",
+                ['email' => $email]
+            );
+            if ($existing) {
+                throw new Exception('This email address is already registered.');
+            }
+            $existingMember = $this->queryOne(
+                "SELECT id FROM members WHERE LOWER(email) = LOWER(:email)",
+                ['email' => $email]
+            );
+            if ($existingMember) {
+                throw new Exception('You are already registered as a member.');
+            }
+        }
+
+        return parent::create();
+    }
+
+    /**
      * Get leads by status
      */
     public function getByStatus(): array {

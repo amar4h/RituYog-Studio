@@ -1,7 +1,7 @@
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, Button, Input, Select, Textarea, Alert, Modal } from '../../components/common';
-import { leadService, slotService, settingsService } from '../../services';
+import { leadService, memberService, slotService, settingsService } from '../../services';
 import { validateEmail, validatePhone } from '../../utils/validationUtils';
 import { getToday } from '../../utils/dateUtils';
 import type { MedicalCondition, ConsentRecord } from '../../types';
@@ -128,6 +128,28 @@ export function RegisterPage() {
     setLoading(true);
 
     try {
+      // Check for duplicate phone/email in leads and members
+      // Use async methods to query API directly (public pages don't have localStorage data)
+      const phone = formData.phone.replace(/\D/g, '');
+      const email = formData.email.trim().toLowerCase();
+
+      const [existingLeadByPhone, existingLeadByEmail, existingMemberByPhone, existingMemberByEmail] = await Promise.all([
+        leadService.async.getByPhone(phone),
+        leadService.async.getByEmail(email),
+        memberService.async.getByPhone(phone),
+        memberService.async.getByEmail(email),
+      ]);
+
+      if (existingMemberByPhone || existingMemberByEmail) {
+        throw new Error('You are already registered as a member. Please contact the studio for any queries.');
+      }
+      if (existingLeadByPhone) {
+        throw new Error('This phone number is already registered. If you want to book a trial, please use the Book Trial option.');
+      }
+      if (existingLeadByEmail) {
+        throw new Error('This email address is already registered. If you want to book a trial, please use the Book Trial option.');
+      }
+
       const consentRecords: ConsentRecord[] = [
         {
           type: 'terms-conditions',
@@ -186,9 +208,14 @@ export function RegisterPage() {
     });
   };
 
+  // Scroll to top when success state shows
+  useEffect(() => {
+    if (success) window.scrollTo(0, 0);
+  }, [success]);
+
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4">
+      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4">
         <Card className="max-w-md w-full text-center">
           <div className="py-8">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -205,9 +232,6 @@ export function RegisterPage() {
               <Button fullWidth onClick={handleBookTrial}>
                 Book a Trial Session
               </Button>
-              <Link to="/">
-                <Button variant="outline" fullWidth>Studio App Home</Button>
-              </Link>
             </div>
           </div>
         </Card>
@@ -216,12 +240,12 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-12 px-4">
+    <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-12 px-4">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Register Your Interest</h1>
-        </div>
+            <h1 className="text-3xl font-bold text-gray-900">Register Your Interest</h1>
+          </div>
 
         {submitError && (
           <Alert variant="error" dismissible onDismiss={() => setSubmitError('')} className="mb-6">

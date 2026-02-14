@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Button, PageLoading } from '../../components/common';
 import { formatCurrency } from '../../utils/formatUtils';
-import { getDaysRemaining } from '../../utils/dateUtils';
+import { getDaysRemaining, formatDate } from '../../utils/dateUtils';
 import {
   memberService,
   leadService,
@@ -33,6 +33,9 @@ export function DashboardPage() {
   if (isLoading) {
     return <PageLoading />;
   }
+
+  // Reconcile stale member/subscription statuses based on actual dates
+  memberService.reconcileStatuses();
 
   // Get data for stats
   const members = memberService.getAll();
@@ -437,7 +440,7 @@ export function DashboardPage() {
       {/* Slot utilization and expiring members */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Slot utilization */}
-        <Card title="Session Slots" subtitle={`Today: ${today}`}>
+        <Card title="Session Slots" subtitle={`Today: ${formatDate(today)}`}>
           <div className="space-y-4">
             {slotUtilization.map(({ slot, subscribers, utilization }) => (
               <div key={slot.id}>

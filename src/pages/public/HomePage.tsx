@@ -1,52 +1,13 @@
-import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { settingsService } from '../../services';
 
 export function HomePage() {
   const settings = settingsService.getOrDefault();
 
-  // Scroll to top when page loads
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <a
-            href={settings.website || '#'}
-            onClick={(e) => { if (!settings.website) e.preventDefault(); }}
-            className={`flex items-center gap-3 ${settings.website ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
-            title={settings.website ? `Visit ${settings.studioName} website` : undefined}
-          >
-            {settings.logoData ? (
-              <img
-                src={settings.logoData}
-                alt={settings.studioName}
-                className="w-10 h-10 object-contain rounded-lg"
-              />
-            ) : (
-              <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-              </div>
-            )}
-            <h1 className="text-2xl font-bold text-indigo-600">{settings.studioName}</h1>
-          </a>
-          <Link
-            to="/login"
-            className="text-sm text-gray-600 hover:text-indigo-600 transition-colors"
-          >
-            Admin Login
-          </Link>
-        </div>
-      </header>
-
+    <div className="flex-1 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       {/* Hero Section */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="py-16 sm:py-24 text-center">
           <h2 className="text-4xl sm:text-5xl font-extrabold text-gray-900 mb-6">
             Welcome to {settings.studioName}
@@ -170,21 +131,7 @@ export function HomePage() {
             </div>
           </div>
         )}
-      </main>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="text-gray-400">
-            &copy; {new Date().getFullYear()} {settings.studioName}. All rights reserved.
-          </p>
-          <div className="mt-4">
-            <Link to="/login" className="text-gray-400 hover:text-white text-sm">
-              Admin Portal
-            </Link>
-          </div>
-        </div>
-      </footer>
+      </div>
     </div>
   );
 }

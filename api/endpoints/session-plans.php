@@ -49,9 +49,9 @@ class SessionPlansHandler extends BaseHandler {
         return $this->query(
             "SELECT * FROM {$this->table}
              WHERE is_active = 1
-             AND (name LIKE :term OR description LIKE :term)
+             AND (name LIKE :term1 OR description LIKE :term2)
              ORDER BY name ASC",
-            ['term' => $searchTerm]
+            ['term1' => $searchTerm, 'term2' => $searchTerm]
         );
     }
 

@@ -29,6 +29,7 @@ export function LeadListPage() {
   }
 
   // Get data after loading is complete
+  const allLeadsForStats = leadService.getAll();
   const allLeads = leadService.getUnconverted();
   const slots = slotService.getActive();
 
@@ -208,27 +209,27 @@ export function LeadListPage() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <div className="text-center">
             <p className="text-2xl font-bold text-gray-900">
-              {allLeads.filter(l => l.status === 'new').length}
+              {allLeadsForStats.filter(l => l.status === 'new').length}
             </p>
             <p className="text-sm text-gray-600">New Leads</p>
           </div>
         </Card>
         <Card>
           <div className="text-center">
-            <p className="text-2xl font-bold text-yellow-600">
-              {allLeads.filter(l => l.status === 'contacted').length}
+            <p className="text-2xl font-bold text-indigo-600">
+              {allLeads.length}
             </p>
-            <p className="text-sm text-gray-600">Contacted</p>
+            <p className="text-sm text-gray-600">Active Leads</p>
           </div>
         </Card>
         <Card>
           <div className="text-center">
             <p className="text-2xl font-bold text-blue-600">
-              {allLeads.filter(l => l.status === 'trial-scheduled').length}
+              {allLeadsForStats.filter(l => l.status === 'trial-scheduled').length}
             </p>
             <p className="text-sm text-gray-600">Trial Scheduled</p>
           </div>
@@ -236,7 +237,7 @@ export function LeadListPage() {
         <Card>
           <div className="text-center">
             <p className="text-2xl font-bold text-green-600">
-              {allLeads.filter(l => l.status === 'converted').length}
+              {allLeadsForStats.filter(l => l.status === 'converted').length}
             </p>
             <p className="text-sm text-gray-600">Converted</p>
           </div>

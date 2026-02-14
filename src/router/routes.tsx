@@ -62,18 +62,23 @@ function SuspenseWrapper({ children }: { children: React.ReactNode }) {
 }
 
 export const routes: RouteObject[] = [
-  // Login page (no layout)
-  {
-    path: '/login',
-    element: <LoginPage />,
-    errorElement: <ErrorPage />,
-  },
-
-  // Public routes
+  // Public routes (with shared header/footer)
   {
     element: <PublicLayout />,
     errorElement: <ErrorPage />,
     children: [
+      {
+        path: '/',
+        element: (
+          <SuspenseWrapper>
+            <HomePage />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: '/login',
+        element: <LoginPage />,
+      },
       {
         path: '/register',
         element: (
@@ -490,16 +495,6 @@ export const routes: RouteObject[] = [
         ],
       },
     ],
-  },
-
-  // Home page (public landing)
-  {
-    path: '/',
-    element: (
-      <SuspenseWrapper>
-        <HomePage />
-      </SuspenseWrapper>
-    ),
   },
 
   // 404 catch-all

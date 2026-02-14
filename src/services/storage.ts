@@ -379,6 +379,39 @@ export const memberService = {
     );
   },
 
+  // Reconcile member and subscription statuses based on actual dates
+  // Updates stale subscription status to 'expired' and member status accordingly
+  reconcileStatuses: (): void => {
+    const today = new Date().toISOString().split('T')[0];
+    const members = getAll<Member>(STORAGE_KEYS.MEMBERS);
+    const subscriptions = getAll<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS);
+
+    // First: update stale subscription statuses
+    for (const sub of subscriptions) {
+      if (sub.status === 'active' && sub.endDate < today) {
+        updateDual<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS, sub.id, { status: 'expired' as MembershipSubscription['status'] });
+      }
+    }
+
+    // Then: update member statuses
+    for (const member of members) {
+      if (member.status !== 'active') continue;
+
+      const memberSubs = subscriptions.filter(s => s.memberId === member.id);
+
+      // Check if member has any currently active or future subscription
+      const hasActiveOrFuture = memberSubs.some(s =>
+        (s.status === 'active' && s.startDate <= today && s.endDate >= today) ||
+        (s.status === 'scheduled') ||
+        (s.status === 'active' && s.startDate > today)
+      );
+
+      if (!hasActiveOrFuture) {
+        updateDual<Member>(STORAGE_KEYS.MEMBERS, member.id, { status: 'expired' as Member['status'] });
+      }
+    }
+  },
+
   // ============================================
   // ASYNC METHODS - Dual-mode support
   // Use these in React Query or async contexts

@@ -1,11 +1,12 @@
 import { useState, useEffect, FormEvent, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Card, Button, Input, Textarea, Alert, Modal, SlotSelector } from '../../components/common';
-import { leadService, slotService, trialBookingService, settingsService } from '../../services';
+import { leadService, memberService, slotService, trialBookingService, settingsService } from '../../services';
+import { isApiMode, trialsApi } from '../../services/api';
 import { validateEmail, validatePhone } from '../../utils/validationUtils';
 import { getToday, formatDate, isHoliday, getHolidayName } from '../../utils/dateUtils';
 import { format, addMonths, addWeeks, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isWeekend, isBefore, isAfter, startOfToday } from 'date-fns';
-import type { MedicalCondition, ConsentRecord, Holiday, Lead } from '../../types';
+import type { MedicalCondition, ConsentRecord, Holiday, Lead, TrialBooking } from '../../types';
 
 // Route state interface for pre-filled data
 interface LocationState {
@@ -168,33 +169,43 @@ export function BookTrialPage() {
         },
       ];
 
-      // Check if lead already exists
-      const existingLeads = leadService.getAll();
-      const existingLead = existingLeads.find(
-        l => l.email.toLowerCase() === formData.email.trim().toLowerCase() ||
-             l.phone.replace(/\D/g, '') === formData.phone.replace(/\D/g, '')
-      );
+      // Check for duplicate phone/email in members and leads
+      // Use async methods to query API directly (public pages don't have localStorage data)
+      const phone = formData.phone.replace(/\D/g, '');
+      const email = formData.email.trim().toLowerCase();
+
+      const [existingMemberByPhone, existingMemberByEmail, existingLeadByPhone, existingLeadByEmail] = await Promise.all([
+        memberService.async.getByPhone(phone),
+        memberService.async.getByEmail(email),
+        leadService.async.getByPhone(phone),
+        leadService.async.getByEmail(email),
+      ]);
+
+      if (existingMemberByPhone || existingMemberByEmail) {
+        throw new Error('You are already registered as a member. Please contact the studio for any queries.');
+      }
+      const existingLead = existingLeadByPhone || existingLeadByEmail;
 
       let lead;
       if (existingLead) {
-        // Update existing lead with new information
-        lead = leadService.update(existingLead.id, {
-          firstName: formData.firstName.trim(),
-          lastName: formData.lastName.trim(),
-          email: formData.email.trim().toLowerCase(),
-          phone: formData.phone.replace(/\D/g, ''),
-          age: parseInt(formData.age, 10),
-          gender: formData.gender as 'male' | 'female' | 'other',
-          notes: formData.notes.trim() || undefined,
-          medicalConditions: medicalConditions.length > 0 ? medicalConditions : existingLead.medicalConditions,
-          consentRecords,
-        });
+        // Check if they already have a pending/confirmed trial
+        // Use async API in API mode (public pages don't have localStorage data)
+        const existingTrials: TrialBooking[] = isApiMode()
+          ? (await trialsApi.getByLead(existingLead.id)) as TrialBooking[]
+          : trialBookingService.getByLead(existingLead.id);
+        const pendingTrial = existingTrials.find(t => ['pending', 'confirmed'].includes(t.status));
+        if (pendingTrial) {
+          throw new Error('A trial session is already booked. Multiple trials are not allowed. Please contact the studio for any queries.');
+        }
+
+        // Existing lead without pending trial - allow booking
+        lead = existingLead;
       } else {
-        lead = leadService.create({
+        lead = await leadService.async.create({
           firstName: formData.firstName.trim(),
           lastName: formData.lastName.trim(),
-          email: formData.email.trim().toLowerCase(),
-          phone: formData.phone.replace(/\D/g, ''),
+          email,
+          phone,
           age: parseInt(formData.age, 10),
           gender: formData.gender as 'male' | 'female' | 'other',
           status: 'new',
@@ -202,7 +213,7 @@ export function BookTrialPage() {
           notes: formData.notes.trim() || undefined,
           medicalConditions,
           consentRecords,
-        });
+        } as Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>);
       }
 
       if (!lead) {
@@ -229,12 +240,22 @@ export function BookTrialPage() {
     setLoading(true);
 
     try {
-      await trialBookingService.bookTrial(leadId, selectedSlotId, selectedDate);
-      await leadService.update(leadId, {
-        status: 'trial-scheduled',
-        trialSlotId: selectedSlotId,
-        trialDate: selectedDate,
-      });
+      if (isApiMode()) {
+        // Use API directly - sync bookTrial reads from empty localStorage on public pages
+        await trialsApi.book({ leadId, slotId: selectedSlotId, date: selectedDate });
+        await leadService.async.update(leadId, {
+          status: 'trial-scheduled',
+          trialSlotId: selectedSlotId,
+          trialDate: selectedDate,
+        });
+      } else {
+        trialBookingService.bookTrial(leadId, selectedSlotId, selectedDate);
+        leadService.update(leadId, {
+          status: 'trial-scheduled',
+          trialSlotId: selectedSlotId,
+          trialDate: selectedDate,
+        });
+      }
       setStep('success');
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to book trial');
@@ -347,10 +368,15 @@ export function BookTrialPage() {
     });
   };
 
+  // Scroll to top when success state shows
+  useEffect(() => {
+    if (step === 'success') window.scrollTo(0, 0);
+  }, [step]);
+
   if (step === 'success') {
     const selectedSlot = slots.find(s => s.id === selectedSlotId);
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4">
+      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4">
         <Card className="max-w-md w-full text-center">
           <div className="py-8">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -385,10 +411,6 @@ export function BookTrialPage() {
                 <li>Arrive 10 minutes early</li>
               </ul>
             </div>
-
-            <Link to="/">
-              <Button fullWidth>Studio App Home</Button>
-            </Link>
           </div>
         </Card>
       </div>
@@ -396,12 +418,12 @@ export function BookTrialPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-12 px-4">
+    <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-12 px-4">
       <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Book Your Free Trial Session</h1>
-        </div>
+          {/* Header */}
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900">Book Your Free Trial Session</h1>
+          </div>
 
         {/* Progress */}
         <div className="flex items-center justify-center mb-8">

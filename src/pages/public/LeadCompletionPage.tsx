@@ -1,5 +1,5 @@
 import { useState, useEffect, FormEvent } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Button, Input, Select, Alert, Modal } from '../../components/common';
 import { leadService, settingsService, slotService } from '../../services';
 import { validateEmail, validatePhone } from '../../utils/validationUtils';
@@ -217,7 +217,7 @@ export function LeadCompletionPage() {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading your registration...</p>
@@ -229,7 +229,7 @@ export function LeadCompletionPage() {
   // Token error state
   if (tokenError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4">
+      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4">
         <Card className="max-w-md w-full text-center">
           <div className="py-8">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -239,9 +239,6 @@ export function LeadCompletionPage() {
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Link Expired or Invalid</h2>
             <p className="text-gray-600 mb-6">{tokenError}</p>
-            <Link to="/">
-              <Button fullWidth>Go to Home</Button>
-            </Link>
           </div>
         </Card>
       </div>
@@ -261,7 +258,7 @@ export function LeadCompletionPage() {
   // Success state
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4">
+      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4">
         <Card className="max-w-md w-full text-center">
           <div className="py-8">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -277,9 +274,6 @@ export function LeadCompletionPage() {
               <Button fullWidth onClick={handleBookTrial}>
                 Book a Trial Session
               </Button>
-              <Link to="/">
-                <Button variant="outline" fullWidth>Studio App Home</Button>
-              </Link>
             </div>
           </div>
         </Card>
@@ -288,11 +282,11 @@ export function LeadCompletionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Complete Your Registration</h1>
+    <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-12 px-4">
+        <div className="max-w-2xl mx-auto">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900">Complete Your Registration</h1>
           <p className="text-gray-600 mt-2">
             Hi {lead?.firstName}! Please provide a few more details to complete your registration.
           </p>

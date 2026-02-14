@@ -108,8 +108,8 @@ class TrialsHandler extends BaseHandler {
                 "SELECT id FROM membership_subscriptions
                  WHERE member_id = :memberId
                  AND status = 'active'
-                 AND start_date <= :date AND end_date >= :date",
-                ['memberId' => $lead['convertedToMemberId'], 'date' => $date]
+                 AND start_date <= :dateStart AND end_date >= :dateEnd",
+                ['memberId' => $lead['convertedToMemberId'], 'dateStart' => $date, 'dateEnd' => $date]
             );
             if ($activeSub) {
                 throw new Exception('This person already has an active membership. Trial booking not allowed.');
@@ -129,14 +129,14 @@ class TrialsHandler extends BaseHandler {
             throw new Exception('Maximum trial sessions reached');
         }
 
-        // Check for existing trial on same date
-        $existingTrials = $this->query(
+        // Check for any pending/confirmed trial (multiple trials not allowed)
+        $pendingTrials = $this->query(
             "SELECT id FROM {$this->table}
-             WHERE lead_id = :leadId AND date = :date AND status IN ('pending', 'confirmed')",
-            ['leadId' => $leadId, 'date' => $date]
+             WHERE lead_id = :leadId AND status IN ('pending', 'confirmed')",
+            ['leadId' => $leadId]
         );
-        if (count($existingTrials) > 0) {
-            throw new Exception('A trial session is already booked for this date');
+        if (count($pendingTrials) > 0) {
+            throw new Exception('A trial session is already booked. Multiple trials are not allowed.');
         }
 
         // Check if it's a working day

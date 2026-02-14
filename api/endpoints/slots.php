@@ -41,10 +41,10 @@ class SlotsHandler extends BaseHandler {
             "SELECT COUNT(*) as count FROM membership_subscriptions
              WHERE slot_id = :slotId
              AND status = 'active'
-             AND start_date <= :date
-             AND end_date >= :date"
+             AND start_date <= :dateStart
+             AND end_date >= :dateEnd"
         );
-        $stmt->execute(['slotId' => $slotId, 'date' => $date]);
+        $stmt->execute(['slotId' => $slotId, 'dateStart' => $date, 'dateEnd' => $date]);
         $membershipSubs = (int) $stmt->fetch()['count'];
 
         // Count slot subscriptions marked as exception
@@ -53,10 +53,10 @@ class SlotsHandler extends BaseHandler {
              WHERE slot_id = :slotId
              AND is_active = 1
              AND is_exception = 1
-             AND (start_date IS NULL OR start_date <= :date)
-             AND (end_date IS NULL OR end_date >= :date)"
+             AND (start_date IS NULL OR start_date <= :dateStart)
+             AND (end_date IS NULL OR end_date >= :dateEnd)"
         );
-        $stmt->execute(['slotId' => $slotId, 'date' => $date]);
+        $stmt->execute(['slotId' => $slotId, 'dateStart' => $date, 'dateEnd' => $date]);
         $exceptionSubs = (int) $stmt->fetch()['count'];
 
         // Count trial bookings for this date
