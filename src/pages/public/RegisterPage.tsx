@@ -247,12 +247,6 @@ export function RegisterPage() {
             <h1 className="text-3xl font-bold text-gray-900">Register Your Interest</h1>
           </div>
 
-        {submitError && (
-          <Alert variant="error" dismissible onDismiss={() => setSubmitError('')} className="mb-6">
-            {submitError}
-          </Alert>
-        )}
-
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Personal Information */}
           <Card title="Personal Information">
@@ -450,6 +444,11 @@ export function RegisterPage() {
 
           {/* Submit */}
           <div className="flex flex-col gap-4">
+            {submitError && (
+              <Alert variant="error" dismissible onDismiss={() => setSubmitError('')}>
+                {submitError}
+              </Alert>
+            )}
             <Button type="submit" fullWidth loading={loading}>
               Submit Registration
             </Button>

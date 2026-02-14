@@ -368,9 +368,11 @@ export function BookTrialPage() {
     });
   };
 
-  // Scroll to top when success state shows
+  // Scroll to top on step transitions (form→slots, slots→success)
   useEffect(() => {
-    if (step === 'success') window.scrollTo(0, 0);
+    if (step === 'slots' || step === 'success') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }, [step]);
 
   if (step === 'success') {
@@ -445,12 +447,6 @@ export function BookTrialPage() {
             <span className="ml-2 font-medium">Book Slot</span>
           </div>
         </div>
-
-        {submitError && (
-          <Alert variant="error" dismissible onDismiss={() => setSubmitError('')} className="mb-6">
-            {submitError}
-          </Alert>
-        )}
 
         {step === 'form' && (
           <form onSubmit={handleFormSubmit} className="space-y-4">
@@ -627,6 +623,11 @@ export function BookTrialPage() {
             </Card>
 
             {/* Submit */}
+            {submitError && (
+              <Alert variant="error" dismissible onDismiss={() => setSubmitError('')}>
+                {submitError}
+              </Alert>
+            )}
             <Button type="submit" fullWidth loading={loading}>
               Continue to Select Slot
             </Button>
@@ -812,9 +813,8 @@ export function BookTrialPage() {
               </Card>
             )}
 
-            {/* Inline error for immediate visibility */}
             {submitError && (
-              <Alert variant="error" className="animate-pulse">
+              <Alert variant="error" dismissible onDismiss={() => setSubmitError('')}>
                 {submitError}
               </Alert>
             )}
