@@ -319,8 +319,7 @@ export function SessionAllocationPage() {
         const slot = slots.find(s => s.id === pickerSlotId);
         setSuccess(`"${plan.name}" allocated to ${slot?.displayName || 'slot'} on ${format(parseISO(pickerDate), 'dd MMM yyyy')}`);
       }
-      setRefreshKey(k => k + 1); // Force UI refresh
-      refetch();
+      setRefreshKey(k => k + 1); // Force UI refresh (localStorage already updated by createDual)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to allocate plan');
     }
@@ -338,8 +337,7 @@ export function SessionAllocationPage() {
     try {
       sessionPlanAllocationService.cancel(allocationId);
       setSuccess('Allocation cancelled');
-      setRefreshKey(k => k + 1); // Force UI refresh
-      refetch();
+      setRefreshKey(k => k + 1); // Force UI refresh (localStorage already updated by updateDual)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to cancel allocation');
     }

@@ -1,6 +1,17 @@
 import type { ChatMessage } from './types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+/** Overridable API base URL — set by embed script, falls back to Vite env or /api */
+let _apiBaseUrl: string | null = null;
+
+export function setApiBaseUrl(url: string): void {
+  _apiBaseUrl = url.replace(/\/+$/, ''); // strip trailing slashes
+}
+
+function getApiBaseUrl(): string {
+  if (_apiBaseUrl) return _apiBaseUrl;
+  // import.meta.env only exists in Vite builds, not library/IIFE builds
+  try { return (import.meta as any).env?.VITE_API_URL || '/api'; } catch { return '/api'; }
+}
 
 /**
  * Send a chat message to the chatbot API
@@ -10,7 +21,7 @@ export async function sendChatMessage(
   message: string,
   history: ChatMessage[]
 ): Promise<string> {
-  const response = await fetch(`${API_BASE_URL}/chatbot?action=chat`, {
+  const response = await fetch(`${getApiBaseUrl()}/chatbot?action=chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

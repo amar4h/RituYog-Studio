@@ -7,11 +7,14 @@ import {
   sessionPlanAllocationService,
   slotService,
   asanaService,
+  settingsService,
 } from '../../../services';
 import { useFreshData } from '../../../hooks';
 import { BREATHING_CUE_OPTIONS } from '../../../constants';
 import { SECTION_LABELS } from '../../../types';
+import { downloadSessionPlanAsJPG } from '../../../utils/sessionPlanImage';
 import type { SessionPlan, DifficultyLevel, SectionType, SessionSlot } from '../../../types';
+import type { SessionPlanImageData, SessionPlanImageSection, SessionPlanImageItem } from '../../../utils/sessionPlanImage';
 import { format, parse, differenceInMinutes, isToday } from 'date-fns';
 
 // Helper to parse slot time (e.g., "07:30 AM") to today's Date
@@ -78,9 +81,11 @@ export function RecordExecutionPage() {
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<SectionType>>(new Set());
+  const [expandedSurya, setExpandedSurya] = useState<Set<string>>(new Set());
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [markingComplete, setMarkingComplete] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const slots = useMemo(() => {
@@ -194,6 +199,61 @@ export function RecordExecutionPage() {
     return 'no-plan';
   };
 
+  const handleDownloadJPG = async (plan: SessionPlan) => {
+    setDownloading(true);
+    try {
+      const settings = settingsService.getOrDefault();
+      const allAsanas = asanaService.getAll();
+      const asanaMap = new Map(allAsanas.map(a => [a.id, a]));
+
+      const sections: SessionPlanImageSection[] = plan.sections
+        .filter(s => s.items.length > 0)
+        .sort((a, b) => a.order - b.order)
+        .map(section => ({
+          sectionType: section.sectionType,
+          label: SECTION_LABELS[section.sectionType],
+          items: section.items
+            .sort((a, b) => a.order - b.order)
+            .map((item): SessionPlanImageItem => {
+              const asana = asanaMap.get(item.asanaId);
+              const isVinyasa = asana?.type === 'vinyasa' || asana?.type === 'surya_namaskar';
+              let childSteps: string[] | undefined;
+              if (isVinyasa && asana?.childAsanas?.length) {
+                childSteps = asana.childAsanas
+                  .sort((a, b) => a.order - b.order)
+                  .map(child => asanaMap.get(child.asanaId)?.name || '?');
+              }
+              return {
+                name: asana?.name || 'Unknown Asana',
+                sanskritName: asana?.sanskritName,
+                variation: item.variation,
+                durationMinutes: item.durationMinutes,
+                reps: item.reps,
+                isVinyasa: !!isVinyasa,
+                childSteps,
+              };
+            }),
+        }));
+
+      const imageData: SessionPlanImageData = {
+        planName: plan.name,
+        planLevel: plan.level,
+        planDescription: plan.description,
+        sections,
+        studioName: settings.studioName,
+        logoData: settings.logoData,
+        slotTime: selectedSlot?.startTime,
+        date: format(new Date(selectedDate), 'dd MMM yyyy'),
+      };
+
+      await downloadSessionPlanAsJPG(imageData);
+    } catch (err) {
+      console.error('Failed to download JPG:', err);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div className="space-y-3">
       {/* Compact Header - Date + Slots in single line */}
@@ -302,6 +362,24 @@ export function RecordExecutionPage() {
                   <Badge variant={getDifficultyColor(slotData.plan.level)} size="sm">
                     {slotData.plan.level}
                   </Badge>
+                  {/* Download JPG button */}
+                  <button
+                    onClick={() => handleDownloadJPG(slotData.plan!)}
+                    disabled={downloading}
+                    className="p-1 text-gray-400 hover:text-indigo-600 transition-colors touch-manipulation"
+                    title="Download as JPG"
+                  >
+                    {downloading ? (
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                    )}
+                  </button>
                   <span className="flex-1" />
                   {/* Inline action button */}
                   {slotData.execution ? (
@@ -452,14 +530,41 @@ export function RecordExecutionPage() {
                                       <span className="flex-shrink-0 w-5 h-5 flex items-center justify-center bg-indigo-600 text-white text-xs font-bold rounded-full mt-0.5">
                                         {idx + 1}
                                       </span>
-                                      {/* Name - for vinyasa, show expanded with arrows and Sanskrit names */}
+                                      {/* Name - for vinyasa/surya, show with collapsible details */}
                                       <div className="flex-1 min-w-0">
                                         {isVinyasa ? (
                                           <span className="text-gray-900 break-words">
-                                            <span className="font-medium text-pink-600">{asana?.name}:</span>{' '}
-                                            <span className="text-gray-700 inline-flex flex-wrap items-center gap-x-0">
-                                              {formatVinyasaChildren()}
-                                            </span>
+                                            <span className="font-medium text-pink-600">{asana?.name}</span>
+                                            {asana?.type === 'surya_namaskar' && asana?.childAsanas?.length ? (
+                                              <>
+                                                <button
+                                                  onClick={() => setExpandedSurya(prev => {
+                                                    const next = new Set(prev);
+                                                    const key = `${item.asanaId}-${idx}`;
+                                                    next.has(key) ? next.delete(key) : next.add(key);
+                                                    return next;
+                                                  })}
+                                                  className="ml-1.5 text-[10px] text-gray-500 hover:text-indigo-600 transition-colors align-middle"
+                                                  title={expandedSurya.has(`${item.asanaId}-${idx}`) ? 'Hide steps' : 'Show steps'}
+                                                >
+                                                  {expandedSurya.has(`${item.asanaId}-${idx}`)
+                                                    ? '▾ hide steps'
+                                                    : `▸ ${asana.childAsanas.length} steps`}
+                                                </button>
+                                                {expandedSurya.has(`${item.asanaId}-${idx}`) && (
+                                                  <span className="text-gray-700 inline-flex flex-wrap items-center gap-x-0 mt-0.5 block">
+                                                    {formatVinyasaChildren()}
+                                                  </span>
+                                                )}
+                                              </>
+                                            ) : (
+                                              <>
+                                                :{' '}
+                                                <span className="text-gray-700 inline-flex flex-wrap items-center gap-x-0">
+                                                  {formatVinyasaChildren()}
+                                                </span>
+                                              </>
+                                            )}
                                           </span>
                                         ) : (
                                           <>

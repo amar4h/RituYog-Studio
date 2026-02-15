@@ -100,6 +100,7 @@ $validEndpoints = [
     'asanas',
     'session-plans',
     'session-allocations',
+    'session-plan-allocations',
     'session-executions',
 ];
 
@@ -107,8 +108,14 @@ if (!in_array($endpoint, $validEndpoints)) {
     errorResponse('Invalid endpoint: ' . $endpoint, 404);
 }
 
+// Endpoint aliases (frontend name -> backend file name)
+$endpointAliases = [
+    'session-plan-allocations' => 'session-allocations',
+];
+$resolvedEndpoint = $endpointAliases[$endpoint] ?? $endpoint;
+
 // Load endpoint handler
-$handlerFile = __DIR__ . '/endpoints/' . $endpoint . '.php';
+$handlerFile = __DIR__ . '/endpoints/' . $resolvedEndpoint . '.php';
 if (!file_exists($handlerFile)) {
     errorResponse('Endpoint handler not found', 500);
 }
@@ -118,7 +125,7 @@ require_once $handlerFile;
 // Execute action
 // Convert hyphenated endpoint names to PascalCase class names
 // e.g., "attendance-locks" -> "AttendanceLocksHandler"
-$handlerClass = str_replace('-', '', ucwords($endpoint, '-')) . 'Handler';
+$handlerClass = str_replace('-', '', ucwords($resolvedEndpoint, '-')) . 'Handler';
 
 // Debug: Show what class we're looking for
 if (DEBUG_MODE && isset($_GET['debug'])) {

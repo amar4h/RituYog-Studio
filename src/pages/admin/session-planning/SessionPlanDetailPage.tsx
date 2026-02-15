@@ -1,12 +1,14 @@
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Card, Button, Badge, PageLoading, Alert } from '../../../components/common';
-import { sessionPlanService, asanaService } from '../../../services';
+import { sessionPlanService, asanaService, settingsService } from '../../../services';
 import { useFreshData } from '../../../hooks';
 import { BODY_AREA_LABELS, BREATHING_CUE_OPTIONS } from '../../../constants';
 import { SECTION_LABELS } from '../../../types';
 import { OveruseWarningBadge } from '../../../components/sessionPlanning/OveruseWarningBadge';
-import type { DifficultyLevel, BodyArea, SectionType } from '../../../types';
+import { downloadSessionPlanAsJPG } from '../../../utils/sessionPlanImage';
+import type { DifficultyLevel, BodyArea, SectionType, SessionPlan, Asana } from '../../../types';
+import type { SessionPlanImageData, SessionPlanImageSection, SessionPlanImageItem } from '../../../utils/sessionPlanImage';
 import { format } from 'date-fns';
 
 export function SessionPlanDetailPage() {
@@ -14,6 +16,8 @@ export function SessionPlanDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [collapsedSections, setCollapsedSections] = useState<Set<SectionType>>(new Set());
+  const [expandedSurya, setExpandedSurya] = useState<Set<string>>(new Set());
+  const [downloading, setDownloading] = useState(false);
 
   const plan = useMemo(() => {
     if (isLoading || !id) return null;
@@ -46,6 +50,63 @@ export function SessionPlanDetailPage() {
   }
 
   const getAsana = (asanaId: string) => allAsanas.find(a => a.id === asanaId);
+
+  // Prepare image data for JPG download
+  const prepareImageData = (plan: SessionPlan, asanas: Asana[]): SessionPlanImageData => {
+    const settings = settingsService.getOrDefault();
+    const asanaMap = new Map(asanas.map(a => [a.id, a]));
+
+    const sections: SessionPlanImageSection[] = plan.sections
+      .filter(s => s.items.length > 0)
+      .sort((a, b) => a.order - b.order)
+      .map(section => ({
+        sectionType: section.sectionType,
+        label: SECTION_LABELS[section.sectionType],
+        items: section.items
+          .sort((a, b) => a.order - b.order)
+          .map((item): SessionPlanImageItem => {
+            const asana = asanaMap.get(item.asanaId);
+            const isVinyasa = asana?.type === 'vinyasa' || asana?.type === 'surya_namaskar';
+            let childSteps: string[] | undefined;
+            if (isVinyasa && asana?.childAsanas?.length) {
+              childSteps = asana.childAsanas
+                .sort((a, b) => a.order - b.order)
+                .map(child => asanaMap.get(child.asanaId)?.name || '?');
+            }
+            return {
+              name: asana?.name || 'Unknown Asana',
+              sanskritName: asana?.sanskritName,
+              variation: item.variation,
+              durationMinutes: item.durationMinutes,
+              reps: item.reps,
+              isVinyasa: !!isVinyasa,
+              childSteps,
+            };
+          }),
+      }));
+
+    return {
+      planName: plan.name,
+      planLevel: plan.level,
+      planDescription: plan.description,
+      sections,
+      studioName: settings.studioName,
+      logoData: settings.logoData,
+    };
+  };
+
+  const handleDownloadJPG = async () => {
+    if (!plan) return;
+    setDownloading(true);
+    try {
+      const imageData = prepareImageData(plan, allAsanas);
+      await downloadSessionPlanAsJPG(imageData);
+    } catch (err) {
+      console.error('Failed to download JPG:', err);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const getDifficultyColor = (difficulty: DifficultyLevel): 'green' | 'yellow' | 'red' => {
     const colorMap: Record<DifficultyLevel, 'green' | 'yellow' | 'red'> = {
@@ -186,6 +247,13 @@ export function SessionPlanDetailPage() {
           <Link to={`/admin/session-plans/${plan.id}/edit`}>
             <Button variant="outline">Edit</Button>
           </Link>
+          <Button
+            variant="outline"
+            onClick={handleDownloadJPG}
+            disabled={downloading}
+          >
+            {downloading ? 'Saving...' : 'Download JPG'}
+          </Button>
         </div>
       </div>
 
@@ -264,14 +332,41 @@ export function SessionPlanDetailPage() {
                               <span className="flex-shrink-0 w-5 h-5 flex items-center justify-center bg-indigo-600 text-white text-xs font-bold rounded-full mt-0.5">
                                 {idx + 1}
                               </span>
-                              {/* Name - for vinyasa, show expanded with arrows and Sanskrit names */}
+                              {/* Name - for vinyasa/surya, show with collapsible details */}
                               <div className="flex-1 min-w-0">
                                 {isVinyasa ? (
                                   <span className="text-gray-900 break-words">
-                                    <span className="font-medium text-pink-600">{asana?.name}:</span>{' '}
-                                    <span className="text-gray-700 inline-flex flex-wrap items-center gap-x-0">
-                                      {formatVinyasaChildren(item.asanaId)}
-                                    </span>
+                                    <span className="font-medium text-pink-600">{asana?.name}</span>
+                                    {asana?.type === 'surya_namaskar' && asana?.childAsanas?.length ? (
+                                      <>
+                                        <button
+                                          onClick={() => setExpandedSurya(prev => {
+                                            const next = new Set(prev);
+                                            const key = `${item.asanaId}-${idx}`;
+                                            next.has(key) ? next.delete(key) : next.add(key);
+                                            return next;
+                                          })}
+                                          className="ml-1.5 text-[10px] text-gray-500 hover:text-indigo-600 transition-colors align-middle"
+                                          title={expandedSurya.has(`${item.asanaId}-${idx}`) ? 'Hide steps' : 'Show steps'}
+                                        >
+                                          {expandedSurya.has(`${item.asanaId}-${idx}`)
+                                            ? '▾ hide steps'
+                                            : `▸ ${asana.childAsanas.length} steps`}
+                                        </button>
+                                        {expandedSurya.has(`${item.asanaId}-${idx}`) && (
+                                          <span className="text-gray-700 inline-flex flex-wrap items-center gap-x-0 mt-0.5 block">
+                                            {formatVinyasaChildren(item.asanaId)}
+                                          </span>
+                                        )}
+                                      </>
+                                    ) : (
+                                      <>
+                                        :{' '}
+                                        <span className="text-gray-700 inline-flex flex-wrap items-center gap-x-0">
+                                          {formatVinyasaChildren(item.asanaId)}
+                                        </span>
+                                      </>
+                                    )}
                                   </span>
                                 ) : (
                                   <>
