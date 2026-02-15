@@ -122,7 +122,19 @@ function getDB(): PDO {
 // ============================================
 
 function setCorsHeaders(): void {
-    header('Access-Control-Allow-Origin: ' . CORS_ORIGIN);
+    // Support multiple allowed origins (comma-separated in CORS_ORIGIN env var)
+    // e.g. CORS_ORIGIN=https://admin.rituyog.com,https://rituyog.com
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    $allowedOrigin = CORS_ORIGIN;
+
+    if (CORS_ORIGIN !== '*' && $origin) {
+        $allowedOrigins = array_map('trim', explode(',', CORS_ORIGIN));
+        if (in_array($origin, $allowedOrigins, true)) {
+            $allowedOrigin = $origin;
+        }
+    }
+
+    header('Access-Control-Allow-Origin: ' . $allowedOrigin);
     header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key');
     header('Access-Control-Allow-Credentials: true');
