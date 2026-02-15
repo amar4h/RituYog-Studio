@@ -42,6 +42,7 @@ if (empty($id) && !empty($pathParts[2])) {
 // Format: 'endpoint' => ['action1', 'action2']
 $publicEndpoints = [
     'leads' => ['getByToken', 'completeRegistration'],
+    'chatbot' => ['chat'],
 ];
 
 // Check if this is a public endpoint (after parsing endpoint/action from path)
@@ -93,6 +94,8 @@ $validEndpoints = [
     'products',
     'inventory',
     'expenses',
+    // Chatbot
+    'chatbot',
     // Session Planning
     'asanas',
     'session-plans',

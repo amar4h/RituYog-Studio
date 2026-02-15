@@ -169,6 +169,12 @@ function successResponse($data, string $message = 'Success'): void {
 // ============================================
 
 function getRequestBody(): array {
+    // Allow internal override (used by chatbot function calling)
+    if (isset($GLOBALS['__chatbot_request_body'])) {
+        $data = $GLOBALS['__chatbot_request_body'];
+        unset($GLOBALS['__chatbot_request_body']);
+        return $data;
+    }
     $input = file_get_contents('php://input');
     $data = json_decode($input, true);
     return $data ?? [];

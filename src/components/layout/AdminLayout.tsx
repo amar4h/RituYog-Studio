@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { ChatWidget } from '../chat/ChatWidget';
 
 export function AdminLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -59,6 +60,7 @@ export function AdminLayout() {
           <Outlet />
         </div>
       </main>
+      <ChatWidget />
     </div>
   );
 }
