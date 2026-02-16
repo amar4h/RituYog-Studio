@@ -21,6 +21,7 @@ export interface SessionPlanImageItem {
   variation?: string;
   durationMinutes?: number;
   reps?: number;
+  breathingCue?: 'inhale' | 'exhale' | 'hold';
   isVinyasa: boolean;
   childSteps?: string[];
 }
@@ -148,13 +149,14 @@ function buildCompactLayout(container: HTMLElement, data: SessionPlanImageData):
   const levelBadge = el('div', {
     fontSize: '9px',
     fontWeight: '600',
-    padding: '2px 6px 5px 6px',
+    padding: '3px 6px',
     borderRadius: '4px',
     backgroundColor: levelColors.bg,
     color: levelColors.text,
     whiteSpace: 'nowrap',
-    lineHeight: '1',
-    display: 'inline-block',
+    lineHeight: '1.4',
+    display: 'inline-flex',
+    alignItems: 'center',
   }, data.planLevel.charAt(0).toUpperCase() + data.planLevel.slice(1));
   header.appendChild(levelBadge);
 
@@ -243,7 +245,7 @@ function buildCompactLayout(container: HTMLElement, data: SessionPlanImageData):
     section.items.forEach((item, idx) => {
       const itemDiv = el('div', {
         display: 'flex',
-        alignItems: 'baseline',
+        alignItems: 'flex-start',
         gap: '4px',
         padding: `${tier.itemPadding}px 0 ${tier.itemPadding}px 8px`,
         lineHeight: '1.6',
@@ -295,8 +297,8 @@ function buildCompactLayout(container: HTMLElement, data: SessionPlanImageData):
 
         if (tier.showSanskrit && item.sanskritName) {
           const sanskrit = el('span', {
-            fontSize: `${tier.itemSize - 1}px`,
-            color: '#9CA3AF',
+            fontSize: `${tier.itemSize}px`,
+            color: '#6B7280',
             fontStyle: 'italic',
             marginLeft: '3px',
           }, `(${item.sanskritName})`);
@@ -314,6 +316,29 @@ function buildCompactLayout(container: HTMLElement, data: SessionPlanImageData):
       }
 
       itemDiv.appendChild(nameArea);
+
+      // Breathing cue badge
+      if (item.breathingCue) {
+        const cueColors: Record<string, { bg: string; text: string }> = {
+          inhale: { bg: '#DBEAFE', text: '#2563EB' },
+          exhale: { bg: '#F3E8FF', text: '#7C3AED' },
+          hold: { bg: '#FFEDD5', text: '#EA580C' },
+        };
+        const cueAbbrev: Record<string, string> = { inhale: 'In', exhale: 'Ex', hold: 'Ho' };
+        const colors = cueColors[item.breathingCue] || cueColors.inhale;
+        const cueBadge = el('span', {
+          fontSize: `${tier.itemSize - 2}px`,
+          fontWeight: '600',
+          padding: '1px 3px',
+          borderRadius: '2px',
+          backgroundColor: colors.bg,
+          color: colors.text,
+          whiteSpace: 'nowrap',
+          flexShrink: '0',
+          lineHeight: '1.4',
+        }, cueAbbrev[item.breathingCue] || '');
+        itemDiv.appendChild(cueBadge);
+      }
 
       // Duration/Reps
       const durText = [

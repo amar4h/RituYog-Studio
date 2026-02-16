@@ -229,6 +229,7 @@ export function RecordExecutionPage() {
                 variation: item.variation,
                 durationMinutes: item.durationMinutes,
                 reps: item.reps,
+                breathingCue: asana?.breathingCue,
                 isVinyasa: !!isVinyasa,
                 childSteps,
               };
