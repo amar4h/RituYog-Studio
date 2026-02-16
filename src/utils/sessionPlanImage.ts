@@ -241,36 +241,37 @@ function buildCompactLayout(container: HTMLElement, data: SessionPlanImageData):
 
     sectionDiv.appendChild(sectionHeader);
 
-    // Items
+    // Items — use display:table + table-cell + vertical-align:middle
+    // because html2canvas does not reliably support flexbox alignItems
     const rowPad = Math.max(tier.itemPadding, 3);
     section.items.forEach((item, idx) => {
       const itemDiv = el('div', {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '4px',
-        padding: `${rowPad}px 4px ${rowPad}px 8px`,
-        lineHeight: '1',
+        display: 'table',
+        width: '100%',
+        padding: `${rowPad}px 0`,
         borderBottom: idx < section.items.length - 1 ? '1px solid #F3F4F6' : 'none',
+        tableLayout: 'fixed',
       });
 
-      // Number
-      const num = el('span', {
+      // Number cell
+      const numCell = el('div', {
+        display: 'table-cell',
+        verticalAlign: 'middle',
+        width: '18px',
+        paddingLeft: '8px',
         fontSize: `${tier.itemSize - 1}px`,
-        lineHeight: '1',
         color: '#4F46E5',
         fontWeight: '600',
-        minWidth: '14px',
-        flexShrink: '0',
       }, `${idx + 1}.`);
-      itemDiv.appendChild(num);
+      itemDiv.appendChild(numCell);
 
-      // Name area — NO overflow:hidden to prevent descender clipping
+      // Name cell
       const nameArea = el('div', {
-        flex: '1',
+        display: 'table-cell',
+        verticalAlign: 'middle',
         fontSize: `${tier.itemSize}px`,
-        lineHeight: '1',
         color: '#1F2937',
-        minWidth: '0',
+        paddingLeft: '4px',
       });
 
       // In Surya Namaskara section, show only the name (no child steps)
@@ -318,6 +319,17 @@ function buildCompactLayout(container: HTMLElement, data: SessionPlanImageData):
 
       itemDiv.appendChild(nameArea);
 
+      // Right side cell: breathing cue + duration/reps
+      const rightCell = el('div', {
+        display: 'table-cell',
+        verticalAlign: 'middle',
+        textAlign: 'right',
+        whiteSpace: 'nowrap',
+        width: '60px',
+        paddingRight: '4px',
+        paddingLeft: '4px',
+      });
+
       // Breathing cue badge
       if (item.breathingCue) {
         const cueColors: Record<string, { bg: string; text: string }> = {
@@ -330,15 +342,13 @@ function buildCompactLayout(container: HTMLElement, data: SessionPlanImageData):
         const cueBadge = el('span', {
           fontSize: `${tier.itemSize - 2}px`,
           fontWeight: '600',
-          padding: '2px 3px',
+          padding: '1px 3px',
           borderRadius: '2px',
           backgroundColor: colors.bg,
           color: colors.text,
-          whiteSpace: 'nowrap',
-          flexShrink: '0',
-          lineHeight: '1',
+          marginRight: '3px',
         }, cueAbbrev[item.breathingCue] || '');
-        itemDiv.appendChild(cueBadge);
+        rightCell.appendChild(cueBadge);
       }
 
       // Duration/Reps
@@ -350,14 +360,13 @@ function buildCompactLayout(container: HTMLElement, data: SessionPlanImageData):
       if (durText) {
         const dur = el('span', {
           fontSize: `${tier.itemSize - 1}px`,
-          lineHeight: '1',
           color: '#4F46E5',
           fontWeight: '500',
-          whiteSpace: 'nowrap',
-          flexShrink: '0',
         }, durText);
-        itemDiv.appendChild(dur);
+        rightCell.appendChild(dur);
       }
+
+      itemDiv.appendChild(rightCell);
 
       sectionDiv.appendChild(itemDiv);
     });
