@@ -242,20 +242,21 @@ function buildCompactLayout(container: HTMLElement, data: SessionPlanImageData):
     sectionDiv.appendChild(sectionHeader);
 
     // Items
+    const rowPad = Math.max(tier.itemPadding, 3);
     section.items.forEach((item, idx) => {
       const itemDiv = el('div', {
         display: 'flex',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         gap: '4px',
-        padding: `${tier.itemPadding}px 0 ${tier.itemPadding}px 8px`,
-        lineHeight: '1.6',
+        padding: `${rowPad}px 4px ${rowPad}px 8px`,
+        lineHeight: '1',
         borderBottom: idx < section.items.length - 1 ? '1px solid #F3F4F6' : 'none',
       });
 
       // Number
       const num = el('span', {
         fontSize: `${tier.itemSize - 1}px`,
-        lineHeight: '1.6',
+        lineHeight: '1',
         color: '#4F46E5',
         fontWeight: '600',
         minWidth: '14px',
@@ -267,7 +268,7 @@ function buildCompactLayout(container: HTMLElement, data: SessionPlanImageData):
       const nameArea = el('div', {
         flex: '1',
         fontSize: `${tier.itemSize}px`,
-        lineHeight: '1.6',
+        lineHeight: '1',
         color: '#1F2937',
         minWidth: '0',
       });
@@ -329,13 +330,13 @@ function buildCompactLayout(container: HTMLElement, data: SessionPlanImageData):
         const cueBadge = el('span', {
           fontSize: `${tier.itemSize - 2}px`,
           fontWeight: '600',
-          padding: '1px 3px',
+          padding: '2px 3px',
           borderRadius: '2px',
           backgroundColor: colors.bg,
           color: colors.text,
           whiteSpace: 'nowrap',
           flexShrink: '0',
-          lineHeight: '1.4',
+          lineHeight: '1',
         }, cueAbbrev[item.breathingCue] || '');
         itemDiv.appendChild(cueBadge);
       }
@@ -349,7 +350,7 @@ function buildCompactLayout(container: HTMLElement, data: SessionPlanImageData):
       if (durText) {
         const dur = el('span', {
           fontSize: `${tier.itemSize - 1}px`,
-          lineHeight: '1.6',
+          lineHeight: '1',
           color: '#4F46E5',
           fontWeight: '500',
           whiteSpace: 'nowrap',
