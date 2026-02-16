@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { AppRouter } from './router';
 import { initializeStorage, seedDemoData, syncEssentialData, isApiMode, settingsService } from './services';
+import { seedSessionPlanningData } from './data/seed-session-planning';
 
 // Initialize storage for localStorage mode
 // In API mode, syncFromApi will populate localStorage from the server
@@ -10,6 +11,10 @@ if (!isApiMode()) {
   initializeStorage();
   seedDemoData();
 }
+
+// Expose seed function on window for browser console usage:
+//   window.seedSessionPlanning()
+(window as unknown as Record<string, unknown>).seedSessionPlanning = seedSessionPlanningData;
 
 // Create a client
 const queryClient = new QueryClient({

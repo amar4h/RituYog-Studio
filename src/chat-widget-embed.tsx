@@ -74,7 +74,7 @@ const styles = {
     justifyContent: 'center',
     transition: 'background-color 0.2s, box-shadow 0.2s',
   },
-  // Chat panel
+  // Chat panel — desktop (overridden for mobile in component)
   panel: {
     position: 'fixed' as const,
     bottom: '80px',
@@ -89,6 +89,25 @@ const styles = {
     flexDirection: 'column' as const,
     overflow: 'hidden',
     border: '1px solid #e5e7eb',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  },
+  // Chat panel — mobile fullscreen
+  panelMobile: {
+    position: 'fixed' as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 99999,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 0,
+    boxShadow: 'none',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    overflow: 'hidden',
+    border: 'none',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   },
   // Header
@@ -225,16 +244,22 @@ const WELCOME_MESSAGE: ChatMessage = {
 
 const MAX_HISTORY = 20;
 
+const MOBILE_BREAKPOINT = 640;
+
 function EmbedChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < MOBILE_BREAKPOINT);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     injectKeyframes();
+    const handleResize = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
@@ -310,7 +335,7 @@ function EmbedChatWidget() {
     <>
       {/* Chat panel */}
       {isOpen && (
-        <div style={styles.panel}>
+        <div style={isMobile ? styles.panelMobile : styles.panel}>
           {/* Header */}
           <div style={styles.header}>
             <div style={styles.headerTitle}>
@@ -393,22 +418,24 @@ function EmbedChatWidget() {
         </div>
       )}
 
-      {/* Floating button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        style={styles.fab}
-        aria-label={isOpen ? 'Close chat' : 'Open chat'}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = BRAND_HOVER;
-          e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = BRAND;
-          e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.25)';
-        }}
-      >
-        {isOpen ? <CloseIcon /> : <ChatIcon />}
-      </button>
+      {/* Floating button — hidden on mobile when panel is fullscreen */}
+      {!(isMobile && isOpen) && (
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          style={styles.fab}
+          aria-label={isOpen ? 'Close chat' : 'Open chat'}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = BRAND_HOVER;
+            e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = BRAND;
+            e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.25)';
+          }}
+        >
+          {isOpen ? <CloseIcon /> : <ChatIcon />}
+        </button>
+      )}
     </>
   );
 }

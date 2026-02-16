@@ -485,7 +485,7 @@ export function RecordExecutionPage() {
                                       .map((child, childIdx) => {
                                         const childAsana = asanaService.getById(child.asanaId);
                                         if (!childAsana) return <span key={childIdx}>?</span>;
-                                        const childSanskrit = childAsana.sanskritName ? ` (${childAsana.sanskritName})` : '';
+                                        const childSanskrit = childAsana.sanskritName && childAsana.sanskritName !== childAsana.name ? ` (${childAsana.sanskritName})` : '';
                                         const cue = getBreathingCue();
                                         // Get breathing cue for child asana
                                         const childCue = childAsana.breathingCue ? (() => {

@@ -57,6 +57,8 @@ class LeadsHandler extends BaseHandler {
             }
         }
 
+        // Restore request body for parent::create() — getRequestBody() consumed it above
+        $GLOBALS['__chatbot_request_body'] = $data;
         return parent::create();
     }
 

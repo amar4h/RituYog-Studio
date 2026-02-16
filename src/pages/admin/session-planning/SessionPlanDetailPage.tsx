@@ -140,7 +140,7 @@ export function SessionPlanDetailPage() {
       .map((child, idx) => {
         const childAsana = getAsana(child.asanaId);
         if (!childAsana) return <span key={idx}>?</span>;
-        const childSanskrit = childAsana.sanskritName ? ` (${childAsana.sanskritName})` : '';
+        const childSanskrit = childAsana.sanskritName && childAsana.sanskritName !== childAsana.name ? ` (${childAsana.sanskritName})` : '';
         const cue = getBreathingCue(childAsana.breathingCue);
 
         return (

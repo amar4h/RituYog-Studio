@@ -345,7 +345,7 @@ export function AsanaFormPage() {
         const asana = getAsanaDetails(item.asanaId);
         if (!asana) return '?';
         let text = asana.name;
-        if (asana.sanskritName) {
+        if (asana.sanskritName && asana.sanskritName !== asana.name) {
           text += ` (${asana.sanskritName})`;
         }
         const cue = getBreathingCueLabel(asana.breathingCue);

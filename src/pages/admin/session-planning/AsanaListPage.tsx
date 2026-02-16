@@ -100,7 +100,7 @@ export function AsanaListPage() {
       .map((child, idx) => {
         const childAsana = asanaService.getById(child.asanaId);
         if (!childAsana) return <span key={idx}>?</span>;
-        const sanskrit = childAsana.sanskritName ? ` (${childAsana.sanskritName})` : '';
+        const sanskrit = childAsana.sanskritName && childAsana.sanskritName !== childAsana.name ? ` (${childAsana.sanskritName})` : '';
         const cue = getBreathingCueAbbrev(childAsana.breathingCue);
 
         return (
@@ -155,7 +155,7 @@ export function AsanaListPage() {
                 </span>
               )}
             </div>
-            {asana.sanskritName && (
+            {asana.sanskritName && asana.sanskritName !== asana.name && (
               <p className="text-sm text-gray-500 italic">{asana.sanskritName}</p>
             )}
             {/* Show vinyasa/surya_namaskar flow inline with names, Sanskrit names, and breathing cues */}

@@ -385,7 +385,7 @@ function AsanaPickerModal({ isOpen, onClose, onSelect, onRemove, asanas, section
                       </span>
                     )}
                     <div className="font-medium text-gray-900 pr-6">{asana.name}</div>
-                    {asana.sanskritName && (
+                    {asana.sanskritName && asana.sanskritName !== asana.name && (
                       <div className="text-sm text-gray-500 italic">{asana.sanskritName}</div>
                     )}
                     <div className="flex flex-wrap gap-1 mt-2">

@@ -1,589 +1,895 @@
--- Seed Data for Session Plans Table
--- Run this SQL in phpMyAdmin for RFS and Production databases
--- NOTE: Run this AFTER seed_asanas.sql
--- Version: 2.0.0 (Updated to use fixed asana IDs)
+-- ============================================
+-- Seed Data: Session Plans
+-- Run AFTER seed_asanas.sql and seed_vinyasas.sql
+-- Contains: ~32 session plans with sections JSON
+-- ============================================
 
--- Clear existing data (optional - comment out if you want to preserve existing)
--- DELETE FROM session_plans;
+-- =============================================
+-- FULL BODY PLANS
+-- =============================================
 
--- =====================================================
--- BEGINNER MORNING FLOW
--- A gentle morning sequence for beginners focusing on
--- awakening the body and building a solid foundation.
--- Duration: ~45-50 minutes
--- =====================================================
-INSERT INTO session_plans (id, name, description, level, version, sections, created_by, usage_count, is_active, created_at, updated_at) VALUES
-('plan-beginner-morning', 'Beginner Morning Flow',
-'Gentle morning sequence suitable for beginners. Focus on awakening the body and building foundation. Perfect for early morning batches (7:30 AM). Emphasizes proper alignment and breath awareness.',
-'beginner', 1,
-JSON_ARRAY(
-    JSON_OBJECT(
-        'sectionType', 'WARM_UP',
-        'order', 1,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-neck-rotations', 'order', 1, 'durationMinutes', 2, 'intensity', 'low', 'notes', '5 rotations each direction'),
-            JSON_OBJECT('asanaId', 'asana-shoulder-rotations', 'order', 2, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Forward and backward'),
-            JSON_OBJECT('asanaId', 'asana-cat-cow', 'order', 3, 'durationMinutes', 3, 'intensity', 'low', 'notes', 'Sync with breath, 8-10 rounds'),
-            JSON_OBJECT('asanaId', 'asana-tadasana', 'order', 4, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Focus on grounding')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'SURYA_NAMASKARA',
-        'order', 2,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-surya-namaskara-a', 'order', 1, 'reps', 3, 'intensity', 'medium', 'notes', 'Slow pace, focus on breath')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'ASANA_SEQUENCE',
-        'order', 3,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-warrior1', 'order', 1, 'durationMinutes', 2, 'intensity', 'medium', 'notes', 'Both sides'),
-            JSON_OBJECT('asanaId', 'asana-warrior2', 'order', 2, 'durationMinutes', 2, 'intensity', 'medium', 'notes', 'Both sides'),
-            JSON_OBJECT('asanaId', 'asana-trikonasana', 'order', 3, 'durationMinutes', 2, 'intensity', 'medium', 'notes', 'Both sides'),
-            JSON_OBJECT('asanaId', 'asana-bhujangasana', 'order', 4, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Low cobra, elbows bent'),
-            JSON_OBJECT('asanaId', 'asana-setu-bandha', 'order', 5, 'durationMinutes', 3, 'intensity', 'medium', 'notes', 'Hold 5 breaths x2'),
-            JSON_OBJECT('asanaId', 'asana-paschimottanasana', 'order', 6, 'durationMinutes', 3, 'intensity', 'low', 'notes', 'Use strap if needed'),
-            JSON_OBJECT('asanaId', 'asana-supta-matsyendrasana', 'order', 7, 'durationMinutes', 3, 'intensity', 'low', 'notes', 'Both sides, 5 breaths each')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'PRANAYAMA',
-        'order', 4,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-anulom-vilom', 'order', 1, 'durationMinutes', 5, 'intensity', 'low', 'notes', '10 rounds, 4:4 ratio')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'SHAVASANA',
-        'order', 5,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-shavasana', 'order', 1, 'durationMinutes', 5, 'intensity', 'low', 'notes', 'Body scan relaxation')
-        )
-    )
-),
-'System', 0, 1, NOW(), NOW());
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-full-body-1', 'Full Body (1)', 'Full body practice with Ashtanga B variation including Uttan Prishta and Malasana', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-wrist-shoulder-rot", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "ex-squat-hand-raise", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-ardha-uttanasana", "order": 3, "intensity": "medium", "notes": "Palm under toes, knee and hip movement", "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-b", "order": 1, "intensity": "medium", "notes": "With Uttan Prishta and Malasana", "reps": 4, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "a-parsvakonasana", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-standing-half-split", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-ardha-hanumanasana", "order": 3, "intensity": "medium", "notes": "Backward + forward", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-piston-squat", "order": 4, "intensity": "high", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-parivrtta-janu", "order": 5, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-chakrasana", "order": 6, "intensity": "high", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-pavanamuktasana", "order": 7, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": "With sectional breathing", "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
 
--- =====================================================
--- INTERMEDIATE POWER FLOW
--- Dynamic sequence for building strength and stamina.
--- Duration: ~55-60 minutes
--- =====================================================
-INSERT INTO session_plans (id, name, description, level, version, sections, created_by, usage_count, is_active, created_at, updated_at) VALUES
-('plan-intermediate-power', 'Intermediate Power Flow',
-'Dynamic sequence for intermediate practitioners. Builds strength and stamina. Suitable for members with 3+ months experience. Includes challenging standing poses and core work.',
-'intermediate', 1,
-JSON_ARRAY(
-    JSON_OBJECT(
-        'sectionType', 'WARM_UP',
-        'order', 1,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-cat-cow', 'order', 1, 'durationMinutes', 2, 'intensity', 'medium', 'notes', 'Quick pace, 10 rounds'),
-            JSON_OBJECT('asanaId', 'asana-adho-mukha', 'order', 2, 'durationMinutes', 2, 'intensity', 'medium', 'notes', 'Pedal feet, warm up legs'),
-            JSON_OBJECT('asanaId', 'asana-phalakasana', 'order', 3, 'durationMinutes', 1, 'intensity', 'medium', 'notes', 'Hold 30 seconds')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'SURYA_NAMASKARA',
-        'order', 2,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-surya-namaskara-a', 'order', 1, 'reps', 3, 'intensity', 'medium', 'notes', 'Building heat'),
-            JSON_OBJECT('asanaId', 'asana-surya-namaskara-b', 'order', 2, 'reps', 3, 'intensity', 'high', 'notes', 'Full expression')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'ASANA_SEQUENCE',
-        'order', 3,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-warrior1', 'order', 1, 'durationMinutes', 2, 'intensity', 'high', 'notes', 'Deep lunge'),
-            JSON_OBJECT('asanaId', 'asana-warrior2', 'order', 2, 'durationMinutes', 2, 'intensity', 'high', 'notes', 'Strong arms'),
-            JSON_OBJECT('asanaId', 'asana-warrior3', 'order', 3, 'durationMinutes', 2, 'intensity', 'high', 'notes', 'Both sides'),
-            JSON_OBJECT('asanaId', 'asana-utkatasana', 'order', 4, 'durationMinutes', 1, 'intensity', 'high', 'notes', 'Hold 5 breaths x2'),
-            JSON_OBJECT('asanaId', 'asana-navasana', 'order', 5, 'durationMinutes', 2, 'intensity', 'high', 'notes', '3 rounds, 5 breaths each'),
-            JSON_OBJECT('asanaId', 'asana-ardha-matsyendrasana', 'order', 6, 'durationMinutes', 3, 'intensity', 'medium', 'notes', 'Both sides'),
-            JSON_OBJECT('asanaId', 'asana-ustrasana', 'order', 7, 'durationMinutes', 2, 'intensity', 'medium', 'notes', 'Options for hands on blocks'),
-            JSON_OBJECT('asanaId', 'asana-setu-bandha', 'order', 8, 'durationMinutes', 3, 'intensity', 'medium', 'notes', 'Counter pose')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'PRANAYAMA',
-        'order', 4,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-kapalbhati', 'order', 1, 'durationMinutes', 3, 'reps', 3, 'intensity', 'high', 'notes', '30 strokes per round'),
-            JSON_OBJECT('asanaId', 'asana-anulom-vilom', 'order', 2, 'durationMinutes', 5, 'intensity', 'low', 'notes', 'Cooling down, 4:8 ratio')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'SHAVASANA',
-        'order', 5,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-shavasana', 'order', 1, 'durationMinutes', 5, 'intensity', 'low', 'notes', 'Progressive relaxation')
-        )
-    )
-),
-'System', 0, 1, NOW(), NOW());
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-full-body-2', 'Full Body (2)', 'Full body with humble warrior and shoulder stand sequence', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-wrist-shoulder-rot", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "ex-cat-knee-rot", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-anjaneyasana", "order": 3, "intensity": "medium", "notes": "Ek Pada Adhumukha to Parivrita dynamic", "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-b", "order": 1, "intensity": "medium", "notes": "With Uttan Prishta and Skandasana", "reps": 4, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "a-vinamra-veer", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-prasarita-pado", "order": 2, "intensity": "medium", "notes": "With wheel towards back of legs", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-forearm-plank", "order": 3, "intensity": "high", "notes": "Elbow plank with knee on elbow", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-janu-sirshasana", "order": 4, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-parivrtta-upavistha", "order": 5, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-sarvangasana", "order": 6, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-matsyasana", "order": 7, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": "With sectional breathing", "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
 
--- =====================================================
--- EVENING RELAXATION
--- Calming sequence for stress relief and better sleep.
--- Duration: ~50 minutes
--- =====================================================
-INSERT INTO session_plans (id, name, description, level, version, sections, created_by, usage_count, is_active, created_at, updated_at) VALUES
-('plan-evening-relaxation', 'Evening Relaxation',
-'Calming sequence for stress relief and better sleep. Gentle stretches and deep breathing. Perfect for evening batches (7:30 PM) after work. No Surya Namaskara to keep energy grounding.',
-'beginner', 1,
-JSON_ARRAY(
-    JSON_OBJECT(
-        'sectionType', 'WARM_UP',
-        'order', 1,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-neck-rotations', 'order', 1, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Very slow, release day tension'),
-            JSON_OBJECT('asanaId', 'asana-cat-cow', 'order', 2, 'durationMinutes', 3, 'intensity', 'low', 'notes', 'Slow breath, release spine'),
-            JSON_OBJECT('asanaId', 'asana-balasana', 'order', 3, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Extended arms or by sides')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'SURYA_NAMASKARA',
-        'order', 2,
-        'items', JSON_ARRAY()
-    ),
-    JSON_OBJECT(
-        'sectionType', 'ASANA_SEQUENCE',
-        'order', 3,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-uttanasana', 'order', 1, 'durationMinutes', 3, 'intensity', 'low', 'notes', 'Let head hang, ragdoll'),
-            JSON_OBJECT('asanaId', 'asana-paschimottanasana', 'order', 2, 'durationMinutes', 4, 'intensity', 'low', 'notes', 'Forehead toward shins'),
-            JSON_OBJECT('asanaId', 'asana-baddha-konasana', 'order', 3, 'durationMinutes', 3, 'intensity', 'low', 'notes', 'Forward fold option'),
-            JSON_OBJECT('asanaId', 'asana-supta-matsyendrasana', 'order', 4, 'durationMinutes', 4, 'intensity', 'low', 'notes', 'Both sides, 8 breaths each'),
-            JSON_OBJECT('asanaId', 'asana-ananda-balasana', 'order', 5, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Rock side to side'),
-            JSON_OBJECT('asanaId', 'asana-viparita-karani', 'order', 6, 'durationMinutes', 5, 'intensity', 'low', 'notes', 'Against wall if available')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'PRANAYAMA',
-        'order', 4,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-bhramari', 'order', 1, 'durationMinutes', 5, 'intensity', 'low', 'notes', '7 rounds, long exhale'),
-            JSON_OBJECT('asanaId', 'asana-anulom-vilom', 'order', 2, 'durationMinutes', 5, 'intensity', 'low', 'notes', '4:8 ratio, calming')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'SHAVASANA',
-        'order', 5,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-shavasana', 'order', 1, 'durationMinutes', 10, 'intensity', 'low', 'notes', 'Extended relaxation, guided if time')
-        )
-    )
-),
-'System', 0, 1, NOW(), NOW());
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-full-body-3', 'Full Body (3)', 'Full body with backbends and lateral stretches', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-wrist-shoulder-rot", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "ex-shoulder-rot-strap", "order": 2, "intensity": "medium", "notes": "Forward/backward and left/right", "reps": null, "durationMinutes": null},
+    {"asanaId": "ex-elephant-walk", "order": 3, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-b", "order": 1, "intensity": "medium", "notes": "With Ashta Chandrasana", "reps": 4, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "a-prasarita-pado", "order": 1, "intensity": "medium", "notes": "With block", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-parivrtta-trikon", "order": 2, "intensity": "medium", "notes": "Use wheel", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-natarajasana", "order": 3, "intensity": "high", "notes": "With strap", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-one-arm-high-plank", "order": 4, "intensity": "high", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-ustrasana", "order": 5, "intensity": "high", "notes": "Lateral stretch with Ustrasana legs (wheel)", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-chakrasana", "order": 6, "intensity": "high", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-pavanamuktasana", "order": 7, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
 
--- =====================================================
--- HIP OPENER SPECIAL
--- Focused sequence for opening tight hips.
--- Duration: ~50 minutes
--- =====================================================
-INSERT INTO session_plans (id, name, description, level, version, sections, created_by, usage_count, is_active, created_at, updated_at) VALUES
-('plan-hip-opener', 'Hip Opener Special',
-'Focused sequence for opening tight hips. Great for office workers and those who sit for long hours. Intermediate level - requires some hip flexibility foundation. Therapeutic for lower back.',
-'intermediate', 1,
-JSON_ARRAY(
-    JSON_OBJECT(
-        'sectionType', 'WARM_UP',
-        'order', 1,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-cat-cow', 'order', 1, 'durationMinutes', 3, 'intensity', 'low', 'notes', 'Circle hips in cat pose'),
-            JSON_OBJECT('asanaId', 'asana-hip-rotations', 'order', 2, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Large circles, both directions'),
-            JSON_OBJECT('asanaId', 'asana-adho-mukha', 'order', 3, 'durationMinutes', 2, 'intensity', 'medium', 'notes', 'Pedal feet, bend knees')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'SURYA_NAMASKARA',
-        'order', 2,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-surya-namaskara-a', 'order', 1, 'reps', 2, 'intensity', 'medium', 'notes', 'Gentle warm-up')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'ASANA_SEQUENCE',
-        'order', 3,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-warrior2', 'order', 1, 'durationMinutes', 2, 'intensity', 'medium', 'notes', 'Open hips wide'),
-            JSON_OBJECT('asanaId', 'asana-parsvakonasana', 'order', 2, 'durationMinutes', 2, 'intensity', 'medium', 'notes', 'Both sides'),
-            JSON_OBJECT('asanaId', 'asana-malasana', 'order', 3, 'durationMinutes', 2, 'intensity', 'medium', 'notes', 'Deep squat, heels down'),
-            JSON_OBJECT('asanaId', 'asana-ashwa-sanchalanasana', 'order', 4, 'durationMinutes', 2, 'intensity', 'medium', 'notes', 'Low lunge, drop hips'),
-            JSON_OBJECT('asanaId', 'asana-utthan-pristhasana', 'order', 5, 'durationMinutes', 3, 'intensity', 'medium', 'notes', 'Lizard, forearms down option'),
-            JSON_OBJECT('asanaId', 'asana-eka-pada-rajakapotasana', 'order', 6, 'durationMinutes', 4, 'intensity', 'medium', 'notes', 'Both sides, use props'),
-            JSON_OBJECT('asanaId', 'asana-baddha-konasana', 'order', 7, 'durationMinutes', 3, 'intensity', 'low', 'notes', 'Seated butterfly'),
-            JSON_OBJECT('asanaId', 'asana-ananda-balasana', 'order', 8, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Release lower back')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'PRANAYAMA',
-        'order', 4,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-dirga', 'order', 1, 'durationMinutes', 5, 'intensity', 'low', 'notes', 'Full yogic breath')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'SHAVASANA',
-        'order', 5,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-supta-baddha-konasana', 'order', 1, 'durationMinutes', 3, 'intensity', 'low', 'notes', 'Support knees with blocks'),
-            JSON_OBJECT('asanaId', 'asana-shavasana', 'order', 2, 'durationMinutes', 5, 'intensity', 'low', 'notes', 'Let hips release fully')
-        )
-    )
-),
-'System', 0, 1, NOW(), NOW());
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-full-body-2026', 'Full Body (2026)', 'Full body with Ashtanga B Veerbhadra variation and balance poses', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-wrist-shoulder-rot", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "ex-squat-hand-raise", "order": 2, "intensity": "medium", "notes": "Sit ups with hand raised", "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-b", "order": 1, "intensity": "medium", "notes": "Variation: Veerbhadra 2 + Skandasana", "reps": 4, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "a-ek-pada-angustha", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-urdhva-pras-eka-pad", "order": 2, "intensity": "medium", "notes": "With wheel", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-kakasana", "order": 3, "intensity": "high", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-mandukasana", "order": 4, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-halasana", "order": 5, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-matsyasana", "order": 6, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-pavanamuktasana", "order": 7, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
 
--- =====================================================
--- BACK STRENGTHENING
--- Therapeutic sequence for back health.
--- Duration: ~45 minutes
--- =====================================================
-INSERT INTO session_plans (id, name, description, level, version, sections, created_by, usage_count, is_active, created_at, updated_at) VALUES
-('plan-back-strengthening', 'Back Strengthening',
-'Therapeutic sequence for strengthening the back and improving posture. Helpful for those with mild back issues (consult doctor first). No Surya Namaskara to protect spine. Focuses on back extensors.',
-'beginner', 1,
-JSON_ARRAY(
-    JSON_OBJECT(
-        'sectionType', 'WARM_UP',
-        'order', 1,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-cat-cow', 'order', 1, 'durationMinutes', 4, 'intensity', 'low', 'notes', 'Very gentle, small movements'),
-            JSON_OBJECT('asanaId', 'asana-neck-rotations', 'order', 2, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Careful with neck'),
-            JSON_OBJECT('asanaId', 'asana-shoulder-rotations', 'order', 3, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Open chest area')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'SURYA_NAMASKARA',
-        'order', 2,
-        'items', JSON_ARRAY()
-    ),
-    JSON_OBJECT(
-        'sectionType', 'ASANA_SEQUENCE',
-        'order', 3,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-tadasana', 'order', 1, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Focus on posture awareness'),
-            JSON_OBJECT('asanaId', 'asana-salabhasana', 'order', 2, 'durationMinutes', 3, 'intensity', 'medium', 'notes', 'Variations: arms, legs, both'),
-            JSON_OBJECT('asanaId', 'asana-bhujangasana', 'order', 3, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Baby cobra only'),
-            JSON_OBJECT('asanaId', 'asana-balasana', 'order', 4, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Counter pose'),
-            JSON_OBJECT('asanaId', 'asana-setu-bandha', 'order', 5, 'durationMinutes', 3, 'intensity', 'medium', 'notes', 'Strengthen glutes'),
-            JSON_OBJECT('asanaId', 'asana-supta-matsyendrasana', 'order', 6, 'durationMinutes', 3, 'intensity', 'low', 'notes', 'Gentle twist, knees together'),
-            JSON_OBJECT('asanaId', 'asana-pawanmuktasana', 'order', 7, 'durationMinutes', 3, 'intensity', 'low', 'notes', 'One leg at a time')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'PRANAYAMA',
-        'order', 4,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-dirga', 'order', 1, 'durationMinutes', 5, 'intensity', 'low', 'notes', 'Expand ribcage fully')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'SHAVASANA',
-        'order', 5,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-makarasana', 'order', 1, 'durationMinutes', 3, 'intensity', 'low', 'notes', 'Face down relaxation'),
-            JSON_OBJECT('asanaId', 'asana-shavasana', 'order', 2, 'durationMinutes', 5, 'intensity', 'low', 'notes', 'Bolster under knees optional')
-        )
-    )
-),
-'System', 0, 1, NOW(), NOW());
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-full-body-surya', 'Full Body - Surya Namaskar Focus', 'Surya Namaskar heavy practice with Sivananda and Ashtanga A', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-cat-cow", "order": 1, "intensity": "medium", "notes": null, "reps": 20, "durationMinutes": null},
+    {"asanaId": "ex-dyn-paschimo", "order": 2, "intensity": "medium", "notes": null, "reps": 5, "durationMinutes": null},
+    {"asanaId": "ex-dyn-setu", "order": 3, "intensity": "medium", "notes": null, "reps": 5, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-sivananda", "order": 1, "intensity": "medium", "notes": "Modern 24 Steps", "reps": 4, "durationMinutes": null},
+    {"asanaId": "sn-ashtanga-a", "order": 2, "intensity": "medium", "notes": null, "reps": 3, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": []},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": "With sectional breathing", "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
 
--- =====================================================
--- CORE POWER
--- Focused core strengthening sequence.
--- Duration: ~50 minutes
--- =====================================================
-INSERT INTO session_plans (id, name, description, level, version, sections, created_by, usage_count, is_active, created_at, updated_at) VALUES
-('plan-core-power', 'Core Power',
-'Intensive sequence focusing on core strength and stability. Builds a strong foundation for all yoga practices. Not recommended for those with lower back issues. Challenging but rewarding.',
-'intermediate', 1,
-JSON_ARRAY(
-    JSON_OBJECT(
-        'sectionType', 'WARM_UP',
-        'order', 1,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-cat-cow', 'order', 1, 'durationMinutes', 2, 'intensity', 'medium', 'notes', 'Activate core in cat pose'),
-            JSON_OBJECT('asanaId', 'asana-phalakasana', 'order', 2, 'durationMinutes', 1, 'intensity', 'medium', 'notes', 'Hold 30 seconds'),
-            JSON_OBJECT('asanaId', 'asana-adho-mukha', 'order', 3, 'durationMinutes', 2, 'intensity', 'medium', 'notes', 'Engage core throughout')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'SURYA_NAMASKARA',
-        'order', 2,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-surya-namaskara-a', 'order', 1, 'reps', 3, 'intensity', 'medium', 'notes', 'Focus on plank-chaturanga'),
-            JSON_OBJECT('asanaId', 'asana-surya-namaskara-b', 'order', 2, 'reps', 2, 'intensity', 'high', 'notes', 'Strong core in chair pose')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'ASANA_SEQUENCE',
-        'order', 3,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-phalakasana', 'order', 1, 'durationMinutes', 2, 'intensity', 'high', 'notes', 'Hold 1 minute, rest, repeat'),
-            JSON_OBJECT('asanaId', 'asana-vasisthasana', 'order', 2, 'durationMinutes', 2, 'intensity', 'high', 'notes', 'Both sides'),
-            JSON_OBJECT('asanaId', 'asana-navasana', 'order', 3, 'durationMinutes', 3, 'intensity', 'high', 'notes', '5 rounds, 5 breaths each'),
-            JSON_OBJECT('asanaId', 'asana-chaturanga', 'order', 4, 'durationMinutes', 2, 'intensity', 'high', 'notes', 'Hold at bottom, 3x'),
-            JSON_OBJECT('asanaId', 'asana-dolphin', 'order', 5, 'durationMinutes', 2, 'intensity', 'high', 'notes', 'Forearms strong'),
-            JSON_OBJECT('asanaId', 'asana-utkatasana', 'order', 6, 'durationMinutes', 2, 'intensity', 'high', 'notes', 'Twist variation option'),
-            JSON_OBJECT('asanaId', 'asana-supta-matsyendrasana', 'order', 7, 'durationMinutes', 3, 'intensity', 'low', 'notes', 'Release core tension')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'PRANAYAMA',
-        'order', 4,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-kapalbhati', 'order', 1, 'durationMinutes', 4, 'reps', 3, 'intensity', 'high', 'notes', '50 strokes per round'),
-            JSON_OBJECT('asanaId', 'asana-bhramari', 'order', 2, 'durationMinutes', 3, 'intensity', 'low', 'notes', 'Calm nervous system')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'SHAVASANA',
-        'order', 5,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-shavasana', 'order', 1, 'durationMinutes', 5, 'intensity', 'low', 'notes', 'Feel core muscles relax')
-        )
-    )
-),
-'System', 0, 1, NOW(), NOW());
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-full-body-360', 'Full Body - 360', 'Advanced full body 360 vinyasa sequence', 'advanced', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-cat-cow", "order": 1, "intensity": "medium", "notes": null, "reps": 20, "durationMinutes": null},
+    {"asanaId": "ex-dyn-paschimo", "order": 2, "intensity": "medium", "notes": null, "reps": 5, "durationMinutes": null},
+    {"asanaId": "ex-dyn-setu", "order": 3, "intensity": "medium", "notes": null, "reps": 5, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": []},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "v-vinyasa-360", "order": 1, "intensity": "high", "notes": "3 rounds, repeat both sides", "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": "With sectional breathing", "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
 
--- =====================================================
--- GENTLE STRETCH
--- Very gentle sequence for recovery or tender days.
--- Duration: ~45 minutes
--- =====================================================
-INSERT INTO session_plans (id, name, description, level, version, sections, created_by, usage_count, is_active, created_at, updated_at) VALUES
-('plan-gentle-stretch', 'Gentle Stretch',
-'Very gentle sequence for recovery days or when energy is low. Great for monsoon season or when members need extra care. Focuses on passive stretching and breath work. Suitable for all levels.',
-'beginner', 1,
-JSON_ARRAY(
-    JSON_OBJECT(
-        'sectionType', 'WARM_UP',
-        'order', 1,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-neck-rotations', 'order', 1, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Very slow'),
-            JSON_OBJECT('asanaId', 'asana-shoulder-rotations', 'order', 2, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Gentle circles'),
-            JSON_OBJECT('asanaId', 'asana-wrist-rotations', 'order', 3, 'durationMinutes', 1, 'intensity', 'low', 'notes', 'Both directions'),
-            JSON_OBJECT('asanaId', 'asana-ankle-rotations', 'order', 4, 'durationMinutes', 1, 'intensity', 'low', 'notes', 'Wake up feet')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'SURYA_NAMASKARA',
-        'order', 2,
-        'items', JSON_ARRAY()
-    ),
-    JSON_OBJECT(
-        'sectionType', 'ASANA_SEQUENCE',
-        'order', 3,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-sukhasana', 'order', 1, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Side stretches'),
-            JSON_OBJECT('asanaId', 'asana-cat-cow', 'order', 2, 'durationMinutes', 3, 'intensity', 'low', 'notes', 'Very slow'),
-            JSON_OBJECT('asanaId', 'asana-balasana', 'order', 3, 'durationMinutes', 3, 'intensity', 'low', 'notes', 'Rest and breathe'),
-            JSON_OBJECT('asanaId', 'asana-supta-padangusthasana', 'order', 4, 'durationMinutes', 4, 'intensity', 'low', 'notes', 'Use strap, both legs'),
-            JSON_OBJECT('asanaId', 'asana-supta-baddha-konasana', 'order', 5, 'durationMinutes', 4, 'intensity', 'low', 'notes', 'Bolster support'),
-            JSON_OBJECT('asanaId', 'asana-viparita-karani', 'order', 6, 'durationMinutes', 5, 'intensity', 'low', 'notes', 'Wall support')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'PRANAYAMA',
-        'order', 4,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-dirga', 'order', 1, 'durationMinutes', 5, 'intensity', 'low', 'notes', 'Deep full breaths'),
-            JSON_OBJECT('asanaId', 'asana-bhramari', 'order', 2, 'durationMinutes', 5, 'intensity', 'low', 'notes', 'Extended exhale')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'SHAVASANA',
-        'order', 5,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-yoga-nidra', 'order', 1, 'durationMinutes', 10, 'intensity', 'low', 'notes', 'Guided yoga nidra if time')
-        )
-    )
-),
-'System', 0, 1, NOW(), NOW());
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-full-body-vinyasa-hold', 'Full Body - Vinyasa Hold', 'Full body with three hold-based vinyasa sequences', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-cat-cow", "order": 1, "intensity": "medium", "notes": null, "reps": 20, "durationMinutes": null},
+    {"asanaId": "ex-dyn-paschimo", "order": 2, "intensity": "medium", "notes": null, "reps": 5, "durationMinutes": null},
+    {"asanaId": "ex-dyn-setu", "order": 3, "intensity": "medium", "notes": null, "reps": 5, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-a", "order": 1, "intensity": "medium", "notes": null, "reps": 6, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "v-full-body-hold-1", "order": 1, "intensity": "medium", "notes": "3 rounds", "reps": null, "durationMinutes": null},
+    {"asanaId": "v-full-body-hold-2", "order": 2, "intensity": "medium", "notes": "3 rounds", "reps": null, "durationMinutes": null},
+    {"asanaId": "v-full-body-hold-3", "order": 3, "intensity": "medium", "notes": "3 rounds", "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": "With sectional breathing", "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
 
--- =====================================================
--- ENERGY BOOST
--- Energizing sequence for morning or afternoon.
--- Duration: ~50 minutes
--- =====================================================
-INSERT INTO session_plans (id, name, description, level, version, sections, created_by, usage_count, is_active, created_at, updated_at) VALUES
-('plan-energy-boost', 'Energy Boost',
-'Energizing sequence to wake up body and mind. Great for mornings or mid-afternoon slumps. Includes backbends for energy and inversions for circulation. Intermediate level due to backbend intensity.',
-'intermediate', 1,
-JSON_ARRAY(
-    JSON_OBJECT(
-        'sectionType', 'WARM_UP',
-        'order', 1,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-cat-cow', 'order', 1, 'durationMinutes', 2, 'intensity', 'medium', 'notes', 'Dynamic movement'),
-            JSON_OBJECT('asanaId', 'asana-hip-rotations', 'order', 2, 'durationMinutes', 2, 'intensity', 'medium', 'notes', 'Circles and figure 8s'),
-            JSON_OBJECT('asanaId', 'asana-adho-mukha', 'order', 3, 'durationMinutes', 2, 'intensity', 'medium', 'notes', 'Wake up whole body')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'SURYA_NAMASKARA',
-        'order', 2,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-surya-namaskara-a', 'order', 1, 'reps', 5, 'intensity', 'high', 'notes', 'Building heat and energy')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'ASANA_SEQUENCE',
-        'order', 3,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-warrior1', 'order', 1, 'durationMinutes', 2, 'intensity', 'high', 'notes', 'Arms reaching high'),
-            JSON_OBJECT('asanaId', 'asana-warrior3', 'order', 2, 'durationMinutes', 2, 'intensity', 'high', 'notes', 'Balance and focus'),
-            JSON_OBJECT('asanaId', 'asana-ustrasana', 'order', 3, 'durationMinutes', 2, 'intensity', 'high', 'notes', 'Open heart, energize'),
-            JSON_OBJECT('asanaId', 'asana-dhanurasana', 'order', 4, 'durationMinutes', 2, 'intensity', 'high', 'notes', 'Full bow, rock gently'),
-            JSON_OBJECT('asanaId', 'asana-balasana', 'order', 5, 'durationMinutes', 1, 'intensity', 'low', 'notes', 'Brief rest'),
-            JSON_OBJECT('asanaId', 'asana-sarvangasana', 'order', 6, 'durationMinutes', 3, 'intensity', 'medium', 'notes', 'Shoulder stand with support'),
-            JSON_OBJECT('asanaId', 'asana-matsyasana', 'order', 7, 'durationMinutes', 2, 'intensity', 'medium', 'notes', 'Counter pose, open throat')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'PRANAYAMA',
-        'order', 4,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-bhastrika', 'order', 1, 'durationMinutes', 3, 'reps', 3, 'intensity', 'high', 'notes', '20 breaths per round'),
-            JSON_OBJECT('asanaId', 'asana-ujjayi', 'order', 2, 'durationMinutes', 3, 'intensity', 'medium', 'notes', 'Build internal heat')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'SHAVASANA',
-        'order', 5,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-shavasana', 'order', 1, 'durationMinutes', 5, 'intensity', 'low', 'notes', 'Integrate the energy')
-        )
-    )
-),
-'System', 0, 1, NOW(), NOW());
+-- =============================================
+-- STRENGTH & BALANCE
+-- =============================================
 
--- =====================================================
--- BALANCE & FOCUS
--- Sequence emphasizing balance poses and concentration.
--- Duration: ~50 minutes
--- =====================================================
-INSERT INTO session_plans (id, name, description, level, version, sections, created_by, usage_count, is_active, created_at, updated_at) VALUES
-('plan-balance-focus', 'Balance & Focus',
-'Sequence emphasizing balance poses and mental concentration. Develops proprioception and single-pointed focus. Intermediate level - requires some balance foundation. Great for improving overall practice.',
-'intermediate', 1,
-JSON_ARRAY(
-    JSON_OBJECT(
-        'sectionType', 'WARM_UP',
-        'order', 1,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-tadasana', 'order', 1, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Root down, find center'),
-            JSON_OBJECT('asanaId', 'asana-ankle-rotations', 'order', 2, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Prepare feet for balance'),
-            JSON_OBJECT('asanaId', 'asana-cat-cow', 'order', 3, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Core engagement')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'SURYA_NAMASKARA',
-        'order', 2,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-surya-namaskara-a', 'order', 1, 'reps', 3, 'intensity', 'medium', 'notes', 'Steady breath, steady gaze')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'ASANA_SEQUENCE',
-        'order', 3,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-vrikshasana', 'order', 1, 'durationMinutes', 3, 'intensity', 'medium', 'notes', 'Both sides, 30 sec each'),
-            JSON_OBJECT('asanaId', 'asana-warrior3', 'order', 2, 'durationMinutes', 3, 'intensity', 'high', 'notes', 'Arms in T, airplane'),
-            JSON_OBJECT('asanaId', 'asana-ardha-chandrasana', 'order', 3, 'durationMinutes', 3, 'intensity', 'high', 'notes', 'Block for hand option'),
-            JSON_OBJECT('asanaId', 'asana-garudasana', 'order', 4, 'durationMinutes', 3, 'intensity', 'high', 'notes', 'Both sides'),
-            JSON_OBJECT('asanaId', 'asana-vasisthasana', 'order', 5, 'durationMinutes', 2, 'intensity', 'high', 'notes', 'Arm balance'),
-            JSON_OBJECT('asanaId', 'asana-bakasana', 'order', 6, 'durationMinutes', 3, 'intensity', 'high', 'notes', 'Attempts encouraged'),
-            JSON_OBJECT('asanaId', 'asana-sukhasana', 'order', 7, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Ground energy')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'PRANAYAMA',
-        'order', 4,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-trataka', 'order', 1, 'durationMinutes', 5, 'intensity', 'low', 'notes', 'Candle gazing for focus'),
-            JSON_OBJECT('asanaId', 'asana-anulom-vilom', 'order', 2, 'durationMinutes', 5, 'intensity', 'low', 'notes', 'Balance left and right')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'SHAVASANA',
-        'order', 5,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-shavasana', 'order', 1, 'durationMinutes', 5, 'intensity', 'low', 'notes', 'Maintain inner stillness')
-        )
-    )
-),
-'System', 0, 1, NOW(), NOW());
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-strength-balance-1', 'Strength & Balance (1)', 'Focus on single-leg balance and arm balances', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-wrist-shoulder-rot", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "ex-low-lunge-dyn", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "ex-triyak-tadasana", "order": 3, "intensity": "medium", "notes": "Sitting variation", "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-b", "order": 1, "intensity": "medium", "notes": null, "reps": 4, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "a-ek-pada-angustha", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-urdhva-pras-eka-pad", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-kakasana", "order": 3, "intensity": "high", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-mandukasana", "order": 4, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-malasana", "order": 5, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-halasana", "order": 6, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-pavanamuktasana", "order": 7, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": "With sectional breathing", "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
 
--- =====================================================
--- MOON SALUTATION FLOW
--- Cooling evening sequence with moon salutations.
--- Duration: ~50 minutes
--- =====================================================
-INSERT INTO session_plans (id, name, description, level, version, sections, created_by, usage_count, is_active, created_at, updated_at) VALUES
-('plan-moon-flow', 'Moon Salutation Flow',
-'Cooling evening sequence featuring Chandra Namaskar (Moon Salutation). Balances lunar energy. Perfect for evening batches or days when heat needs to be reduced. Opens hips and calms mind.',
-'beginner', 1,
-JSON_ARRAY(
-    JSON_OBJECT(
-        'sectionType', 'WARM_UP',
-        'order', 1,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-sukhasana', 'order', 1, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Center with breath'),
-            JSON_OBJECT('asanaId', 'asana-cat-cow', 'order', 2, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Gentle spinal waves'),
-            JSON_OBJECT('asanaId', 'asana-hip-rotations', 'order', 3, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Prepare for hip work')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'SURYA_NAMASKARA',
-        'order', 2,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-chandra-namaskara', 'order', 1, 'reps', 4, 'intensity', 'medium', 'notes', '2 each side, slow pace')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'ASANA_SEQUENCE',
-        'order', 3,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-prasarita', 'order', 1, 'durationMinutes', 3, 'intensity', 'medium', 'notes', 'Wide leg forward fold'),
-            JSON_OBJECT('asanaId', 'asana-trikonasana', 'order', 2, 'durationMinutes', 3, 'intensity', 'medium', 'notes', 'Both sides'),
-            JSON_OBJECT('asanaId', 'asana-malasana', 'order', 3, 'durationMinutes', 2, 'intensity', 'low', 'notes', 'Deep squat'),
-            JSON_OBJECT('asanaId', 'asana-baddha-konasana', 'order', 4, 'durationMinutes', 3, 'intensity', 'low', 'notes', 'Forward fold'),
-            JSON_OBJECT('asanaId', 'asana-janu-sirsasana', 'order', 5, 'durationMinutes', 4, 'intensity', 'low', 'notes', 'Both sides'),
-            JSON_OBJECT('asanaId', 'asana-supta-matsyendrasana', 'order', 6, 'durationMinutes', 4, 'intensity', 'low', 'notes', 'Long hold each side')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'PRANAYAMA',
-        'order', 4,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-sheetali', 'order', 1, 'durationMinutes', 3, 'intensity', 'low', 'notes', 'Cooling breath'),
-            JSON_OBJECT('asanaId', 'asana-bhramari', 'order', 2, 'durationMinutes', 5, 'intensity', 'low', 'notes', 'Calm the mind')
-        )
-    ),
-    JSON_OBJECT(
-        'sectionType', 'SHAVASANA',
-        'order', 5,
-        'items', JSON_ARRAY(
-            JSON_OBJECT('asanaId', 'asana-shavasana', 'order', 1, 'durationMinutes', 7, 'intensity', 'low', 'notes', 'Moon visualization')
-        )
-    )
-),
-'System', 0, 1, NOW(), NOW());
+-- =============================================
+-- SHOULDER & UPPER BACK
+-- =============================================
 
--- =====================================================
--- Summary:
--- 1. Beginner Morning Flow - General beginner AM sequence
--- 2. Intermediate Power Flow - Strength-building for regular practitioners
--- 3. Evening Relaxation - Stress relief PM sequence
--- 4. Hip Opener Special - Targeted hip work for office workers
--- 5. Back Strengthening - Therapeutic back sequence
--- 6. Core Power - Intensive core work
--- 7. Gentle Stretch - Recovery/tender day sequence
--- 8. Energy Boost - Energizing backbend sequence
--- 9. Balance & Focus - Balance poses and concentration
--- 10. Moon Salutation Flow - Cooling evening moon sequence
--- TOTAL: 10 session plans
--- =====================================================
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-shoulder-upper-back', 'Shoulder & Upper Back', 'Focused shoulder and upper back opening with scapular strength flows', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-wrist-shoulder-rot", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-uttana-shishosana", "order": 2, "intensity": "medium", "notes": "Puppy Pose warm-up", "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-a", "order": 1, "intensity": "medium", "notes": null, "reps": 4, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "a-gomukhasana", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-dolphin-pose", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-sphinx-pose", "order": 3, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-uttana-shishosana", "order": 4, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-eagle-arms", "order": 5, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-reverse-prayer", "order": 6, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "ex-thread-needle", "order": 7, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": "With sectional breathing", "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+-- =============================================
+-- CHEST OPENING
+-- =============================================
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-chest-opening', 'Chest Opening & Heart Space', 'Heart-opening practice with chest openers and supported backbends', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-wrist-shoulder-rot", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "kr-vaksha-shakti", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "v-heart-opening-warmup", "order": 3, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-a", "order": 1, "intensity": "medium", "notes": null, "reps": 4, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "v-standing-chest", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "v-restorative-heart", "order": 2, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-uttana-shishosana", "order": 3, "intensity": "low", "notes": "Heart-melting pose", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-sphinx-pose", "order": 4, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-purvottanasana", "order": 5, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-matsyasana", "order": 6, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-sarvangasana", "order": 7, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-supta-baddha-kon", "order": 8, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": "With sectional breathing", "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+-- =============================================
+-- CORE STABILITY
+-- =============================================
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-core-stability', 'Core Stability', 'Core-focused practice with controlled flows and supine work', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-wrist-shoulder-rot", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "v-core-warmup", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-a", "order": 1, "intensity": "medium", "notes": null, "reps": 4, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "v-controlled-core", "order": 1, "intensity": "high", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "v-supine-core", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-dandasana", "order": 3, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-navasana", "order": 4, "intensity": "high", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-dolphin-pose", "order": 5, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-tolangulasana", "order": 6, "intensity": "high", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-setu-bandhasana", "order": 7, "intensity": "medium", "notes": "Active bridge", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-pavanamuktasana", "order": 8, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": "With sectional breathing", "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+-- =============================================
+-- BREATH-LED SLOW VINYASA
+-- =============================================
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-breath-led-1', 'Breath-Led Slow Vinyasa (1)', 'Slow breath-guided flows for nervous system regulation', 'beginner', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-wrist-shoulder-rot", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "kr-griva-shakti", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": []},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "v-grounding-breath", "order": 1, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "v-wave-like-breath", "order": 2, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "v-low-energy-restorative", "order": 3, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "v-long-exhale-reset", "order": 4, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "v-minimal-pose-breath", "order": 5, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-breath-led-2', 'Breath-Led Slow Vinyasa (2)', 'Pause-based and evening wind-down flows', 'beginner', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-wrist-shoulder-rot", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "kr-griva-shakti", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": []},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "v-long-exhale", "order": 1, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "v-pause-based", "order": 2, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "v-nervous-system-reset", "order": 3, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "v-seated-breath-led", "order": 4, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "v-evening-wind-down", "order": 5, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+-- =============================================
+-- HIP PLANS
+-- =============================================
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-hip-flexibility-1', 'Hip Flexibility (1)', 'Hip opening with twisting spinal detox vinyasa', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-butterfly", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "ex-low-lunge-dyn", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-b", "order": 1, "intensity": "medium", "notes": "With Uttan Prishta and Malasana", "reps": 4, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "v-twisting-spinal-detox", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-anjaneyasana", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-utthan-pristhasana", "order": 3, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-upavistha-konasana", "order": 4, "intensity": "medium", "notes": "Side variation", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-parivrtta-janu", "order": 5, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": "With sectional breathing", "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-hip-flexibility-2', 'Hip Flexibility (2)', 'Hip opening variation 2 with twisting flow', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-butterfly", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "ex-low-lunge-dyn", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-b", "order": 1, "intensity": "medium", "notes": "With Uttan Prishta and Malasana", "reps": 4, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "v-twisting-spinal-detox", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-anjaneyasana", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-utthan-pristhasana", "order": 3, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-upavistha-konasana", "order": 4, "intensity": "medium", "notes": "Side variation", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-parivrtta-janu", "order": 5, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": "With sectional breathing", "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-hip-mobility', 'Hip Mobility', 'Hip mobility with warrior flow vinyasa', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-butterfly", "order": 1, "intensity": "medium", "notes": null, "reps": 20, "durationMinutes": null},
+    {"asanaId": "ex-low-lunge-dyn", "order": 2, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null},
+    {"asanaId": "ex-lying-pigeon-prep", "order": 3, "intensity": "medium", "notes": null, "reps": 5, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-a", "order": 1, "intensity": "medium", "notes": null, "reps": 6, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "v-hip-mobility-warrior", "order": 1, "intensity": "medium", "notes": "3 rounds", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-anjaneyasana", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-utthan-pristhasana", "order": 3, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-upavistha-konasana", "order": 4, "intensity": "medium", "notes": "Side variation", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-setu-bandhasana", "order": 5, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": "With sectional breathing", "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-hip-opening', 'Hip Opening', 'Deep hip opening with pigeon and puppy pose', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-butterfly", "order": 1, "intensity": "medium", "notes": null, "reps": 20, "durationMinutes": null},
+    {"asanaId": "ex-butterfly", "order": 2, "intensity": "medium", "notes": "Variation with hand raise up and forward", "reps": 5, "durationMinutes": null},
+    {"asanaId": "a-malasana", "order": 3, "intensity": "medium", "notes": "Alternate hand raise", "reps": 5, "durationMinutes": null},
+    {"asanaId": "ex-frog-pose-rot", "order": 4, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-b", "order": 1, "intensity": "medium", "notes": null, "reps": 4, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "a-anjaneyasana", "order": 1, "intensity": "medium", "notes": null, "reps": 2, "durationMinutes": null},
+    {"asanaId": "a-utthan-pristhasana", "order": 2, "intensity": "medium", "notes": null, "reps": 2, "durationMinutes": null},
+    {"asanaId": "a-eka-pada-rajakapo", "order": 3, "intensity": "medium", "notes": null, "reps": 2, "durationMinutes": null},
+    {"asanaId": "a-uttana-shishosana", "order": 4, "intensity": "low", "notes": null, "reps": 2, "durationMinutes": null},
+    {"asanaId": "a-matsyasana", "order": 5, "intensity": "medium", "notes": "Wheel under spine", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-pavanamuktasana", "order": 6, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-kapalabhati", "order": 1, "intensity": "medium", "notes": "30-40 pumps", "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-hips-lower-body', 'Hips & Lower Body', 'Lower body focus with prone backbends', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-butterfly", "order": 1, "intensity": "medium", "notes": null, "reps": 20, "durationMinutes": null},
+    {"asanaId": "a-anjaneyasana", "order": 2, "intensity": "medium", "notes": "Stretch", "reps": 5, "durationMinutes": null},
+    {"asanaId": "ex-frog-pose-rot", "order": 3, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-a", "order": 1, "intensity": "medium", "notes": null, "reps": 6, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "a-triyak-bhujangasana", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-shalabhasana", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-dhanurasana", "order": 3, "intensity": "high", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-matsyasana", "order": 4, "intensity": "medium", "notes": "Wheel under spine", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-pavanamuktasana", "order": 5, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-kapalabhati", "order": 1, "intensity": "medium", "notes": "30-40 pumps", "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+-- =============================================
+-- SPINE & BACK
+-- =============================================
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-spinal-strength-1', 'Spinal Strength (1)', 'Spinal strength with twisting detox flow and supported poses', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-cat-cow", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null},
+    {"asanaId": "ex-wrist-shoulder-rot", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-a", "order": 1, "intensity": "medium", "notes": null, "reps": 4, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "v-twisting-spinal-detox", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-balasana", "order": 2, "intensity": "low", "notes": "Side stretch variation", "reps": null, "durationMinutes": null},
+    {"asanaId": "ex-thread-needle", "order": 3, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-janu-sirshasana", "order": 4, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-matsyasana", "order": 5, "intensity": "medium", "notes": "Supported", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-supta-matsyendrasana", "order": 6, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": "With sectional breathing", "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-spinal-strength-2', 'Spinal Strength (2)', 'Spinal strength with forward bends and shoulder stand', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-cat-cow", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null},
+    {"asanaId": "ex-wrist-shoulder-rot", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-a", "order": 1, "intensity": "medium", "notes": null, "reps": 4, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "v-twisting-spinal-detox", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-uttana-shishosana", "order": 2, "intensity": "low", "notes": "Heart-melting pose", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-paschimottanasana", "order": 3, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-setu-bandhasana", "order": 4, "intensity": "medium", "notes": "Supported", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-sarvangasana", "order": 5, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-pavanamuktasana", "order": 6, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": "With sectional breathing", "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-spine-back-1', 'Spine & Back (1)', 'Spine strengthening with locust-warrior vinyasa', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-wrist-shoulder-rot", "order": 1, "intensity": "medium", "notes": null, "reps": 5, "durationMinutes": null},
+    {"asanaId": "ex-low-lunge-dyn", "order": 2, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null},
+    {"asanaId": "a-bhujangasana", "order": 3, "intensity": "medium", "notes": "Cobra to Mountain dynamic", "reps": 5, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-a", "order": 1, "intensity": "medium", "notes": null, "reps": 6, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "v-spine-strengthening", "order": 1, "intensity": "medium", "notes": "6 rounds", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-setu-bandhasana", "order": 2, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-sarvangasana", "order": 3, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-matsyasana", "order": 4, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-jathara-parivartan", "order": 5, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": "With sectional breathing", "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-spine-back-2', 'Spine & Back (2)', 'Spine and back with warrior flow and hip openers', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "a-supta-matsyendrasana", "order": 1, "intensity": "medium", "notes": "Seated twists", "reps": 5, "durationMinutes": null},
+    {"asanaId": "ex-cat-cow", "order": 2, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null},
+    {"asanaId": "ex-wrist-shoulder-rot", "order": 3, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-a", "order": 1, "intensity": "medium", "notes": null, "reps": 6, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "v-warrior-1-2", "order": 1, "intensity": "medium", "notes": "3 rounds", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-malasana", "order": 2, "intensity": "medium", "notes": "Keep spine long, knees wide", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-baddha-konasana", "order": 3, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-eka-pada-rajakapo", "order": 4, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-setu-bandhasana", "order": 5, "intensity": "medium", "notes": "Wheel under sacrum", "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-bhramari", "order": 1, "intensity": "medium", "notes": null, "reps": 7, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+-- =============================================
+-- BACKBEND / CHEST / SHOULDER
+-- =============================================
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-backbend-progression', 'Backbend Progression', 'Progressive backbend practice from sphinx to full wheel', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-cat-cow", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null},
+    {"asanaId": "ex-dyn-setu", "order": 2, "intensity": "medium", "notes": "1 leg variation", "reps": 5, "durationMinutes": null},
+    {"asanaId": "ex-dyn-sphinx", "order": 3, "intensity": "medium", "notes": null, "reps": 5, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-a", "order": 1, "intensity": "medium", "notes": null, "reps": 6, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "a-sphinx-pose", "order": 1, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-dhanurasana", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-ustrasana", "order": 3, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-chakrasana", "order": 4, "intensity": "high", "notes": "Wheel under mid-back", "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-bhramari", "order": 1, "intensity": "medium", "notes": null, "reps": 7, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-shoulder-core', 'Shoulder & Core Stability', 'Combined shoulder and core work with plank flows', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-wrist-shoulder-rot", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null},
+    {"asanaId": "ex-thread-needle", "order": 2, "intensity": "medium", "notes": null, "reps": 5, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-a", "order": 1, "intensity": "medium", "notes": null, "reps": 6, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "v-plank-chaturanga", "order": 1, "intensity": "high", "notes": "3 rounds", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-purvottanasana", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-navasana", "order": 3, "intensity": "high", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-utkatasana", "order": 4, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-chakrasana", "order": 5, "intensity": "high", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-bhramari", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": "With sectional breathing", "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-shoulder-chest-opening', 'Shoulder & Chest Opening', 'Shoulder and chest opening with plank-dolphin flow', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-wrist-shoulder-rot", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null},
+    {"asanaId": "a-uttana-shishosana", "order": 2, "intensity": "medium", "notes": "Puppy stretch 30 sec", "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-a", "order": 1, "intensity": "medium", "notes": null, "reps": 6, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "v-plank-dolphin", "order": 1, "intensity": "medium", "notes": "3 rounds", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-ustrasana", "order": 2, "intensity": "medium", "notes": "Thighs grounded, chest lifted", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-gomukhasana", "order": 3, "intensity": "medium", "notes": "Shoulder stretch, sit tall", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-purvottanasana", "order": 4, "intensity": "medium", "notes": "Lift chest, engage core", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-matsyasana", "order": 5, "intensity": "medium", "notes": "Wheel under spine", "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-shoulders-chest', 'Shoulders & Chest', 'Shoulder stability and chest opening with Nadi Shodhana', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-wrist-shoulder-rot", "order": 1, "intensity": "medium", "notes": "Arm circles", "reps": 10, "durationMinutes": null},
+    {"asanaId": "kr-griva-shakti", "order": 2, "intensity": "medium", "notes": "Neck rotations 2 min", "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-a", "order": 1, "intensity": "medium", "notes": null, "reps": 6, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "v-shoulder-stability", "order": 1, "intensity": "medium", "notes": "3 rounds", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-ustrasana", "order": 2, "intensity": "medium", "notes": "Lift chest, thighs grounded", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-gomukhasana", "order": 3, "intensity": "medium", "notes": "Shoulder stretch, sit tall", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-purvottanasana", "order": 4, "intensity": "medium", "notes": "Engage core, lift chest", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-matsyasana", "order": 5, "intensity": "medium", "notes": "Wheel under spine", "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-nadi-shodhana", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+-- =============================================
+-- FLEXIBILITY & RELAXATION / LATERAL
+-- =============================================
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-flexibility-relaxation', 'Flexibility & Relaxation', 'Gentle flexibility practice with Sheetali pranayama for cooling', 'beginner', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-wrist-shoulder-rot", "order": 1, "intensity": "medium", "notes": null, "reps": 10, "durationMinutes": null},
+    {"asanaId": "kr-griva-shakti", "order": 2, "intensity": "medium", "notes": "Neck rolls", "reps": 5, "durationMinutes": null},
+    {"asanaId": "ex-triyak-tadasana", "order": 3, "intensity": "medium", "notes": "Seated side bends", "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-a", "order": 1, "intensity": "medium", "notes": null, "reps": 6, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "v-flexibility", "order": 1, "intensity": "low", "notes": "3 rounds", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-paschimottanasana", "order": 2, "intensity": "low", "notes": "Lengthen spine, hinge from hips", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-supta-baddha-kon", "order": 3, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-viparita-karani", "order": 4, "intensity": "low", "notes": "Legs vertical, sacrum neutral", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-matsyasana", "order": 5, "intensity": "low", "notes": "Supported, spine on wheel", "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-sheetali", "order": 1, "intensity": "medium", "notes": null, "reps": 7, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-lateral-bending', 'Lateral Bending', 'Side body opening and lateral flexibility', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-low-lunge-dyn", "order": 1, "intensity": "medium", "notes": "Knee bend with one leg stretch laterally", "reps": 10, "durationMinutes": null},
+    {"asanaId": "ex-triyak-tadasana", "order": 2, "intensity": "medium", "notes": null, "reps": 5, "durationMinutes": null},
+    {"asanaId": "ex-triyak-tadasana", "order": 3, "intensity": "medium", "notes": "Seated side bends", "reps": 10, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": [
+    {"asanaId": "sn-ashtanga-a", "order": 1, "intensity": "medium", "notes": null, "reps": 6, "durationMinutes": null}
+  ]},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "a-parsvakonasana", "order": 1, "intensity": "medium", "notes": "With wheel front rolling", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-ardha-chandrasana", "order": 2, "intensity": "medium", "notes": "With wheel or block", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-parighasana", "order": 3, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-ardha-mandala", "order": 4, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-parivrtta-janu", "order": 5, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-halasana", "order": 6, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-bhramari", "order": 1, "intensity": "medium", "notes": null, "reps": 7, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+-- =============================================
+-- YOGA PROTOCOL
+-- =============================================
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-yoga-protocol', 'Yoga Protocol', 'Traditional yoga protocol with Sthula Vyayama and comprehensive asana set', 'beginner', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "kr-griva-shakti", "order": 1, "intensity": "medium", "notes": "I, II, III, IV", "reps": null, "durationMinutes": null},
+    {"asanaId": "ex-wrist-shoulder-rot", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "kr-kati-shakti", "order": 3, "intensity": "medium", "notes": "I, II, III, IV, V", "reps": null, "durationMinutes": null},
+    {"asanaId": "kr-pindali-vikasak", "order": 4, "intensity": "medium", "notes": "Knee movement Jangha Shakti Vikasaka", "reps": null, "durationMinutes": null},
+    {"asanaId": "ex-sarvanga-pushti", "order": 5, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "ex-hrid-gati", "order": 6, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": []},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "a-tadasana", "order": 1, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-vrikshasana", "order": 2, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-ardha-chakrasana", "order": 3, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-padahastasana", "order": 4, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-kati-chakrasana", "order": 5, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-trikonasana", "order": 6, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-dandasana", "order": 7, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-vajrasana", "order": 8, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-bhadrasana", "order": 9, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-mandukasana", "order": 10, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-ustrasana", "order": 11, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-shashankasana", "order": 12, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-uttana-mandukasana", "order": 13, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-paschimottanasana", "order": 14, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-purvottanasana", "order": 15, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-vakrasana", "order": 16, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-gomukhasana", "order": 17, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-bhujangasana", "order": 18, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-shalabhasana", "order": 19, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-makarasana", "order": 20, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-pavanamuktasana", "order": 21, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-uttanapadasana", "order": 22, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-halasana", "order": 23, "intensity": "medium", "notes": "Ardha Halasana variation", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-setu-bandhasana", "order": 24, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-viparita-karani", "order": 25, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-matsyasana", "order": 26, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-sectional-breathing", "order": 1, "intensity": "medium", "notes": "Abdominal, thoracic and clavicular", "reps": null, "durationMinutes": null},
+    {"asanaId": "pr-yogic-deep-breathing", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": "With sectional breathing", "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+-- =============================================
+-- MEDITATION PLANS
+-- =============================================
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-meditation-wed-1', 'Meditation Wednesday (1)', 'Gentle asana flow followed by So Hum meditation', 'beginner', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-cat-cow", "order": 1, "intensity": "medium", "notes": null, "reps": 5, "durationMinutes": null},
+    {"asanaId": "a-tadasana", "order": 2, "intensity": "medium", "notes": "Seated Tadasana and Triyak Tadasana", "reps": 5, "durationMinutes": null},
+    {"asanaId": "a-urdhva-mukha-svan", "order": 3, "intensity": "medium", "notes": "Child Pose to Upward Dog dynamic", "reps": 5, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": []},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "a-hasta-uttanasana", "order": 1, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-tadasana", "order": 2, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-ardha-chakrasana", "order": 3, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-ustrasana", "order": 4, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-ardha-matsyendrasana", "order": 5, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-anjaneyasana", "order": 6, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-bhujangasana", "order": 7, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-setu-bandhasana", "order": 8, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-supta-baddha-kon", "order": 9, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-matsyasana", "order": 10, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": "So Hum Practice", "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-meditation-wed-2', 'Meditation Wednesday (2)', 'Shorter asana set with Box Breathing and Yoga Nidra', 'beginner', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "ex-cat-cow", "order": 1, "intensity": "medium", "notes": null, "reps": 5, "durationMinutes": null},
+    {"asanaId": "a-tadasana", "order": 2, "intensity": "medium", "notes": "Seated Tadasana and Triyak Tadasana", "reps": 5, "durationMinutes": null},
+    {"asanaId": "a-urdhva-mukha-svan", "order": 3, "intensity": "medium", "notes": "Child Pose to Upward Dog dynamic", "reps": 5, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": []},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "a-tadasana", "order": 1, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-ardha-chakrasana", "order": 2, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-anjaneyasana", "order": 3, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-pincha-mayurasana", "order": 4, "intensity": "high", "notes": "With wheel support", "reps": null, "durationMinutes": null},
+    {"asanaId": "a-setu-bandhasana", "order": 5, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-supta-baddha-kon", "order": 6, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-matsyasana", "order": 7, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-bhastrika", "order": 1, "intensity": "medium", "notes": "Box Breathing or Pranva Jap and Bhastrika", "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-yoga-nidra", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": 10}
+  ]}
+]', 0, TRUE);
+
+INSERT IGNORE INTO session_plans (id, name, description, level, version, sections, usage_count, is_active) VALUES
+('sp-meditation-wed-3', 'Meditation Wednesday (3)', 'Balance-focused with Pranava Jap meditation', 'intermediate', 1, '[
+  {"sectionType": "WARM_UP", "order": 1, "items": [
+    {"asanaId": "kr-griva-shakti", "order": 1, "intensity": "medium", "notes": "Kriya 1-3", "reps": 5, "durationMinutes": null},
+    {"asanaId": "ex-wrist-shoulder-rot", "order": 2, "intensity": "medium", "notes": null, "reps": 5, "durationMinutes": null},
+    {"asanaId": "ex-cat-cow", "order": 3, "intensity": "medium", "notes": null, "reps": 5, "durationMinutes": null},
+    {"asanaId": "kr-pindali-vikasak", "order": 4, "intensity": "medium", "notes": null, "reps": 5, "durationMinutes": null},
+    {"asanaId": "ex-sarvanga-pushti", "order": 5, "intensity": "medium", "notes": null, "reps": 5, "durationMinutes": null},
+    {"asanaId": "a-adho-mukha-svan", "order": 6, "intensity": "medium", "notes": "Downward Dog to Upward Dog dynamic", "reps": 5, "durationMinutes": null}
+  ]},
+  {"sectionType": "SURYA_NAMASKARA", "order": 2, "items": []},
+  {"sectionType": "ASANA_SEQUENCE", "order": 3, "items": [
+    {"asanaId": "a-tadasana", "order": 1, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-vrikshasana", "order": 2, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-garudasana", "order": 3, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-ek-pada-angustha", "order": 4, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-natarajasana", "order": 5, "intensity": "high", "notes": null, "reps": null, "durationMinutes": null},
+    {"asanaId": "a-jathara-parivartan", "order": 6, "intensity": "low", "notes": null, "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "PRANAYAMA", "order": 4, "items": [
+    {"asanaId": "pr-anulom-vilom", "order": 1, "intensity": "medium", "notes": "Pranava Jap Meditation", "reps": null, "durationMinutes": null}
+  ]},
+  {"sectionType": "SHAVASANA", "order": 5, "items": [
+    {"asanaId": "rl-shavasana", "order": 1, "intensity": "medium", "notes": null, "reps": null, "durationMinutes": 5}
+  ]}
+]', 0, TRUE);
+
+-- =============================================
+-- STEP 2: REMAP — Update FKs in allocations & executions
+-- Now that new session plans exist (from INSERTs above), we can
+-- match old plans to new plans by name and update FK references.
+-- =============================================
+
+-- Remap session_plan_allocations to new plan IDs
+UPDATE session_plan_allocations spa
+  JOIN session_plans old_sp ON spa.session_plan_id = old_sp.id AND old_sp.id NOT LIKE 'sp-%'
+  JOIN session_plans new_sp ON new_sp.id LIKE 'sp-%' AND new_sp.name = old_sp.name
+  SET spa.session_plan_id = new_sp.id;
+
+-- Remap session_executions to new plan IDs
+UPDATE session_executions se
+  JOIN session_plans old_sp ON se.session_plan_id = old_sp.id AND old_sp.id NOT LIKE 'sp-%'
+  JOIN session_plans new_sp ON new_sp.id LIKE 'sp-%' AND new_sp.name = old_sp.name
+  SET se.session_plan_id = new_sp.id;
+
+-- NOTE: No session plans, allocations, or executions are deleted.
+-- The REMAP above updated all FK references to new sp- IDs where names matched.
