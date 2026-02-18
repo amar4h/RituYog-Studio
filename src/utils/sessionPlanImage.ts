@@ -46,7 +46,7 @@ export interface SessionPlanImageData {
 // ============================================
 
 const BRAND = '#4F46E5';
-const BRAND_LIGHT = '#EEF2FF';
+const BRAND_LIGHT = '#E0E7FF';
 const W = 360;         // canvas width — matches common phone CSS width
 const SCALE = 3;       // 3x retina → 1080px wide JPG (matches most phones)
 const PAD = 12;        // horizontal padding
@@ -91,10 +91,10 @@ interface Tier {
 }
 
 function getTier(n: number): Tier {
-  if (n <= 8)  return { title: 18, section: 13, item: 13, pad: 4, gap: 5, showSanskrit: true,  maxChild: 42, maxTitle: 30, maxDesc: 45 };
-  if (n <= 15) return { title: 17, section: 12, item: 12, pad: 3, gap: 4, showSanskrit: true,  maxChild: 36, maxTitle: 34, maxDesc: 48 };
-  if (n <= 22) return { title: 16, section: 11, item: 11, pad: 2, gap: 3, showSanskrit: true,  maxChild: 30, maxTitle: 38, maxDesc: 52 };
-  return            { title: 14, section: 10, item: 10, pad: 1, gap: 2, showSanskrit: false, maxChild: 24, maxTitle: 42, maxDesc: 60 };
+  if (n <= 8)  return { title: 21, section: 16, item: 16, pad: 4, gap: 5, showSanskrit: true,  maxChild: 42, maxTitle: 30, maxDesc: 45 };
+  if (n <= 15) return { title: 20, section: 15, item: 15, pad: 3, gap: 4, showSanskrit: true,  maxChild: 36, maxTitle: 34, maxDesc: 48 };
+  if (n <= 22) return { title: 19, section: 14, item: 14, pad: 2, gap: 3, showSanskrit: true,  maxChild: 30, maxTitle: 38, maxDesc: 52 };
+  return            { title: 17, section: 13, item: 13, pad: 1, gap: 2, showSanskrit: false, maxChild: 24, maxTitle: 42, maxDesc: 60 };
 }
 
 // ============================================
@@ -168,7 +168,7 @@ function estimateChildLines(text: string, fontSize: number, maxWidth: number): n
 function calcHeight(t: Tier, sections: SessionPlanImageSection[], hasDesc: boolean, hasFooter: boolean): number {
   const titleH = t.title + 4;
   const descH = hasDesc ? 15 : 0;
-  const sectionH = t.section + 5;
+  const sectionH = t.section + 9;
   const itemH = t.item + 4 + t.pad * 2;
   const childFont = t.item - 1;
   const childLineH = childFont + 2;
@@ -230,7 +230,7 @@ export async function downloadSessionPlanAsJPG(data: SessionPlanImageData): Prom
 
   // ---- Sizing derived from (possibly compressed) tier ----
   const titleH = t.title + 4;
-  const sectionH = t.section + 5;
+  const sectionH = t.section + 9;
   const itemH = t.item + 4 + t.pad * 2;
 
   const totalH = Math.max(calcHeight(t, data.sections, hasDesc, hasFooter), MIN_H);
@@ -269,7 +269,7 @@ export async function downloadSessionPlanAsJPG(data: SessionPlanImageData): Prom
 
   // Studio name
   ctx.fillStyle = '#ffffff';
-  setFont(ctx, 14, '600');
+  setFont(ctx, t.section, '600');
   ctx.textBaseline = 'middle';
   ctx.fillText(truncate(data.studioName, 22), hx, hcy);
 
@@ -295,8 +295,8 @@ export async function downloadSessionPlanAsJPG(data: SessionPlanImageData): Prom
   // ================================================================
   if (logo) {
     ctx.save();
-    ctx.globalAlpha = 0.06;
-    const ws = 120;
+    ctx.globalAlpha = 0.15;
+    const ws = 240;
     ctx.drawImage(logo, W / 2 - ws / 2, totalH / 2 - ws / 2, ws, ws);
     ctx.restore();
   }
@@ -461,7 +461,7 @@ export async function downloadSessionPlanAsJPG(data: SessionPlanImageData): Prom
         const flow = item.childSteps.join(' → ');
         const childFont = t.item - 1;
         setFont(ctx, childFont);
-        ctx.fillStyle = '#6B7280';
+        ctx.fillStyle = '#374151';
         ctx.textBaseline = 'top';
         const childX = PAD + 22;
         const childMaxW = W - PAD - childX;
