@@ -176,7 +176,10 @@ export function LeadDetailPage() {
             <Badge variant="outline">{lead.source}</Badge>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Link to={`/admin/leads/${lead.id}/edit`}>
+            <Button variant="outline">Edit</Button>
+          </Link>
           {lead.status !== 'converted' && lead.status !== 'lost' && (
             <>
               <button

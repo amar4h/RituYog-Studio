@@ -18,6 +18,7 @@ const MemberDetailPage = lazy(() => import('../pages/admin/MemberDetailPage').th
 const MemberFormPage = lazy(() => import('../pages/admin/MemberFormPage').then(m => ({ default: m.MemberFormPage })));
 const LeadListPage = lazy(() => import('../pages/admin/LeadListPage').then(m => ({ default: m.LeadListPage })));
 const LeadDetailPage = lazy(() => import('../pages/admin/LeadDetailPage').then(m => ({ default: m.LeadDetailPage })));
+const LeadFormPage = lazy(() => import('../pages/admin/LeadFormPage').then(m => ({ default: m.LeadFormPage })));
 const SessionsPage = lazy(() => import('../pages/admin/SessionsPage').then(m => ({ default: m.SessionsPage })));
 const AttendancePage = lazy(() => import('../pages/admin/AttendancePage').then(m => ({ default: m.AttendancePage })));
 const PlanListPage = lazy(() => import('../pages/admin/PlanListPage').then(m => ({ default: m.PlanListPage })));
@@ -181,6 +182,14 @@ export const routes: RouteObject[] = [
             element: (
               <SuspenseWrapper>
                 <LeadDetailPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/admin/leads/:id/edit',
+            element: (
+              <SuspenseWrapper>
+                <LeadFormPage />
               </SuspenseWrapper>
             ),
           },
