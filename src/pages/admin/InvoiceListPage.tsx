@@ -38,6 +38,7 @@ export function InvoiceListPage() {
   const [discountAmount, setDiscountAmount] = useState(0);
   const [discountType, setDiscountType] = useState<'fixed' | 'percentage'>('fixed');
   const [discountReason, setDiscountReason] = useState('');
+  const [shippingCost, setShippingCost] = useState(0);
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
   const [invoiceStatus, setInvoiceStatus] = useState<InvoiceStatus>('sent');
@@ -192,7 +193,7 @@ export function InvoiceListPage() {
   const calculatedDiscount = discountType === 'percentage'
     ? Math.round(subtotal * discountAmount / 100)
     : discountAmount;
-  const total = Math.max(0, subtotal - calculatedDiscount);
+  const total = Math.max(0, subtotal + shippingCost - calculatedDiscount);
 
   // Reset form
   const resetForm = () => {
@@ -202,6 +203,7 @@ export function InvoiceListPage() {
     setDiscountAmount(0);
     setDiscountType('fixed');
     setDiscountReason('');
+    setShippingCost(0);
     setInvoiceDate(new Date().toISOString().split('T')[0]);
     setDueDate(new Date().toISOString().split('T')[0]);
     setInvoiceStatus('sent');
@@ -230,6 +232,7 @@ export function InvoiceListPage() {
       setDiscountType('fixed');
     }
     setDiscountReason(invoice.discountReason || '');
+    setShippingCost(invoice.shippingCost || 0);
     setInvoiceDate(invoice.invoiceDate);
     setDueDate(invoice.dueDate);
     setInvoiceStatus(invoice.status);
@@ -279,6 +282,7 @@ export function InvoiceListPage() {
           amount: subtotal,
           discount: calculatedDiscount,
           discountReason: discountReason || undefined,
+          shippingCost: shippingCost || undefined,
           totalAmount: total,
           status: invoiceStatus,
           notes: invoiceNotes || undefined
@@ -295,6 +299,7 @@ export function InvoiceListPage() {
           amount: subtotal,
           discount: calculatedDiscount,
           discountReason: discountReason || undefined,
+          shippingCost: shippingCost || undefined,
           totalAmount: total,
           amountPaid: 0,
           status: invoiceStatus,
@@ -782,6 +787,22 @@ export function InvoiceListPage() {
             </div>
           </div>
 
+          {/* Shipping Cost (product sales only) */}
+          {invoiceType === 'product-sale' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Shipping Cost (optional)
+              </label>
+              <Input
+                type="number"
+                min={0}
+                placeholder="0"
+                value={shippingCost || ''}
+                onChange={(e) => setShippingCost(parseFloat(e.target.value) || 0)}
+              />
+            </div>
+          )}
+
           {/* Dates and Status */}
           <div className="grid grid-cols-3 gap-4">
             <div>
@@ -831,6 +852,12 @@ export function InvoiceListPage() {
               <span className="text-gray-600">Subtotal</span>
               <span className="font-medium">{formatCurrency(subtotal)}</span>
             </div>
+            {shippingCost > 0 && (
+              <div className="flex justify-between text-sm text-gray-600">
+                <span>Shipping</span>
+                <span>+{formatCurrency(shippingCost)}</span>
+              </div>
+            )}
             {calculatedDiscount > 0 && (
               <div className="flex justify-between text-sm text-green-600">
                 <span>Discount{discountType === 'percentage' ? ` (${discountAmount}%)` : ''}</span>

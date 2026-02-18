@@ -147,6 +147,7 @@ CREATE TABLE IF NOT EXISTS expenses (
     -- Amounts
     amount DECIMAL(10, 2) NOT NULL,
     tax_amount DECIMAL(10, 2) NULL DEFAULT 0,
+    shipping_cost DECIMAL(10, 2) NULL DEFAULT 0,
     total_amount DECIMAL(10, 2) NOT NULL,
     amount_paid DECIMAL(10, 2) NOT NULL DEFAULT 0,
 

@@ -10,7 +10,7 @@ class ExpensesHandler extends BaseHandler {
     protected array $jsonFields = ['items'];
     protected array $boolFields = ['is_recurring'];
     protected array $dateFields = ['expense_date', 'due_date', 'paid_date'];
-    protected array $numericFields = ['amount', 'tax_amount', 'total_amount', 'amount_paid'];
+    protected array $numericFields = ['amount', 'tax_amount', 'shipping_cost', 'total_amount', 'amount_paid'];
 
     /**
      * Get expenses by category

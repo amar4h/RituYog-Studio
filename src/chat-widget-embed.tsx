@@ -74,7 +74,7 @@ const styles = {
     justifyContent: 'center',
     transition: 'background-color 0.2s, box-shadow 0.2s',
   },
-  // Chat panel — desktop (overridden for mobile in component)
+  // Chat panel — desktop
   panel: {
     position: 'fixed' as const,
     bottom: '80px',
@@ -91,16 +91,13 @@ const styles = {
     border: '1px solid #e5e7eb',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   },
-  // Chat panel — mobile fullscreen
+  // Chat panel — mobile fullscreen (height set dynamically via JS)
   panelMobile: {
     position: 'fixed' as const,
-    top: 0,
     left: 0,
-    right: 0,
-    bottom: 0,
+    top: 0,
     zIndex: 99999,
     width: '100%',
-    height: '100%',
     backgroundColor: '#fff',
     borderRadius: 0,
     boxShadow: 'none',
@@ -150,6 +147,7 @@ const styles = {
     display: 'flex',
     flexDirection: 'column' as const,
     gap: '12px',
+    WebkitOverflowScrolling: 'touch' as const,
   },
   msgRow: (isUser: boolean) => ({
     display: 'flex',
@@ -194,7 +192,7 @@ const styles = {
     padding: '8px 14px',
     border: '1px solid #d1d5db',
     borderRadius: '24px',
-    fontSize: '14px',
+    fontSize: '16px',         // must be >=16px to prevent iOS auto-zoom on focus
     outline: 'none',
     fontFamily: 'inherit',
   },
@@ -253,7 +251,9 @@ function EmbedChatWidget() {
   const [isSending, setIsSending] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < MOBILE_BREAKPOINT);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     injectKeyframes();
@@ -266,11 +266,66 @@ function EmbedChatWidget() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Mobile fullscreen: size panel to visual viewport + block background touch/scroll
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen || !isMobile) return;
+
+    const el = panelRef.current;
+    if (!el) return;
+
+    // --- Size the panel to the visual viewport (keyboard-aware) ---
+    const vv = window.visualViewport;
+    const syncSize = () => {
+      if (!vv) {
+        el.style.height = `${window.innerHeight}px`;
+        el.style.top = '0px';
+        return;
+      }
+      el.style.height = `${vv.height}px`;
+      el.style.top = `${vv.offsetTop}px`;
+    };
+    syncSize();
+
+    if (vv) {
+      vv.addEventListener('resize', syncSize);
+      vv.addEventListener('scroll', syncSize);
+    }
+    // Also listen to window resize as fallback
+    window.addEventListener('resize', syncSize);
+
+    // --- Block ALL touch-scroll on the page except inside messages ---
+    const msgEl = messagesRef.current;
+    const blockTouch = (e: TouchEvent) => {
+      // Allow scrolling inside the messages area
+      if (msgEl && msgEl.contains(e.target as Node)) return;
+      e.preventDefault();
+    };
+    document.addEventListener('touchmove', blockTouch, { passive: false });
+
+    // --- Block body scroll via overflow ---
+    const origHtmlOverflow = document.documentElement.style.overflow;
+    const origBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      if (vv) {
+        vv.removeEventListener('resize', syncSize);
+        vv.removeEventListener('scroll', syncSize);
+      }
+      window.removeEventListener('resize', syncSize);
+      document.removeEventListener('touchmove', blockTouch);
+      document.documentElement.style.overflow = origHtmlOverflow;
+      document.body.style.overflow = origBodyOverflow;
+    };
+  }, [isOpen, isMobile]);
+
+  // Do NOT auto-focus input on mobile — prevents keyboard from pushing content on open
+  useEffect(() => {
+    if (isOpen && !isMobile) {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [isOpen]);
+  }, [isOpen, isMobile]);
 
   const handleSend = useCallback(async () => {
     const trimmed = input.trim();
@@ -320,9 +375,12 @@ function EmbedChatWidget() {
       setMessages((prev) => prev.map((m) => (m.isLoading ? errorMsg : m)));
     } finally {
       setIsSending(false);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      // Don't re-focus input on mobile — let user tap again if needed
+      if (!isMobile) {
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }
     }
-  }, [input, isSending, messages]);
+  }, [input, isSending, messages, isMobile]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -335,7 +393,7 @@ function EmbedChatWidget() {
     <>
       {/* Chat panel */}
       {isOpen && (
-        <div style={isMobile ? styles.panelMobile : styles.panel}>
+        <div ref={panelRef} style={isMobile ? styles.panelMobile : styles.panel}>
           {/* Header */}
           <div style={styles.header}>
             <div style={styles.headerTitle}>
@@ -354,7 +412,7 @@ function EmbedChatWidget() {
           </div>
 
           {/* Messages */}
-          <div style={styles.messages}>
+          <div ref={messagesRef} style={styles.messages}>
             {messages.map((msg) => (
               <div key={msg.id} style={styles.msgRow(msg.role === 'user')}>
                 <div style={styles.msgBubble(msg.role === 'user')}>

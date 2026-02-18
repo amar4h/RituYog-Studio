@@ -327,6 +327,7 @@ export interface Invoice extends BaseEntity {
   tax?: number;
   discount?: number;
   discountReason?: string;
+  shippingCost?: number;
   totalAmount: number;
   amountPaid: number;
 
@@ -478,6 +479,7 @@ export interface Expense extends BaseEntity {
   // Amounts
   amount: number;                 // Subtotal
   taxAmount?: number;
+  shippingCost?: number;
   totalAmount: number;
   amountPaid: number;
 

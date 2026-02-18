@@ -61,6 +61,10 @@ export function SubscriptionListPage() {
     {
       key: 'member',
       header: 'Member',
+      sortValue: (sub) => {
+        const member = memberService.getById(sub.memberId);
+        return member ? `${member.firstName} ${member.lastName}` : '';
+      },
       render: (sub) => {
         const member = memberService.getById(sub.memberId);
         if (!member) return <span className="text-gray-400">Unknown</span>;
@@ -77,6 +81,10 @@ export function SubscriptionListPage() {
     {
       key: 'plan',
       header: 'Plan',
+      sortValue: (sub) => {
+        const plan = membershipPlanService.getById(sub.planId);
+        return plan?.name || '';
+      },
       render: (sub) => {
         const plan = membershipPlanService.getById(sub.planId);
         return <span className="text-gray-600">{plan?.name || 'Unknown'}</span>;
@@ -85,6 +93,7 @@ export function SubscriptionListPage() {
     {
       key: 'period',
       header: 'Period',
+      sortValue: (sub) => sub.startDate,
       render: (sub) => (
         <div className="text-sm">
           <p className="text-gray-900">{formatDate(sub.startDate)}</p>
@@ -95,6 +104,7 @@ export function SubscriptionListPage() {
     {
       key: 'remaining',
       header: 'Remaining',
+      sortValue: (sub) => getDaysRemaining(sub.endDate),
       render: (sub) => {
         const days = getDaysRemaining(sub.endDate);
         if (days < 0) {
@@ -112,6 +122,7 @@ export function SubscriptionListPage() {
     {
       key: 'amount',
       header: 'Amount',
+      sortValue: (sub) => sub.payableAmount,
       render: (sub) => (
         <div className="text-sm">
           <p className="font-medium text-gray-900">{formatCurrency(sub.payableAmount)}</p>
@@ -124,6 +135,7 @@ export function SubscriptionListPage() {
     {
       key: 'status',
       header: 'Status',
+      sortValue: (sub) => sub.status,
       render: (sub) => (
         <div className="space-y-1">
           <StatusBadge status={sub.status} />
@@ -134,6 +146,7 @@ export function SubscriptionListPage() {
     {
       key: 'actions',
       header: '',
+      sortable: false,
       render: (sub) => {
         // Check if invoice exists - first by invoiceId, then by subscriptionId
         let invoice = sub.invoiceId ? invoiceService.getById(sub.invoiceId) : null;

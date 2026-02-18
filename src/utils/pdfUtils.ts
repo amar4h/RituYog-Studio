@@ -389,6 +389,11 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Blob> {
   // Subtotal
   addTotalRowWithAmount('Subtotal', invoice.amount);
 
+  // Shipping
+  if (invoice.shippingCost && invoice.shippingCost > 0) {
+    addTotalRowWithAmount('Shipping', invoice.shippingCost);
+  }
+
   // Discount
   if (invoice.discount && invoice.discount > 0) {
     const discountLabel = invoice.discountReason ? `Discount (${invoice.discountReason})` : 'Discount';

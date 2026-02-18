@@ -296,6 +296,7 @@ CREATE TABLE invoices (
     tax DECIMAL(10, 2) NULL DEFAULT 0,
     discount DECIMAL(10, 2) NULL DEFAULT 0,
     discount_reason VARCHAR(255) NULL,
+    shipping_cost DECIMAL(10, 2) NULL DEFAULT 0,
     total_amount DECIMAL(10, 2) NOT NULL,
     amount_paid DECIMAL(10, 2) NOT NULL DEFAULT 0,
 

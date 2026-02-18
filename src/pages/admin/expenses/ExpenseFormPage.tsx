@@ -44,6 +44,7 @@ export function ExpenseFormPage() {
   const [items, setItems] = useState<ExpenseItem[]>([
     { description: '', productId: '', quantity: 1, unitCost: 0, total: 0 },
   ]);
+  const [shippingCost, setShippingCost] = useState(0);
 
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -72,6 +73,7 @@ export function ExpenseFormPage() {
         if (expense.items.length > 0) {
           setItems(expense.items);
         }
+        setShippingCost(expense.shippingCost || 0);
       } else {
         setError('Expense not found');
       }
@@ -153,7 +155,8 @@ export function ExpenseFormPage() {
       }
 
       const amount = validItems.reduce((sum, item) => sum + item.total, 0);
-      const amountPaid = formData.paymentStatus === 'paid' ? amount : 0;
+      const totalWithShipping = amount + (formData.category === 'procurement' ? shippingCost : 0);
+      const amountPaid = formData.paymentStatus === 'paid' ? totalWithShipping : 0;
 
       const expenseData: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'> = {
         expenseNumber: isEditing ? '' : expenseNumber, // Will be ignored on update
@@ -163,7 +166,8 @@ export function ExpenseFormPage() {
         vendorContact: formData.vendorContact.trim() || undefined,
         vendorGstin: formData.vendorGstin.trim() || undefined,
         amount,
-        totalAmount: amount,
+        shippingCost: formData.category === 'procurement' && shippingCost > 0 ? shippingCost : undefined,
+        totalAmount: totalWithShipping,
         amountPaid,
         items: validItems,
         expenseDate: formData.expenseDate,
@@ -370,10 +374,35 @@ export function ExpenseFormPage() {
               ))}
             </div>
 
+            {/* Shipping Cost (procurement only) */}
+            {formData.category === 'procurement' && (
+              <div className="flex items-center gap-3 mt-4">
+                <span className="text-sm text-gray-500 whitespace-nowrap">Shipping Cost</span>
+                <div className="w-40">
+                  <input
+                    type="number"
+                    min="0"
+                    value={shippingCost || ''}
+                    onChange={(e) => setShippingCost(parseFloat(e.target.value) || 0)}
+                    placeholder="0"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-end mt-4">
               <div className="text-right">
+                {formData.category === 'procurement' && shippingCost > 0 && (
+                  <>
+                    <div className="text-sm text-gray-500">Subtotal: {formatCurrency(subtotal)}</div>
+                    <div className="text-sm text-gray-500">Shipping: {formatCurrency(shippingCost)}</div>
+                  </>
+                )}
                 <div className="text-sm text-gray-500">Total Amount</div>
-                <div className="text-2xl font-bold text-gray-900">{formatCurrency(subtotal)}</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(subtotal + (formData.category === 'procurement' ? shippingCost : 0))}
+                </div>
               </div>
             </div>
           </div>

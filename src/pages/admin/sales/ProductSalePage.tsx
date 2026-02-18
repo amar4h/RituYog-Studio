@@ -26,6 +26,7 @@ export function ProductSalePage() {
     { productId: '', product: null, quantity: 1, unitPrice: 0, total: 0 },
   ]);
   const [discount, setDiscount] = useState('0');
+  const [shippingCost, setShippingCost] = useState('0');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -97,7 +98,8 @@ export function ProductSalePage() {
 
   const subtotal = items.reduce((sum, item) => sum + item.total, 0);
   const discountAmount = parseFloat(discount) || 0;
-  const total = Math.max(0, subtotal - discountAmount);
+  const shippingAmount = parseFloat(shippingCost) || 0;
+  const total = Math.max(0, subtotal + shippingAmount - discountAmount);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,6 +149,7 @@ export function ProductSalePage() {
         items: invoiceItems,
         amount: subtotal,
         discount: discountAmount,
+        shippingCost: shippingAmount || undefined,
         tax: 0,
         totalAmount: total,
         amountPaid: 0,
@@ -299,12 +302,26 @@ export function ProductSalePage() {
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-500">Discount</span>
+              <span className="text-sm text-gray-500 whitespace-nowrap">Shipping</span>
               <div className="flex-1">
                 <input
                   type="number"
                   min="0"
-                  max={subtotal}
+                  value={shippingCost}
+                  onChange={(e) => setShippingCost(e.target.value)}
+                  placeholder="0"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-500 whitespace-nowrap">Discount</span>
+              <div className="flex-1">
+                <input
+                  type="number"
+                  min="0"
+                  max={subtotal + shippingAmount}
                   value={discount}
                   onChange={(e) => setDiscount(e.target.value)}
                   placeholder="0"

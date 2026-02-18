@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { AppRouter } from './router';
 import { initializeStorage, seedDemoData, syncEssentialData, isApiMode, settingsService } from './services';
-import { seedSessionPlanningData } from './data/seed-session-planning';
 
 // Initialize storage for localStorage mode
 // In API mode, syncFromApi will populate localStorage from the server
@@ -11,10 +10,6 @@ if (!isApiMode()) {
   initializeStorage();
   seedDemoData();
 }
-
-// Expose seed function on window for browser console usage:
-//   window.seedSessionPlanning()
-(window as unknown as Record<string, unknown>).seedSessionPlanning = seedSessionPlanningData;
 
 // Create a client
 const queryClient = new QueryClient({
@@ -28,28 +23,31 @@ const queryClient = new QueryClient({
 });
 
 function App() {
-  const [isLoading, setIsLoading] = useState(isApiMode());
-  const [syncError, setSyncError] = useState<string | null>(null);
-
+  // Sync essential data in background — don't block rendering
+  // Admin pages use useFreshData() to fetch their own data when accessed
   useEffect(() => {
     if (isApiMode()) {
-      // Sync only essential data (settings, slots, plans) on startup
-      // Admin pages will fetch their own data fresh when accessed
       syncEssentialData()
         .then(() => {
-          setIsLoading(false);
+          // Update favicon after settings are loaded
+          const settings = settingsService.getOrDefault();
+          if (settings.logoData) {
+            const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+            if (link) {
+              link.href = settings.logoData;
+            } else {
+              const newLink = document.createElement('link');
+              newLink.rel = 'icon';
+              newLink.href = settings.logoData;
+              document.head.appendChild(newLink);
+            }
+          }
         })
         .catch((error) => {
           console.error('Failed to sync essential data:', error);
-          setSyncError(error.message || 'Failed to connect to server');
-          setIsLoading(false);
         });
-    }
-  }, []);
-
-  // Set favicon from settings logo
-  useEffect(() => {
-    if (!isLoading) {
+    } else {
+      // Set favicon for localStorage mode
       const settings = settingsService.getOrDefault();
       if (settings.logoData) {
         const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
@@ -63,38 +61,7 @@ function App() {
         }
       }
     }
-  }, [isLoading]);
-
-  // Show loading state while syncing from API
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error if sync failed
-  if (syncError) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md p-6 bg-white rounded-lg shadow">
-          <div className="text-red-500 text-5xl mb-4">⚠️</div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Connection Error</h2>
-          <p className="text-gray-600 mb-4">{syncError}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
