@@ -72,6 +72,7 @@ export function ProductListPage() {
     {
       key: 'price',
       header: 'Price',
+      sortValue: (product) => product.sellingPrice,
       render: (product) => (
         <div className="text-right">
           <div className="font-medium text-gray-900">{formatCurrency(product.sellingPrice)}</div>
@@ -82,6 +83,7 @@ export function ProductListPage() {
     {
       key: 'stock',
       header: 'Stock',
+      sortValue: (product) => product.currentStock,
       render: (product) => {
         const isLow = product.currentStock <= product.lowStockThreshold;
         const isOut = product.currentStock === 0;
@@ -103,6 +105,7 @@ export function ProductListPage() {
     {
       key: 'value',
       header: 'Stock Value',
+      sortValue: (product) => product.currentStock * product.costPrice,
       render: (product) => (
         <span className="text-gray-600">{formatCurrency(product.currentStock * product.costPrice)}</span>
       ),
@@ -110,6 +113,7 @@ export function ProductListPage() {
     {
       key: 'actions',
       header: '',
+      sortable: false,
       render: (product) => (
         <div className="flex gap-2 justify-end">
           {product.currentStock > 0 && (

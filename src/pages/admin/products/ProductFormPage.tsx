@@ -102,7 +102,7 @@ export function ProductFormPage() {
         costPrice: parseFloat(formData.costPrice),
         sellingPrice: parseFloat(formData.sellingPrice),
         currentStock: parseInt(formData.currentStock) || 0,
-        lowStockThreshold: parseInt(formData.lowStockThreshold) || 5,
+        lowStockThreshold: isNaN(parseInt(formData.lowStockThreshold)) ? 5 : parseInt(formData.lowStockThreshold),
         unit: formData.unit,
         isActive: formData.isActive,
         barcode: formData.barcode.trim() || undefined,

@@ -207,6 +207,19 @@ function setWaitingCursor(waiting: boolean): void {
  * - localStorage is written first for immediate UI responsiveness
  * - API write happens asynchronously but reliably
  */
+// Track in-flight API writes so syncFeatureData can wait for them
+const pendingApiWrites = new Set<Promise<void>>();
+
+/**
+ * Wait for all pending API writes to complete.
+ * Called by syncFeatureData to avoid overwriting localStorage with stale API data.
+ */
+export async function waitForPendingWrites(): Promise<void> {
+  if (pendingApiWrites.size > 0) {
+    await Promise.all(pendingApiWrites);
+  }
+}
+
 function performApiWrite(operation: {
   type: 'create' | 'update' | 'delete';
   endpoint: string;
@@ -236,7 +249,7 @@ function performApiWrite(operation: {
   setWaitingCursor(true);
 
   // CHANGE 2: Use async fetch for reliable API writes (sync XHR is deprecated)
-  fetch(url, {
+  const writePromise = fetch(url, {
     method,
     headers: {
       'Content-Type': 'application/json',
@@ -257,7 +270,10 @@ function performApiWrite(operation: {
     .finally(() => {
       // CHANGE 3: Restore cursor after operation completes
       setWaitingCursor(false);
+      pendingApiWrites.delete(writePromise);
     });
+
+  pendingApiWrites.add(writePromise);
 }
 
 // Storage key to endpoint mapping
@@ -5744,6 +5760,10 @@ export async function syncFeatureData(features: string[]): Promise<void> {
     console.log('[Storage] localStorage mode - no feature sync needed');
     return;
   }
+
+  // Wait for any in-flight API writes to complete before fetching,
+  // otherwise we may overwrite localStorage with stale data from the server
+  await waitForPendingWrites();
 
   console.log('[Storage] Syncing feature data:', features);
 
