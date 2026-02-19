@@ -1,19 +1,31 @@
 import { useState, useMemo } from 'react';
-import { Card, Button, Select, PageLoading, Badge } from '../../../components/common';
-import { sessionAnalyticsService, asanaService, sessionPlanService, slotService } from '../../../services';
+import { Card, Button, Select, SearchableSelect, PageLoading, Badge, Alert } from '../../../components/common';
+import { sessionAnalyticsService, slotService, memberService } from '../../../services';
 import { useFreshData } from '../../../hooks';
 import { BODY_AREA_LABELS } from '../../../constants';
-import type { DifficultyLevel, BodyArea } from '../../../types';
-import { format, subMonths, subDays, startOfMonth, endOfMonth } from 'date-fns';
+import type { DifficultyLevel } from '../../../types';
+import { format, subMonths, subDays } from 'date-fns';
+import { getReportPeriod, PERIOD_TYPE_OPTIONS, getPeriodPreviewLabel } from '../../../utils/reportPeriods';
+import type { PeriodType as RPeriodType, PeriodOffset } from '../../../utils/reportPeriods';
+import { downloadMemberReportAsJPG, downloadBatchReportAsJPG, getMemberReportBlob, getBatchReportBlob } from '../../../utils/memberReportImage';
 
-type ReportTab = 'asana-usage' | 'body-area' | 'benefits' | 'plan-effectiveness';
-type PeriodType = '30d' | '3m' | '6m' | '12m';
+type ReportTab = 'asana-usage' | 'body-area' | 'benefits' | 'plan-effectiveness' | 'member-reports';
+type AnalyticsPeriod = '30d' | '3m' | '6m' | '12m';
 
 export function SessionReportsPage() {
-  const { isLoading } = useFreshData(['session-executions', 'asanas', 'session-plans', 'slots']);
+  const { isLoading } = useFreshData(['session-executions', 'asanas', 'session-plans', 'slots', 'members', 'subscriptions', 'attendance']);
   const [activeTab, setActiveTab] = useState<ReportTab>('asana-usage');
-  const [period, setPeriod] = useState<PeriodType>('3m');
+  const [period, setPeriod] = useState<AnalyticsPeriod>('3m');
   const [selectedSlotId, setSelectedSlotId] = useState<string>(''); // '' means all slots
+
+  // Member Reports tab state
+  const [reportType, setReportType] = useState<'member' | 'batch'>('batch');
+  const [rptPeriodType, setRptPeriodType] = useState<RPeriodType>('monthly');
+  const [rptPeriodOffset, setRptPeriodOffset] = useState<PeriodOffset>('current');
+  const [rptSlotId, setRptSlotId] = useState<string>('');
+  const [rptMemberId, setRptMemberId] = useState<string>('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [rptError, setRptError] = useState('');
 
   // Get slots for filter
   const slots = useMemo(() => {
@@ -46,6 +58,13 @@ export function SessionReportsPage() {
 
     return { startDate: start, endDate: end };
   }, [period]);
+
+  // Member reports: slot members for dropdown
+  const rptPeriod = useMemo(() => getReportPeriod(rptPeriodType, rptPeriodOffset), [rptPeriodType, rptPeriodOffset]);
+  const slotMembers = useMemo(() => {
+    if (isLoading || !rptSlotId) return [];
+    return sessionAnalyticsService.getSlotMembersForPeriod(rptSlotId, rptPeriod.startDate, rptPeriod.endDate);
+  }, [isLoading, rptSlotId, rptPeriod]);
 
   // Get report data (filtered by slot if selected)
   const slotFilter = selectedSlotId || undefined;
@@ -88,9 +107,10 @@ export function SessionReportsPage() {
     { id: 'body-area', label: 'Body Area Focus' },
     { id: 'benefits', label: 'Benefits' },
     { id: 'plan-effectiveness', label: 'Plan Effectiveness' },
+    { id: 'member-reports', label: 'Member Reports' },
   ];
 
-  const periods: { value: PeriodType; label: string }[] = [
+  const periods: { value: AnalyticsPeriod; label: string }[] = [
     { value: '30d', label: 'Last 30 Days' },
     { value: '3m', label: 'Last 3 Months' },
     { value: '6m', label: 'Last 6 Months' },
@@ -140,7 +160,7 @@ export function SessionReportsPage() {
           {/* Period Filter */}
           <Select
             value={period}
-            onChange={(e) => setPeriod(e.target.value as PeriodType)}
+            onChange={(e) => setPeriod(e.target.value as AnalyticsPeriod)}
             options={periods.map(p => ({ value: p.value, label: p.label }))}
           />
         </div>
@@ -359,6 +379,203 @@ export function SessionReportsPage() {
               </table>
             </div>
           )}
+        </Card>
+      )}
+
+      {activeTab === 'member-reports' && (
+        <Card className="p-4">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Generate Reports</h3>
+
+          {rptError && (
+            <Alert variant="error" dismissible onDismiss={() => setRptError('')} className="mb-4">
+              {rptError}
+            </Alert>
+          )}
+
+          {/* Report type toggle */}
+          <div className="flex gap-2 mb-4">
+            <button
+              type="button"
+              onClick={() => { setReportType('member'); setRptMemberId(''); }}
+              className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                reportType === 'member'
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Member Report
+            </button>
+            <button
+              type="button"
+              onClick={() => setReportType('batch')}
+              className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
+                reportType === 'batch'
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Batch Report
+            </button>
+          </div>
+
+          {/* Config form */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <Select
+              label="Period"
+              value={rptPeriodType}
+              onChange={(e) => setRptPeriodType(e.target.value as RPeriodType)}
+              options={PERIOD_TYPE_OPTIONS.map(p => ({ value: p.value, label: p.label }))}
+            />
+            <Select
+              label="Timeframe"
+              value={rptPeriodOffset}
+              onChange={(e) => setRptPeriodOffset(e.target.value as PeriodOffset)}
+              options={[
+                { value: 'current', label: 'Current' },
+                { value: 'previous', label: 'Previous' },
+              ]}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <Select
+              label="Batch / Slot"
+              value={rptSlotId}
+              onChange={(e) => { setRptSlotId(e.target.value); setRptMemberId(''); }}
+              options={[
+                { value: '', label: 'Select a batch...' },
+                ...slots.map(s => ({ value: s.id, label: s.displayName })),
+              ]}
+              required
+            />
+            {reportType === 'member' && (
+              <SearchableSelect
+                label="Member"
+                value={rptMemberId}
+                onChange={setRptMemberId}
+                placeholder={rptSlotId ? 'Type to search members...' : 'Select a batch first'}
+                options={slotMembers.map(m => ({
+                  value: m.memberId,
+                  label: m.memberName,
+                }))}
+                required
+              />
+            )}
+          </div>
+
+          {/* Period preview */}
+          <p className="text-xs text-gray-500 mb-4">
+            {getPeriodPreviewLabel(rptPeriodType, rptPeriodOffset)}
+          </p>
+
+          {/* Action buttons */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              onClick={async () => {
+                setRptError('');
+                if (!rptSlotId) { setRptError('Please select a batch'); return; }
+                if (reportType === 'member' && !rptMemberId) { setRptError('Please select a member'); return; }
+
+                setIsGenerating(true);
+                try {
+                  const p = rptPeriod;
+                  if (reportType === 'member') {
+                    const data = sessionAnalyticsService.getMemberSessionReport(rptMemberId, rptSlotId, p.startDate, p.endDate);
+                    await downloadMemberReportAsJPG(data, p);
+                  } else {
+                    const data = sessionAnalyticsService.getBatchSessionReport(rptSlotId, p.startDate, p.endDate);
+                    await downloadBatchReportAsJPG(data, p);
+                  }
+                } catch (err) {
+                  setRptError(err instanceof Error ? err.message : 'Failed to generate report');
+                } finally {
+                  setIsGenerating(false);
+                }
+              }}
+              disabled={isGenerating || !rptSlotId || (reportType === 'member' && !rptMemberId)}
+              className="w-full sm:w-auto"
+            >
+              {isGenerating ? 'Generating...' : 'Download Report JPG'}
+            </Button>
+
+            <Button
+              variant="secondary"
+              onClick={async () => {
+                setRptError('');
+                if (!rptSlotId) { setRptError('Please select a batch'); return; }
+                if (reportType === 'member' && !rptMemberId) { setRptError('Please select a member'); return; }
+
+                setIsGenerating(true);
+                try {
+                  const p = rptPeriod;
+                  let blob: Blob;
+                  let filename: string;
+
+                  if (reportType === 'member') {
+                    const data = sessionAnalyticsService.getMemberSessionReport(rptMemberId, rptSlotId, p.startDate, p.endDate);
+                    const result = await getMemberReportBlob(data, p);
+                    blob = result.blob;
+                    filename = result.filename;
+                  } else {
+                    const data = sessionAnalyticsService.getBatchSessionReport(rptSlotId, p.startDate, p.endDate);
+                    const result = await getBatchReportBlob(data, p);
+                    blob = result.blob;
+                    filename = result.filename;
+                  }
+
+                  const file = new File([blob], filename, { type: 'image/jpeg' });
+
+                  if (reportType === 'member' && rptMemberId) {
+                    // For member reports: share via wa.me with member's number
+                    const member = memberService.getById(rptMemberId);
+                    const waNumber = (member?.whatsappNumber || member?.phone || '').replace(/[^0-9]/g, '');
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                      await navigator.share({ files: [file] });
+                    } else {
+                      // Fallback: download the file, then open wa.me
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = filename;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      URL.revokeObjectURL(url);
+                    }
+                    // Open WhatsApp chat with the member
+                    if (waNumber) {
+                      window.open(`https://wa.me/91${waNumber}`, '_blank');
+                    }
+                  } else {
+                    // For batch reports: use native share sheet
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                      await navigator.share({ files: [file] });
+                    } else {
+                      // Fallback: just download
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = filename;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      URL.revokeObjectURL(url);
+                    }
+                  }
+                } catch (err) {
+                  // User cancelled share is not an error
+                  if (err instanceof Error && err.name === 'AbortError') return;
+                  setRptError(err instanceof Error ? err.message : 'Failed to share report');
+                } finally {
+                  setIsGenerating(false);
+                }
+              }}
+              disabled={isGenerating || !rptSlotId || (reportType === 'member' && !rptMemberId)}
+              className="w-full sm:w-auto"
+            >
+              {reportType === 'member' ? 'Share via WhatsApp' : 'Share Report'}
+            </Button>
+          </div>
         </Card>
       )}
 

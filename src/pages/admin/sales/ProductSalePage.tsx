@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { Card, Button, Input, Select, Alert, PageLoading } from '../../../components/common';
+import { Card, Button, Input, SearchableSelect, Alert, PageLoading } from '../../../components/common';
 import { productService, memberService, invoiceService, inventoryService } from '../../../services';
 import { formatCurrency } from '../../../utils/formatUtils';
 import { getToday } from '../../../utils/dateUtils';
@@ -33,7 +33,8 @@ export function ProductSalePage() {
   const [initialized, setInitialized] = useState(false);
 
   const products = productService.getAll().filter(p => p.isActive && p.currentStock > 0);
-  const members = memberService.getAll().filter(m => m.status === 'active');
+  const members = memberService.getAll()
+    .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
 
   // Auto-add product if passed via URL
   useEffect(() => {
@@ -199,20 +200,22 @@ export function ProductSalePage() {
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Member Selection */}
         <Card>
-          <Select
+          <SearchableSelect
             label="Select Member"
             value={memberId}
-            onChange={(e) => setMemberId(e.target.value)}
-            options={[
-              { value: '', label: 'Choose a member...' },
-              ...members.map(m => ({ value: m.id, label: `${m.firstName} ${m.lastName} (${m.phone})` })),
-            ]}
+            onChange={setMemberId}
+            placeholder="Type to search members..."
+            options={members.map(m => ({
+              value: m.id,
+              label: `${m.firstName} ${m.lastName}`,
+              sublabel: `${m.phone}${m.status !== 'active' ? ` - ${m.status}` : ''}`,
+            }))}
             required
           />
           {selectedMember && (
             <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm">
               <p className="font-medium">{selectedMember.firstName} {selectedMember.lastName}</p>
-              <p className="text-gray-500">{selectedMember.phone}</p>
+              <p className="text-gray-500">{selectedMember.phone}{selectedMember.status !== 'active' ? ` (${selectedMember.status})` : ''}</p>
             </div>
           )}
         </Card>
@@ -230,16 +233,15 @@ export function ProductSalePage() {
             {items.map((item, index) => (
               <div key={index} className="bg-gray-50 rounded-lg p-3">
                 {/* Product Selector - Full width */}
-                <Select
+                <SearchableSelect
                   value={item.productId}
-                  onChange={(e) => handleProductChange(index, e.target.value)}
-                  options={[
-                    { value: '', label: 'Select Product' },
-                    ...products.map(p => ({
-                      value: p.id,
-                      label: `${p.name} (${p.currentStock} in stock)`,
-                    })),
-                  ]}
+                  onChange={(val) => handleProductChange(index, val)}
+                  placeholder="Type to search products..."
+                  options={products.map(p => ({
+                    value: p.id,
+                    label: p.name,
+                    sublabel: `${formatCurrency(p.sellingPrice)} - ${p.currentStock} in stock`,
+                  }))}
                 />
 
                 {/* Show details only when product selected */}

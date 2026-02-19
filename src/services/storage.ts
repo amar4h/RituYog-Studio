@@ -81,6 +81,7 @@ import {
   DEFAULT_STUDIO_SETTINGS,
   DEFAULT_SESSION_SLOTS,
   DEFAULT_MEMBERSHIP_PLANS,
+  BODY_AREA_LABELS,
 } from '../constants';
 import { calculateSubscriptionEndDate } from '../utils/dateUtils';
 
@@ -5696,6 +5697,195 @@ export const sessionAnalyticsService = {
       avgAttendeesPerSession: executions.length > 0
         ? Math.round(totalAttendees / executions.length)
         : 0,
+    };
+  },
+
+  // ============================================
+  // MEMBER & BATCH REPORT DATA AGGREGATION
+  // ============================================
+
+  /** Get members who had subscriptions in a slot during a period (for dropdown) */
+  getSlotMembersForPeriod: (slotId: string, startDate: string, endDate: string): Array<{ memberId: string; memberName: string }> => {
+    const subs = getAll<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS);
+    const memberIds = new Set<string>();
+    for (const sub of subs) {
+      if (sub.slotId === slotId && sub.startDate <= endDate && sub.endDate >= startDate) {
+        memberIds.add(sub.memberId);
+      }
+    }
+    return Array.from(memberIds).map(id => {
+      const m = memberService.getById(id);
+      return { memberId: id, memberName: m ? `${m.firstName} ${m.lastName}` : 'Unknown' };
+    }).sort((a, b) => a.memberName.localeCompare(b.memberName));
+  },
+
+  /** Aggregate asanas/bodyAreas/benefits from a set of executions */
+  _aggregateFromExecutions: (executions: SessionExecution[]) => {
+    const asanaStats: Record<string, { count: number }> = {};
+    const areaCounts: Record<string, number> = {};
+    const benefitCounts: Record<string, number> = {};
+
+    // Helper to tally one asana and its body areas / benefits
+    const tallyAsana = (asanaId: string) => {
+      if (!asanaStats[asanaId]) {
+        asanaStats[asanaId] = { count: 0 };
+      }
+      asanaStats[asanaId].count++;
+
+      const asana = asanaService.getById(asanaId);
+      if (asana) {
+        for (const area of [...asana.primaryBodyAreas, ...asana.secondaryBodyAreas]) {
+          areaCounts[area] = (areaCounts[area] || 0) + 1;
+        }
+        for (const benefit of asana.benefits) {
+          benefitCounts[benefit] = (benefitCounts[benefit] || 0) + 1;
+        }
+      }
+    };
+
+    for (const exec of executions) {
+      for (const section of exec.sectionsSnapshot) {
+        for (const item of section.items) {
+          const asana = asanaService.getById(item.asanaId);
+
+          if (asana?.type === 'surya_namaskar') {
+            // Surya Namaskar: count as ONE (the parent), ignore child asanas
+            tallyAsana(item.asanaId);
+          } else if (asana?.type === 'vinyasa' && asana.childAsanas && asana.childAsanas.length > 0) {
+            // Vinyasa: expand and count each child asana individually
+            for (const child of asana.childAsanas) {
+              tallyAsana(child.asanaId);
+            }
+          } else {
+            // Regular asana / pranayama / kriya / etc.
+            tallyAsana(item.asanaId);
+          }
+        }
+      }
+    }
+
+    // Resolve display names (short names for surya_namaskar)
+    const topAsanas = Object.entries(asanaStats).map(([asanaId, stats]) => {
+      const asana = asanaService.getById(asanaId);
+      let name = asana?.name || 'Unknown';
+      if (asana?.type === 'surya_namaskar' && name.includes(' - ')) {
+        name = name.split(' - ').slice(1).join(' - ');
+      }
+      return { name, count: stats.count };
+    }).sort((a, b) => b.count - a.count);
+
+    const totalAreaMentions = Object.values(areaCounts).reduce((s, c) => s + c, 0);
+    const bodyAreas = Object.entries(areaCounts)
+      .map(([area, count]) => ({
+        area,
+        label: (BODY_AREA_LABELS as Record<string, string>)[area] || area,
+        percentage: totalAreaMentions > 0 ? Math.round((count / totalAreaMentions) * 100) : 0,
+      }))
+      .sort((a, b) => b.percentage - a.percentage);
+
+    const topBenefits = Object.entries(benefitCounts)
+      .map(([benefit, count]) => ({ benefit, count }))
+      .sort((a, b) => b.count - a.count);
+
+    return { topAsanas, bodyAreas, topBenefits, uniqueAsanasCount: topAsanas.length };
+  },
+
+  /** Per-member report data */
+  getMemberSessionReport: (memberId: string, slotId: string, startDate: string, endDate: string) => {
+    // Cap endDate at today for current periods (don't count future days)
+    const today = new Date().toISOString().split('T')[0];
+    const effectiveEnd = endDate > today ? today : endDate;
+
+    const allExecs = sessionExecutionService.getByDateRange(startDate, effectiveEnd)
+      .filter(e => e.slotId === slotId);
+
+    // Use live attendance records (not snapshot memberIds which may be stale)
+    const attended: typeof allExecs = [];
+    const missed: typeof allExecs = [];
+    for (const exec of allExecs) {
+      const records = attendanceService.getBySlotAndDate(exec.slotId, exec.date);
+      const isPresent = records.some(r => r.memberId === memberId && r.status === 'present');
+      if (isPresent) {
+        attended.push(exec);
+      } else {
+        missed.push(exec);
+      }
+    }
+
+    const attendedAgg = sessionAnalyticsService._aggregateFromExecutions(attended);
+    const missedAgg = sessionAnalyticsService._aggregateFromExecutions(missed);
+
+    // Attendance — cap at today so future working days aren't counted
+    const summary = attendanceService.getMemberSummaryForPeriod(memberId, slotId, startDate, effectiveEnd);
+
+    // Member info
+    const member = memberService.getById(memberId);
+    const memberName = member ? `${member.firstName} ${member.lastName}` : 'Unknown';
+
+    // Slot info
+    const slot = slotService.getById(slotId);
+    const slotDisplayName = slot?.displayName || slotId;
+
+    // Studio branding
+    const settings = settingsService.getOrDefault();
+
+    return {
+      memberName,
+      slotDisplayName,
+      sessionsAttended: summary.presentDays,
+      totalWorkingDays: summary.totalWorkingDays,
+      attendanceRate: summary.totalWorkingDays > 0
+        ? Math.round((summary.presentDays / summary.totalWorkingDays) * 100)
+        : 0,
+      uniqueAsanasCount: attendedAgg.uniqueAsanasCount,
+      topAsanas: attendedAgg.topAsanas.slice(0, 8),
+      bodyAreas: attendedAgg.bodyAreas.slice(0, 8),
+      topBenefits: attendedAgg.topBenefits.slice(0, 6),
+      missedSessions: missed.length,
+      missedBodyAreas: missedAgg.bodyAreas.slice(0, 5),
+      missedBenefits: missedAgg.topBenefits.slice(0, 4),
+      studioName: settings.studioName || 'Yoga Studio',
+      logoData: settings.logoData,
+    };
+  },
+
+  /** Per-batch report data */
+  getBatchSessionReport: (slotId: string, startDate: string, endDate: string) => {
+    // Cap endDate at today for current periods
+    const today = new Date().toISOString().split('T')[0];
+    const effectiveEnd = endDate > today ? today : endDate;
+
+    const execs = sessionExecutionService.getByDateRange(startDate, effectiveEnd)
+      .filter(e => e.slotId === slotId);
+
+    const agg = sessionAnalyticsService._aggregateFromExecutions(execs);
+    // Compute attendance from live records (not snapshot — attendance may be updated after execution is recorded)
+    let totalAttendees = 0;
+    for (const e of execs) {
+      const records = attendanceService.getBySlotAndDate(e.slotId, e.date);
+      const presentCount = records.filter(r => r.status === 'present').length;
+      totalAttendees += presentCount;
+    }
+    const totalBenefits = new Set(agg.topBenefits.map(b => b.benefit)).size;
+
+    // Slot info
+    const slot = slotService.getById(slotId);
+    const slotDisplayName = slot?.displayName || slotId;
+
+    // Studio branding
+    const settings = settingsService.getOrDefault();
+
+    return {
+      slotDisplayName,
+      totalSessions: execs.length,
+      uniqueAsanasCount: agg.uniqueAsanasCount,
+      totalBenefits,
+      avgAttendees: execs.length > 0 ? Math.round(totalAttendees / execs.length) : 0,
+      topAsanas: agg.topAsanas.slice(0, 10),
+      bodyAreas: agg.bodyAreas,
+      topBenefits: agg.topBenefits.slice(0, 8),
+      studioName: settings.studioName || 'Yoga Studio',
+      logoData: settings.logoData,
     };
   },
 };

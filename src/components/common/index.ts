@@ -2,6 +2,7 @@
 export { Button } from './Button';
 export { Input } from './Input';
 export { Select } from './Select';
+export { SearchableSelect } from './SearchableSelect';
 export { Textarea } from './Textarea';
 export { Card, CardHeader, CardBody, CardFooter } from './Card';
 export { Modal, ConfirmDialog } from './Modal';
