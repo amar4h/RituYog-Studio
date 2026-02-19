@@ -173,26 +173,34 @@ export function ProductListPage() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <div className="text-sm text-gray-500">Total Products</div>
-          <div className="text-2xl font-bold text-gray-900">{allProducts.filter(p => p.isActive).length}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-sm text-gray-500">Total Stock Value</div>
-          <div className="text-2xl font-bold text-indigo-600">{formatCurrency(stockValue.totalCost)}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-sm text-gray-500">Total Retail Value</div>
-          <div className="text-2xl font-bold text-green-600">{formatCurrency(stockValue.totalValue)}</div>
-        </Card>
-        <Card className={`p-4 ${lowStockCount > 0 ? 'bg-amber-50 border-amber-200' : ''}`}>
-          <div className="text-sm text-gray-500">Low Stock Items</div>
-          <div className={`text-2xl font-bold ${lowStockCount > 0 ? 'text-amber-600' : 'text-gray-900'}`}>
-            {lowStockCount}
+      <Card>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="text-xs text-gray-500 font-medium">Total Products</div>
+            <div className="text-lg font-bold text-gray-900 mt-0.5">{allProducts.filter(p => p.isActive).length}</div>
+            <div className="text-xs text-gray-400">{stockValue.totalItems} items in stock</div>
           </div>
-        </Card>
-      </div>
+          <div className="p-3 bg-blue-50 rounded-lg">
+            <div className="text-xs text-blue-600 font-medium">Stock Value</div>
+            <div className="text-lg font-bold text-blue-700 mt-0.5">{formatCurrency(stockValue.totalCost)}</div>
+            <div className="text-xs text-blue-500">At cost price</div>
+          </div>
+          <div className="p-3 bg-green-50 rounded-lg">
+            <div className="text-xs text-green-600 font-medium">Retail Value</div>
+            <div className="text-lg font-bold text-green-700 mt-0.5">{formatCurrency(stockValue.totalValue)}</div>
+            <div className="text-xs text-green-500">At selling price</div>
+          </div>
+          <div className={`p-3 rounded-lg ${lowStockCount > 0 ? 'bg-amber-50' : 'bg-gray-50'}`}>
+            <div className={`text-xs font-medium ${lowStockCount > 0 ? 'text-amber-600' : 'text-gray-500'}`}>Low Stock</div>
+            <div className={`text-lg font-bold mt-0.5 ${lowStockCount > 0 ? 'text-amber-700' : 'text-gray-900'}`}>
+              {lowStockCount}
+            </div>
+            <div className={`text-xs ${lowStockCount > 0 ? 'text-amber-500' : 'text-gray-400'}`}>
+              {lowStockCount > 0 ? 'Need restocking' : 'All stocked'}
+            </div>
+          </div>
+        </div>
+      </Card>
 
       {/* Filters */}
       <Card>

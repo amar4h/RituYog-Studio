@@ -322,12 +322,12 @@ export function SettingsPage() {
       const duplicate = dtInvoices.find(i => i.id !== invId && i.invoiceNumber === dtInvNumber.trim());
       if (duplicate) throw new Error(`Invoice number "${dtInvNumber}" already exists`);
 
-      await invoiceService.async.update(invId, {
+      const invoiceUpdates: Record<string, string> = {
         invoiceNumber: dtInvNumber.trim(),
         invoiceDate: dtInvDate,
         dueDate: dtDueDate,
         status: dtStatus as Invoice['status'],
-      });
+      };
 
       const payments = paymentService.getByInvoice(invId);
       if (payments[0]) {
@@ -337,7 +337,13 @@ export function SettingsPage() {
         if (Object.keys(paymentUpdates).length > 0) {
           await paymentService.async.update(payments[0].id, paymentUpdates);
         }
+        // Sync payment date to invoice's paidDate
+        if (dtPaymentDate && dtStatus === 'paid') {
+          invoiceUpdates.paidDate = dtPaymentDate;
+        }
       }
+
+      await invoiceService.async.update(invId, invoiceUpdates);
 
       setDtEditingId(null);
       setDtSuccess('Invoice updated successfully');

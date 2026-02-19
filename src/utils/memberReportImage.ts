@@ -24,6 +24,7 @@ export interface MemberReportData {
   bodyAreas: Array<{ area: string; label: string; percentage: number }>;
   topBenefits: Array<{ benefit: string; count: number }>;
   missedSessions: number;
+  missedAsanas: Array<{ name: string; count: number }>;
   missedBodyAreas: Array<{ area: string; label: string; percentage: number }>;
   missedBenefits: Array<{ benefit: string; count: number }>;
   studioName: string;
@@ -322,11 +323,19 @@ function calcMemberHeight(data: MemberReportData): number {
 
   // Missed section
   if (data.missedSessions > 0) {
+    const hasMissedContent = data.missedAsanas.length > 0 || data.missedBodyAreas.length > 0 || data.missedBenefits.length > 0;
     h += 26; // header
-    h += 16; // missed count text
-    if (data.missedBodyAreas.length > 0) h += 16;
-    if (data.missedBenefits.length > 0) {
-      h += Math.ceil(data.missedBenefits.length / 3) * 22;
+    if (hasMissedContent) {
+      if (data.missedAsanas.length > 0) {
+        h += Math.ceil(data.missedAsanas.length / 2) * 16; // 2-col list
+        h += 4;
+      }
+      if (data.missedBodyAreas.length > 0) h += 16;
+      if (data.missedBenefits.length > 0) {
+        h += Math.ceil(data.missedBenefits.length / 3) * 22;
+      }
+    } else {
+      h += 18; // fallback message
     }
     h += 6;
   }
@@ -441,24 +450,60 @@ async function _renderMemberReport(
 
   // ─── WHAT YOU MISSED ───
   if (data.missedSessions > 0) {
+    const hasMissedContent = data.missedAsanas.length > 0 || data.missedBodyAreas.length > 0 || data.missedBenefits.length > 0;
     y = drawSectionHeader(ctx, y, 'WHAT YOU MISSED', '#D97706', '#FEF3C7');
 
-    ctx.fillStyle = '#92400E';
-    setFont(ctx, 11, '500');
-    ctx.textBaseline = 'top';
-    ctx.fillText(`${data.missedSessions} session${data.missedSessions !== 1 ? 's' : ''} missed`, PAD + 4, y);
-    y += 16;
+    if (hasMissedContent) {
+      // Missed practices (2-col list)
+      if (data.missedAsanas.length > 0) {
+        const colW = (W - PAD * 2) / 2;
+        for (let i = 0; i < data.missedAsanas.length; i++) {
+          const a = data.missedAsanas[i];
+          const col = i % 2;
+          const row = Math.floor(i / 2);
+          const ax = PAD + col * colW + 4;
+          const ay = y + row * 16;
+          ctx.fillStyle = '#92400E';
+          setFont(ctx, 10);
+          ctx.textBaseline = 'top';
+          ctx.fillText(`${truncate(a.name, 22)}`, ax, ay);
+          // Count badge
+          const countStr = `${a.count}x`;
+          const cw = ctx.measureText(countStr).width + 6;
+          const cx = ax + colW - cw - 8;
+          ctx.fillStyle = '#FEF3C7';
+          roundRect(ctx, cx, ay - 1, cw, 13, 3);
+          ctx.fill();
+          ctx.fillStyle = '#92400E';
+          setFont(ctx, 8, '600');
+          ctx.textBaseline = 'middle';
+          ctx.fillText(countStr, cx + 3, ay + 5);
+        }
+        y += Math.ceil(data.missedAsanas.length / 2) * 16;
+        y += 4;
+      }
 
-    if (data.missedBodyAreas.length > 0) {
-      ctx.fillStyle = '#78350F';
-      setFont(ctx, 10);
-      const areas = data.missedBodyAreas.map(a => a.label).join(', ');
-      ctx.fillText(`Areas: ${truncate(areas, 45)}`, PAD + 4, y);
-      y += 16;
-    }
+      // Missed body areas
+      if (data.missedBodyAreas.length > 0) {
+        ctx.fillStyle = '#78350F';
+        setFont(ctx, 10);
+        ctx.textBaseline = 'top';
+        const areas = data.missedBodyAreas.map(a => a.label).join(', ');
+        ctx.fillText(`Areas: ${truncate(areas, 45)}`, PAD + 4, y);
+        y += 16;
+      }
 
-    if (data.missedBenefits.length > 0) {
-      y = drawBadgeRow(ctx, y, data.missedBenefits.map(b => b.benefit), '#FEF3C7', '#92400E');
+      // Missed benefits as badges
+      if (data.missedBenefits.length > 0) {
+        y = drawBadgeRow(ctx, y, data.missedBenefits.map(b => b.benefit), '#FEF3C7', '#92400E');
+      }
+    } else {
+      // No execution records for missed days — show fallback
+      ctx.fillStyle = '#92400E';
+      setFont(ctx, 9);
+      ctx.textBaseline = 'top';
+      ctx.fillText('Session plans not recorded for missed days', PAD + 4, y);
+      y += 18;
     }
     y += 6;
   }

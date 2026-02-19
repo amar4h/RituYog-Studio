@@ -1101,12 +1101,14 @@ export const subscriptionService = {
     return hasFutureSubscription;
   },
 
-  // Get active subscriptions for a slot on a specific date
+  // Get subscriptions for a slot on a specific date (includes expired for historical attendance)
   getActiveForSlotOnDate: (slotId: string, date: string): MembershipSubscription[] => {
     const subscriptions = getAll<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS);
+    // Include 'expired' subscriptions so members still appear on attendance page
+    // for past dates within their old subscription period (e.g., after renewal).
     return subscriptions.filter(s =>
       s.slotId === slotId &&
-      s.status === 'active' &&
+      (s.status === 'active' || s.status === 'expired') &&
       s.startDate <= date &&
       s.endDate >= date
     );
@@ -1587,7 +1589,7 @@ export const subscriptionService = {
       const subscriptions = getAll<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS);
       return subscriptions.filter(s =>
         s.slotId === slotId &&
-        s.status === 'active' &&
+        (s.status === 'active' || s.status === 'expired') &&
         s.startDate <= date &&
         s.endDate >= date
       );
@@ -2238,10 +2240,11 @@ export const paymentService = {
     const invoiceTotal = Number(invoice.totalAmount || 0);
     const newStatus = totalPaid >= invoiceTotal ? 'paid' : 'partially-paid';
 
+    const actualPaymentDate = paymentDate || new Date().toISOString().split('T')[0];
     invoiceService.update(invoiceId, {
       amountPaid: totalPaid,
       status: newStatus,
-      paidDate: newStatus === 'paid' ? new Date().toISOString().split('T')[0] : undefined,
+      paidDate: newStatus === 'paid' ? actualPaymentDate : undefined,
       paymentMethod,
       paymentReference: transactionReference,
     });
@@ -2358,13 +2361,14 @@ export const paymentService = {
         const invoice = await invoiceService.async.getById(invoiceId);
         if (!invoice) throw new Error('Invoice not found');
 
+        const actualPaymentDate = paymentDate || new Date().toISOString().split('T')[0];
         const receiptNumber = await paymentService.async.generateReceiptNumber();
         const payment = await paymentService.async.create({
           invoiceId,
           memberId: invoice.memberId,
           amount,
           paymentMethod,
-          paymentDate: paymentDate || new Date().toISOString().split('T')[0],
+          paymentDate: actualPaymentDate,
           transactionReference,
           status: 'completed',
           receiptNumber,
@@ -2380,7 +2384,7 @@ export const paymentService = {
           status: newStatus,
           paymentMethod,
           paymentReference: transactionReference,
-          paidDate: newStatus === 'paid' ? new Date().toISOString().split('T')[0] : undefined,
+          paidDate: newStatus === 'paid' ? actualPaymentDate : undefined,
         });
 
         // Update subscription if linked
@@ -5799,21 +5803,61 @@ export const sessionAnalyticsService = {
     const allExecs = sessionExecutionService.getByDateRange(startDate, effectiveEnd)
       .filter(e => e.slotId === slotId);
 
-    // Use live attendance records (not snapshot memberIds which may be stale)
-    const attended: typeof allExecs = [];
-    const missed: typeof allExecs = [];
-    for (const exec of allExecs) {
-      const records = attendanceService.getBySlotAndDate(exec.slotId, exec.date);
-      const isPresent = records.some(r => r.memberId === memberId && r.status === 'present');
-      if (isPresent) {
-        attended.push(exec);
-      } else {
-        missed.push(exec);
-      }
-    }
+    // Build set of dates the member was present (across all slots, matching
+    // how getMemberSummaryForPeriod counts presentDays — it ignores slotId).
+    const allAttendance = getAll<AttendanceRecord>(STORAGE_KEYS.ATTENDANCE);
+    const presentDates = new Set(
+      allAttendance
+        .filter(r =>
+          r.memberId === memberId &&
+          r.date >= startDate &&
+          r.date <= effectiveEnd &&
+          r.status === 'present'
+        )
+        .map(r => r.date)
+    );
+
+    // Split executions into attended / missed using the same present-dates set
+    const attended = allExecs.filter(e => presentDates.has(e.date));
+    const missed = allExecs.filter(e => !presentDates.has(e.date));
 
     const attendedAgg = sessionAnalyticsService._aggregateFromExecutions(attended);
-    const missedAgg = sessionAnalyticsService._aggregateFromExecutions(missed);
+    let missedAgg = sessionAnalyticsService._aggregateFromExecutions(missed);
+
+    // Fallback: if no missed executions but member missed days, check allocations.
+    // The day they missed may not have an execution record yet, but the plan
+    // was allocated. Use the allocated plan's sections as a proxy.
+    if (missedAgg.topAsanas.length === 0) {
+      const execDates = new Set(allExecs.map(e => e.date));
+      // Find working dates the member was absent AND have no execution
+      const allAllocations = sessionPlanAllocationService.getByDateRange(startDate, effectiveEnd)
+        .filter(a => a.slotId === slotId);
+      const missedFromAllocations: SessionExecution[] = [];
+      for (const alloc of allAllocations) {
+        if (!presentDates.has(alloc.date) && !execDates.has(alloc.date)) {
+          // No execution for this date, but a plan was allocated — use plan sections
+          const plan = sessionPlanService.getById(alloc.sessionPlanId);
+          if (plan) {
+            missedFromAllocations.push({
+              id: alloc.id,
+              sessionPlanId: plan.id,
+              sessionPlanName: plan.name,
+              sessionPlanLevel: plan.level,
+              slotId: alloc.slotId,
+              date: alloc.date,
+              sectionsSnapshot: plan.sections,
+              memberIds: [],
+              attendeeCount: 0,
+              createdAt: alloc.createdAt,
+              updatedAt: alloc.updatedAt,
+            } as SessionExecution);
+          }
+        }
+      }
+      if (missedFromAllocations.length > 0) {
+        missedAgg = sessionAnalyticsService._aggregateFromExecutions(missedFromAllocations);
+      }
+    }
 
     // Attendance — cap at today so future working days aren't counted
     const summary = attendanceService.getMemberSummaryForPeriod(memberId, slotId, startDate, effectiveEnd);
@@ -5841,7 +5885,8 @@ export const sessionAnalyticsService = {
       topAsanas: attendedAgg.topAsanas.slice(0, 8),
       bodyAreas: attendedAgg.bodyAreas.slice(0, 8),
       topBenefits: attendedAgg.topBenefits.slice(0, 6),
-      missedSessions: missed.length,
+      missedSessions: Math.max(0, summary.totalWorkingDays - summary.presentDays),
+      missedAsanas: missedAgg.topAsanas.slice(0, 8),
       missedBodyAreas: missedAgg.bodyAreas.slice(0, 5),
       missedBenefits: missedAgg.topBenefits.slice(0, 4),
       studioName: settings.studioName || 'Yoga Studio',

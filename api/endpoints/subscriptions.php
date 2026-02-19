@@ -82,7 +82,7 @@ class SubscriptionsHandler extends BaseHandler {
         return $this->query(
             "SELECT * FROM {$this->table}
              WHERE slot_id = :slotId
-             AND status = 'active'
+             AND status IN ('active', 'expired')
              AND start_date <= :dateStart
              AND end_date >= :dateEnd",
             ['slotId' => $slotId, 'dateStart' => $date, 'dateEnd' => $date]

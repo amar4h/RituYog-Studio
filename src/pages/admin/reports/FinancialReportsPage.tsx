@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Card, Button, Select, PageLoading } from '../../../components/common';
+import { useState } from 'react';
+import { Card, PageLoading } from '../../../components/common';
 import { paymentService, expenseService, invoiceService, inventoryService } from '../../../services';
 import { formatCurrency } from '../../../utils/formatUtils';
 import { getToday, formatDate } from '../../../utils/dateUtils';
@@ -7,13 +7,63 @@ import { useFreshData } from '../../../hooks';
 import { EXPENSE_CATEGORY_OPTIONS } from '../../../constants';
 import type { ExpenseCategory } from '../../../types';
 
+type PeriodPreset = 'current-fy' | 'prev-fy' | 'current-qtr' | 'prev-qtr' | 'this-month' | 'custom';
+
+function getIndianFYDates(today: string) {
+  const todayYear = parseInt(today.substring(0, 4), 10);
+  const todayMonth = parseInt(today.substring(5, 7), 10);
+
+  // Current FY: Apr 1 - Mar 31
+  const fyStartYear = todayMonth >= 4 ? todayYear : todayYear - 1;
+  const currentFYStart = `${fyStartYear}-04-01`;
+  const currentFYEnd = `${fyStartYear + 1}-03-31`;
+  const currentFYLabel = `FY ${fyStartYear}-${String(fyStartYear + 1).slice(2)}`;
+
+  // Previous FY
+  const prevFYStart = `${fyStartYear - 1}-04-01`;
+  const prevFYEnd = `${fyStartYear}-03-31`;
+  const prevFYLabel = `FY ${fyStartYear - 1}-${String(fyStartYear).slice(2)}`;
+
+  // Indian FY quarters: Q1=Apr-Jun, Q2=Jul-Sep, Q3=Oct-Dec, Q4=Jan-Mar
+  const fyQuarter = todayMonth >= 4 ? Math.ceil((todayMonth - 3) / 3) : Math.ceil((todayMonth + 9) / 3);
+  const qStartMonth = ((fyQuarter - 1) * 3 + 4) > 12 ? ((fyQuarter - 1) * 3 + 4) - 12 : (fyQuarter - 1) * 3 + 4;
+  const qStartYear = qStartMonth >= 4 ? fyStartYear : fyStartYear + 1;
+  const qEndMonth = qStartMonth + 2 > 12 ? qStartMonth + 2 - 12 : qStartMonth + 2;
+  const qEndYear = qEndMonth < qStartMonth ? qStartYear + 1 : qStartYear;
+  const qEndDay = new Date(qEndYear, qEndMonth, 0).getDate();
+  const currentQtrStart = `${qStartYear}-${String(qStartMonth).padStart(2, '0')}-01`;
+  const currentQtrEnd = `${qEndYear}-${String(qEndMonth).padStart(2, '0')}-${String(qEndDay).padStart(2, '0')}`;
+  const currentQtrLabel = `Q${fyQuarter} ${currentFYLabel}`;
+
+  // Previous quarter
+  const prevQ = fyQuarter === 1 ? 4 : fyQuarter - 1;
+  const prevQFYStartYear = fyQuarter === 1 ? fyStartYear - 1 : fyStartYear;
+  const prevQStartMonth = ((prevQ - 1) * 3 + 4) > 12 ? ((prevQ - 1) * 3 + 4) - 12 : (prevQ - 1) * 3 + 4;
+  const prevQStartYear = prevQStartMonth >= 4 ? prevQFYStartYear : prevQFYStartYear + 1;
+  const prevQEndMonth = prevQStartMonth + 2 > 12 ? prevQStartMonth + 2 - 12 : prevQStartMonth + 2;
+  const prevQEndYear = prevQEndMonth < prevQStartMonth ? prevQStartYear + 1 : prevQStartYear;
+  const prevQEndDay = new Date(prevQEndYear, prevQEndMonth, 0).getDate();
+  const prevQtrStart = `${prevQStartYear}-${String(prevQStartMonth).padStart(2, '0')}-01`;
+  const prevQtrEnd = `${prevQEndYear}-${String(prevQEndMonth).padStart(2, '0')}-${String(prevQEndDay).padStart(2, '0')}`;
+  const prevQtrFYLabel = fyQuarter === 1 ? prevFYLabel : currentFYLabel;
+  const prevQtrLabel = `Q${prevQ} ${prevQtrFYLabel}`;
+
+  return {
+    currentFYStart, currentFYEnd, currentFYLabel,
+    prevFYStart, prevFYEnd, prevFYLabel,
+    currentQtrStart, currentQtrEnd, currentQtrLabel,
+    prevQtrStart, prevQtrEnd, prevQtrLabel,
+  };
+}
+
 export function FinancialReportsPage() {
   const { isLoading } = useFreshData(['payments', 'expenses', 'invoices', 'inventory']);
 
   // Date range for reports
   const today = getToday();
-  const thisMonthStart = today.substring(0, 7) + '-01';
-  const [startDate, setStartDate] = useState(thisMonthStart);
+  const fy = getIndianFYDates(today);
+  const [activePreset, setActivePreset] = useState<PeriodPreset>('current-fy');
+  const [startDate, setStartDate] = useState(fy.currentFYStart);
   const [endDate, setEndDate] = useState(today);
 
   if (isLoading) {
@@ -66,34 +116,43 @@ export function FinancialReportsPage() {
     return EXPENSE_CATEGORY_OPTIONS.find(c => c.value === category)?.label || category;
   };
 
-  // Monthly trend data
+  // Monthly trend data based on selected period
   const getMonthlyData = () => {
     const allPayments = paymentService.getAll().filter(p => p.status === 'completed');
-    const allExpenses = expenseService.getAll();
+    const allExpensesList = expenseService.getAll();
 
-    // Get last 6 months
+    // Generate months between startDate and endDate
+    const startYear = parseInt(startDate.substring(0, 4), 10);
+    const startMonth = parseInt(startDate.substring(5, 7), 10);
+    const endYear = parseInt(endDate.substring(0, 4), 10);
+    const endMonth = parseInt(endDate.substring(5, 7), 10);
+
     const months: { month: string; revenue: number; expenses: number; profit: number }[] = [];
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      const monthStr = date.toISOString().substring(0, 7);
+    let y = startYear;
+    let m = startMonth;
+    while (y < endYear || (y === endYear && m <= endMonth)) {
+      const monthStr = `${y}-${String(m).padStart(2, '0')}`;
       const monthStart = monthStr + '-01';
-      const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split('T')[0];
+      const monthEnd = `${y}-${String(m).padStart(2, '0')}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
 
       const monthRevenue = allPayments
         .filter(p => p.paymentDate >= monthStart && p.paymentDate <= monthEnd)
         .reduce((sum, p) => sum + p.amount, 0);
 
-      const monthExpenses = allExpenses
+      const monthExp = allExpensesList
         .filter(e => e.expenseDate >= monthStart && e.expenseDate <= monthEnd)
         .reduce((sum, e) => sum + e.totalAmount, 0);
 
+      const date = new Date(y, m - 1);
       months.push({
         month: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
         revenue: monthRevenue,
-        expenses: monthExpenses,
-        profit: monthRevenue - monthExpenses,
+        expenses: monthExp,
+        profit: monthRevenue - monthExp,
       });
+
+      m++;
+      if (m > 12) { m = 1; y++; }
     }
     return months;
   };
@@ -111,87 +170,99 @@ export function FinancialReportsPage() {
         </div>
       </div>
 
-      {/* Date Range Filter */}
+      {/* Period Selection */}
       <Card>
-        <div className="flex flex-wrap items-end gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">From</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            />
+        <div className="space-y-3">
+          {/* Preset buttons */}
+          <div className="flex flex-wrap gap-1.5 bg-gray-100 rounded-lg p-1">
+            {([
+              { key: 'current-fy' as PeriodPreset, label: fy.currentFYLabel, start: fy.currentFYStart, end: today },
+              { key: 'current-qtr' as PeriodPreset, label: fy.currentQtrLabel, start: fy.currentQtrStart, end: today },
+              { key: 'this-month' as PeriodPreset, label: 'This Month', start: today.substring(0, 7) + '-01', end: today },
+              { key: 'prev-qtr' as PeriodPreset, label: fy.prevQtrLabel, start: fy.prevQtrStart, end: fy.prevQtrEnd },
+              { key: 'prev-fy' as PeriodPreset, label: fy.prevFYLabel, start: fy.prevFYStart, end: fy.prevFYEnd },
+              { key: 'custom' as PeriodPreset, label: 'Custom', start: '', end: '' },
+            ]).map(({ key, label, start, end }) => (
+              <button
+                key={key}
+                onClick={() => {
+                  setActivePreset(key);
+                  if (key !== 'custom') {
+                    setStartDate(start);
+                    setEndDate(end);
+                  }
+                }}
+                className={`px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap ${
+                  activePreset === key
+                    ? 'bg-white text-indigo-600 shadow-sm font-medium'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">To</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setStartDate(thisMonthStart);
-                setEndDate(today);
-              }}
-            >
-              This Month
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const lastMonth = new Date();
-                lastMonth.setMonth(lastMonth.getMonth() - 1);
-                const lastMonthStart = lastMonth.toISOString().substring(0, 7) + '-01';
-                const lastMonthEnd = new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0).toISOString().split('T')[0];
-                setStartDate(lastMonthStart);
-                setEndDate(lastMonthEnd);
-              }}
-            >
-              Last Month
-            </Button>
+
+          {/* Custom date range (shown only when Custom is selected) */}
+          {activePreset === 'custom' && (
+            <div className="flex flex-wrap items-end gap-4 pt-1">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">From</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">To</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Active period label */}
+          <div className="text-xs text-gray-500">
+            Showing: {formatDate(startDate)} — {formatDate(endDate)}
           </div>
         </div>
       </Card>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <div className="text-sm text-gray-500">Total Revenue</div>
-          <div className="text-2xl font-bold text-green-600">{formatCurrency(totalRevenue)}</div>
-          <div className="text-xs text-gray-500 mt-1">
-            {formatDate(startDate)} - {formatDate(endDate)}
+      <Card>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="p-3 bg-green-50 rounded-lg">
+            <div className="text-xs text-green-600 font-medium">Total Revenue</div>
+            <div className="text-lg font-bold text-green-700 mt-0.5">{formatCurrency(totalRevenue)}</div>
+            <div className="text-xs text-green-500">{payments.length} payments</div>
           </div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-sm text-gray-500">Total Expenses</div>
-          <div className="text-2xl font-bold text-red-600">{formatCurrency(totalExpenses)}</div>
-          <div className="text-xs text-gray-500 mt-1">{expenses.length} expense records</div>
-        </Card>
-        <Card className={`p-4 ${grossProfit >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
-          <div className="text-sm text-gray-500">Net Profit</div>
-          <div className={`text-2xl font-bold ${grossProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {formatCurrency(grossProfit)}
+          <div className="p-3 bg-red-50 rounded-lg">
+            <div className="text-xs text-red-600 font-medium">Total Expenses</div>
+            <div className="text-lg font-bold text-red-700 mt-0.5">{formatCurrency(totalExpenses)}</div>
+            <div className="text-xs text-red-500">{expenses.length} records</div>
           </div>
-          <div className="text-xs text-gray-500 mt-1">
-            {totalRevenue > 0 ? ((grossProfit / totalRevenue) * 100).toFixed(1) : 0}% margin
+          <div className={`p-3 rounded-lg ${grossProfit >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
+            <div className={`text-xs font-medium ${grossProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>Net Profit</div>
+            <div className={`text-lg font-bold mt-0.5 ${grossProfit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+              {formatCurrency(grossProfit)}
+            </div>
+            <div className={`text-xs ${grossProfit >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+              {totalRevenue > 0 ? ((grossProfit / totalRevenue) * 100).toFixed(1) : 0}% margin
+            </div>
           </div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-sm text-gray-500">Product Sales Profit</div>
-          <div className="text-2xl font-bold text-indigo-600">{formatCurrency(productProfit)}</div>
-          <div className="text-xs text-gray-500 mt-1">
-            Revenue: {formatCurrency(productRevenue)} | COGS: {formatCurrency(cogs.cogs)}
+          <div className="p-3 bg-indigo-50 rounded-lg">
+            <div className="text-xs text-indigo-600 font-medium">Product Profit</div>
+            <div className="text-lg font-bold text-indigo-700 mt-0.5">{formatCurrency(productProfit)}</div>
+            <div className="text-xs text-indigo-500">Rev: {formatCurrency(productRevenue)} · COGS: {formatCurrency(cogs.cogs)}</div>
           </div>
-        </Card>
-      </div>
+        </div>
+      </Card>
 
       {/* Revenue Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -286,7 +357,7 @@ export function FinancialReportsPage() {
 
       {/* Monthly Trend */}
       <Card>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">6-Month Trend</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Monthly Trend</h3>
         <div className="space-y-4">
           {/* Chart */}
           <div className="flex items-end gap-2 h-48">

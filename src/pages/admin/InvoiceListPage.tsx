@@ -258,13 +258,21 @@ export function InvoiceListPage() {
 
     setIsCreating(true);
     try {
-      const items: InvoiceItem[] = validItems.map(item => ({
-        description: item.description.trim(),
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        total: item.quantity * item.unitPrice,
-        cost: item.cost > 0 ? item.cost : undefined
-      }));
+      const items: InvoiceItem[] = validItems.map(item => {
+        // Use form cost, or look up product costPrice as fallback (search all products, not just in-stock)
+        let cost = item.cost > 0 ? item.cost : undefined;
+        if (!cost && invoiceType === 'product-sale') {
+          const product = productService.getAll().find(p => p.name === item.description.trim());
+          if (product && product.costPrice > 0) cost = product.costPrice;
+        }
+        return {
+          description: item.description.trim(),
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          total: item.quantity * item.unitPrice,
+          cost,
+        };
+      });
 
       if (isEditMode && editingInvoiceId) {
         // Update existing invoice

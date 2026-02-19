@@ -844,20 +844,29 @@ export function AsanaFormPage() {
           {/* Current Sequence Preview */}
           {formData.childAsanas.length > 0 && (
             <div className="p-3 bg-pink-50 rounded-lg">
-              <div className="text-xs font-medium text-pink-700 mb-2">
-                Current Sequence ({formData.childAsanas.length} asanas):
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-medium text-pink-700">
+                  Current Sequence ({formData.childAsanas.length} asanas):
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, childAsanas: [] }))}
+                  className="text-xs text-pink-500 hover:text-red-600 transition-colors"
+                >
+                  Clear all
+                </button>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {formData.childAsanas.map((item, idx) => (
                   <span
-                    key={item.asanaId}
+                    key={idx}
                     className="inline-flex items-center gap-1 px-2 py-1 bg-pink-100 text-pink-800 text-xs rounded-full"
                   >
                     <span className="font-semibold">{idx + 1}.</span>
                     {getAsanaName(item.asanaId)}
                     <button
                       type="button"
-                      onClick={() => removeAsanaById(item.asanaId)}
+                      onClick={() => removeFromSequence(idx)}
                       className="ml-0.5 hover:text-red-600"
                     >
                       ×
@@ -875,7 +884,7 @@ export function AsanaFormPage() {
             onChange={(e) => setAsanaSearch(e.target.value)}
           />
 
-          {/* Asana List - Toggle selection */}
+          {/* Asana List - Click to add (duplicates allowed) */}
           <div className="max-h-80 overflow-y-auto space-y-2">
             {filteredAsanas.length === 0 ? (
               <p className="text-gray-500 text-center py-8">
@@ -883,28 +892,28 @@ export function AsanaFormPage() {
               </p>
             ) : (
               filteredAsanas.map(asana => {
-                const isSelected = formData.childAsanas.some(c => c.asanaId === asana.id);
-                const sequenceNumber = formData.childAsanas.findIndex(c => c.asanaId === asana.id) + 1;
+                const count = formData.childAsanas.filter(c => c.asanaId === asana.id).length;
                 return (
                   <div
                     key={asana.id}
-                    onClick={() => toggleAsanaInSequence(asana)}
+                    onClick={() => addAsanaToSequence(asana)}
                     className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
-                      isSelected
-                        ? 'bg-pink-50 border-pink-300 ring-1 ring-pink-300'
+                      count > 0
+                        ? 'bg-pink-50 border-pink-200 hover:border-pink-400'
                         : 'bg-white border-gray-200 hover:border-indigo-300'
                     }`}
                   >
                     <div className="flex items-center gap-3 flex-1">
-                      {/* Checkbox indicator */}
-                      <div className={`w-5 h-5 flex items-center justify-center rounded border-2 flex-shrink-0 ${
-                        isSelected
-                          ? 'bg-pink-600 border-pink-600 text-white'
-                          : 'border-gray-300'
+                      {/* Add indicator */}
+                      <div className={`w-6 h-6 flex items-center justify-center rounded-full flex-shrink-0 ${
+                        count > 0
+                          ? 'bg-pink-600 text-white'
+                          : 'bg-gray-100 text-gray-400 border border-gray-300'
                       }`}>
-                        {isSelected && (
-                          <span className="text-xs font-bold">{sequenceNumber}</span>
-                        )}
+                        {count > 0
+                          ? <span className="text-xs font-bold">{count}</span>
+                          : <span className="text-sm">+</span>
+                        }
                       </div>
                       <div className="flex-1">
                         <div className="font-medium text-gray-900">{asana.name}</div>
@@ -931,9 +940,9 @@ export function AsanaFormPage() {
                         </div>
                       </div>
                     </div>
-                    {/* Selection hint */}
-                    <span className={`text-xs ${isSelected ? 'text-pink-600 font-medium' : 'text-gray-400'}`}>
-                      {isSelected ? 'Click to remove' : 'Click to add'}
+                    {/* Tap to add hint */}
+                    <span className="text-xs text-gray-400">
+                      Tap to add
                     </span>
                   </div>
                 );

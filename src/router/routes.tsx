@@ -38,6 +38,7 @@ const InventoryPage = lazy(() => import('../pages/admin/inventory/InventoryPage'
 const ExpenseListPage = lazy(() => import('../pages/admin/expenses/ExpenseListPage').then(m => ({ default: m.ExpenseListPage })));
 const ExpenseFormPage = lazy(() => import('../pages/admin/expenses/ExpenseFormPage').then(m => ({ default: m.ExpenseFormPage })));
 const ProductSalePage = lazy(() => import('../pages/admin/sales/ProductSalePage').then(m => ({ default: m.ProductSalePage })));
+const SalesReportPage = lazy(() => import('../pages/admin/sales/SalesReportPage').then(m => ({ default: m.SalesReportPage })));
 const FinancialReportsPage = lazy(() => import('../pages/admin/reports/FinancialReportsPage').then(m => ({ default: m.FinancialReportsPage })));
 
 // Session Planning - lazy loaded
@@ -370,6 +371,16 @@ export const routes: RouteObject[] = [
             element: (
               <SuspenseWrapper>
                 <ProductSalePage />
+              </SuspenseWrapper>
+            ),
+          },
+
+          // Sales Report
+          {
+            path: '/admin/sales/report',
+            element: (
+              <SuspenseWrapper>
+                <SalesReportPage />
               </SuspenseWrapper>
             ),
           },
