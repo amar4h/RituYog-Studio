@@ -1,7 +1,10 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { isApiMode } from '../../services/api';
 import { sendChatMessage } from './chatService';
 import type { ChatMessage } from './types';
+
+const PUBLIC_WELCOME = 'Namaste! Welcome to RituYog \ud83d\ude4f\nI can help you with session timings, pricing, booking a free trial, and more. How can I help you today?';
+const ADMIN_WELCOME = 'Namaste! Welcome Admin \ud83d\ude4f\nI can help you manage asanas \u2014 say "add Trikonasana" to add a new asana to the master data. I can also answer general studio questions.';
 
 // Inline SVG icons (project doesn't use icon libraries)
 function ChatIcon({ size = 24 }: { size?: number }) {
@@ -30,18 +33,24 @@ function SendIcon({ size = 18 }: { size?: number }) {
   );
 }
 
-const WELCOME_MESSAGE: ChatMessage = {
-  id: 'welcome',
-  role: 'assistant',
-  content: 'Namaste! I\'m the RituYog assistant. I can help you with session timings, pricing, booking a free trial, and more. How can I help you today?',
-  timestamp: Date.now(),
-};
-
 const MAX_HISTORY = 20;
 
 export function ChatWidget() {
+  // Detect admin context (safe for both SPA admin panel and public embed)
+  const isAdmin = useMemo(() =>
+    typeof window !== 'undefined' && window.location.pathname.startsWith('/admin'), []);
+  const adminApiKey = useMemo(() =>
+    isAdmin ? (import.meta.env.VITE_API_KEY || '') : '', [isAdmin]);
+
+  const welcomeMessage = useMemo<ChatMessage>(() => ({
+    id: 'welcome',
+    role: 'assistant',
+    content: isAdmin ? ADMIN_WELCOME : PUBLIC_WELCOME,
+    timestamp: Date.now(),
+  }), [isAdmin]);
+
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
+  const [messages, setMessages] = useState<ChatMessage[]>([welcomeMessage]);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -95,7 +104,7 @@ export function ChatWidget() {
         .filter((m) => !m.isLoading && m.id !== 'welcome')
         .slice(-MAX_HISTORY);
 
-      const reply = await sendChatMessage(trimmed, history);
+      const reply = await sendChatMessage(trimmed, history, adminApiKey || undefined);
 
       const botMsg: ChatMessage = {
         id: `bot-${Date.now()}`,

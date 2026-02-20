@@ -15,15 +15,21 @@ function getApiBaseUrl(): string {
 
 /**
  * Send a chat message to the chatbot API
- * Public endpoint — no API key needed
+ * Public endpoint by default — pass adminApiKey to unlock admin tools (e.g. add_asana)
  */
 export async function sendChatMessage(
   message: string,
-  history: ChatMessage[]
+  history: ChatMessage[],
+  adminApiKey?: string
 ): Promise<string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (adminApiKey) {
+    headers['X-API-Key'] = adminApiKey;
+  }
+
   const response = await fetch(`${getApiBaseUrl()}/chatbot?action=chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       message,
       history: history.map((m) => ({
