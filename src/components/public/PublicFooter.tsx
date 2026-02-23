@@ -23,6 +23,7 @@ export function PublicFooter() {
     { label: 'Our Flow', href: `${websiteUrl}/our-yoga-class-structure` },
     { label: 'Our Plans', href: `${websiteUrl}/yoga-membership-plans` },
     { label: 'Testimonials', href: `${websiteUrl}/rituyog-testimonials` },
+    { label: 'Members', href: '/member/login' },
     { label: 'Admin', href: '/login' },
   ];
 
@@ -44,10 +45,10 @@ export function PublicFooter() {
           <div className="sm:col-span-2 lg:col-span-1 text-center lg:text-left">
             <a href={websiteUrl} className="inline-block">
               <img
-                src="/images/logo.png"
+                src={settings.logoData || '/images/logo.png'}
                 alt={SITE_CONFIG.name}
                 className="h-28 w-auto mb-4"
-                style={{ filter: 'hue-rotate(90deg)' }}
+                style={settings.logoData ? undefined : { filter: 'hue-rotate(90deg)' }}
               />
             </a>
             <p className="text-white/90 text-sm leading-relaxed">
@@ -165,6 +166,7 @@ export function PublicFooter() {
               src="/images/community-qr.png"
               alt="Join Our Community QR Code"
               className="w-36 h-36 rounded-lg mb-3"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
             <a
               href={SITE_CONFIG.communityUrl}

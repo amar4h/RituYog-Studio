@@ -13,7 +13,7 @@ type ReportTab = 'asana-usage' | 'body-area' | 'benefits' | 'plan-effectiveness'
 type AnalyticsPeriod = '30d' | '3m' | '6m' | '12m';
 
 export function SessionReportsPage() {
-  const { isLoading } = useFreshData(['session-executions', 'asanas', 'session-plans', 'slots', 'members', 'subscriptions', 'attendance']);
+  const { isLoading } = useFreshData(['session-executions', 'session-plan-allocations', 'asanas', 'session-plans', 'slots', 'members', 'subscriptions', 'attendance']);
   const [activeTab, setActiveTab] = useState<ReportTab>('asana-usage');
   const [period, setPeriod] = useState<AnalyticsPeriod>('3m');
   const [selectedSlotId, setSelectedSlotId] = useState<string>(''); // '' means all slots

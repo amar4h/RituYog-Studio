@@ -23,6 +23,11 @@ import {
   attendanceApi,
   settingsApi,
   authApi,
+  // Member Auth
+  memberAuthApi,
+  getMemberSession,
+  saveMemberSession,
+  clearMemberSession,
   // Inventory & Expenses
   productsApi,
   inventoryApi,
@@ -2781,6 +2786,179 @@ export const authService = {
 };
 
 // ============================================
+// MEMBER AUTH SERVICE
+// ============================================
+
+interface MemberAuthState {
+  isAuthenticated: boolean;
+  memberId: string;
+  loginTime: string;
+}
+
+export const memberAuthService = {
+  hashPassword: async (password: string): Promise<string> => {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  },
+
+  login: async (phone: string, password: string): Promise<{ success: boolean; memberId?: string; error?: string }> => {
+    if (isApiMode()) {
+      try {
+        // Send SHA-256 hash to match what setPassword stores (bcrypt of SHA-256)
+        const hash = await memberAuthService.hashPassword(password);
+        const result = await memberAuthApi.login(phone, hash);
+        if (result.authenticated && result.memberId) {
+          const authState: MemberAuthState = {
+            isAuthenticated: true,
+            memberId: result.memberId,
+            loginTime: new Date().toISOString(),
+          };
+          localStorage.setItem(STORAGE_KEYS.MEMBER_AUTH, JSON.stringify(authState));
+          saveMemberSession({
+            sessionToken: result.sessionToken,
+            expiresAt: result.expiresAt,
+          });
+          return { success: true, memberId: result.memberId };
+        }
+        return { success: false, error: 'Invalid phone number or password' };
+      } catch (err) {
+        return { success: false, error: err instanceof Error ? err.message : 'Login failed' };
+      }
+    }
+
+    // localStorage mode
+    const members = getAll<Member>(STORAGE_KEYS.MEMBERS);
+    const member = members.find(m => m.phone === phone && m.passwordHash);
+    if (!member) {
+      return { success: false, error: 'Invalid phone number or password' };
+    }
+
+    const hash = await memberAuthService.hashPassword(password);
+    if (hash !== member.passwordHash) {
+      return { success: false, error: 'Invalid phone number or password' };
+    }
+
+    const authState: MemberAuthState = {
+      isAuthenticated: true,
+      memberId: member.id,
+      loginTime: new Date().toISOString(),
+    };
+    localStorage.setItem(STORAGE_KEYS.MEMBER_AUTH, JSON.stringify(authState));
+    return { success: true, memberId: member.id };
+  },
+
+  logout: (): void => {
+    if (isApiMode()) {
+      const session = getMemberSession();
+      if (session) {
+        memberAuthApi.logout(session.sessionToken).catch(() => {});
+      }
+      clearMemberSession();
+    }
+    localStorage.removeItem(STORAGE_KEYS.MEMBER_AUTH);
+  },
+
+  isAuthenticated: (): boolean => {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.MEMBER_AUTH);
+      if (!data) return false;
+      const auth: MemberAuthState = JSON.parse(data);
+      return auth.isAuthenticated === true;
+    } catch {
+      return false;
+    }
+  },
+
+  getAuthenticatedMemberId: (): string | null => {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.MEMBER_AUTH);
+      if (!data) return null;
+      const auth: MemberAuthState = JSON.parse(data);
+      return auth.isAuthenticated ? auth.memberId : null;
+    } catch {
+      return null;
+    }
+  },
+
+  activateAccount: async (phone: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    if (isApiMode()) {
+      try {
+        const hash = await memberAuthService.hashPassword(password);
+        await memberAuthApi.activate(phone, hash);
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err instanceof Error ? err.message : 'Activation failed' };
+      }
+    }
+
+    // localStorage mode
+    const members = getAll<Member>(STORAGE_KEYS.MEMBERS);
+    const member = members.find(m => m.phone === phone);
+    if (!member) {
+      return { success: false, error: 'No member found with this phone number. Please contact your studio.' };
+    }
+    if (member.passwordHash) {
+      return { success: false, error: 'Account already activated. Please use Login.' };
+    }
+    const hash = await memberAuthService.hashPassword(password);
+    memberService.update(member.id, { passwordHash: hash });
+    return { success: true };
+  },
+
+  setPassword: async (memberId: string, password: string): Promise<void> => {
+    if (isApiMode()) {
+      const hash = await memberAuthService.hashPassword(password);
+      await memberAuthApi.setPassword(memberId, hash);
+      return;
+    }
+    const hash = await memberAuthService.hashPassword(password);
+    memberService.update(memberId, { passwordHash: hash });
+  },
+
+  adminResetPassword: async (memberId: string, newPassword: string): Promise<void> => {
+    await memberAuthService.setPassword(memberId, newPassword);
+  },
+
+  clearPassword: async (memberId: string): Promise<void> => {
+    if (isApiMode()) {
+      await memberAuthApi.clearPassword(memberId);
+      return;
+    }
+    memberService.update(memberId, { passwordHash: undefined });
+  },
+
+  changePassword: async (memberId: string, currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
+    if (isApiMode()) {
+      try {
+        // Send SHA-256 hashes to match what's stored (bcrypt of SHA-256)
+        const currentHash = await memberAuthService.hashPassword(currentPassword);
+        const newHash = await memberAuthService.hashPassword(newPassword);
+        await memberAuthApi.changePassword(memberId, currentHash, newHash);
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err instanceof Error ? err.message : 'Password change failed' };
+      }
+    }
+
+    // localStorage mode - verify current password
+    const member = memberService.getById(memberId);
+    if (!member?.passwordHash) {
+      return { success: false, error: 'No password set' };
+    }
+    const currentHash = await memberAuthService.hashPassword(currentPassword);
+    if (currentHash !== member.passwordHash) {
+      return { success: false, error: 'Current password is incorrect' };
+    }
+    const newHash = await memberAuthService.hashPassword(newPassword);
+    memberService.update(memberId, { passwordHash: newHash });
+    return { success: true };
+  },
+};
+
+// ============================================
 // BACKUP SERVICE
 // ============================================
 
@@ -5492,10 +5670,10 @@ export const sessionExecutionService = {
       attendeeCount: presentMemberIds.length,
     };
 
-    const execution = createDual<SessionExecution>(STORAGE_KEYS.SESSION_EXECUTIONS, executionData);
-
-    // Update plan usage stats (only increments once per day, not per slot)
+    // Update plan usage stats BEFORE creating execution (so the "already used today" check works)
     sessionPlanService.updateUsageStats(planId, date);
+
+    const execution = createDual<SessionExecution>(STORAGE_KEYS.SESSION_EXECUTIONS, executionData);
 
     // Update allocation status if exists
     const allocation = sessionPlanAllocationService.getBySlotAndDate(slotId, date);
@@ -5953,24 +6131,43 @@ export async function syncEssentialData(): Promise<void> {
     return;
   }
 
-  console.log('[Storage] Syncing essential data (settings, slots, plans)...');
+  console.log('[Storage] Syncing essential + common data...');
+
+  // Import markSynced to update TTL cache so useFreshData skips re-fetching
+  const { markSynced } = await import('../hooks/useFreshData');
 
   try {
-    const [slots, settings, plansData] = await Promise.all([
+    // Fetch essential (settings, slots, plans) + common data (members, subscriptions,
+    // leads, invoices, payments) in a single parallel batch on startup.
+    // This way the dashboard (and most admin pages) render instantly from cache.
+    const [slots, settings, plansData, members, subscriptions, leads, invoices, payments] = await Promise.all([
       slotsApi.getAll().catch(() => []),
       settingsApi.get().catch(() => null),
       fetch(`${TIERED_API_URL}/plans`, {
         headers: { 'X-API-Key': TIERED_API_KEY },
       }).then(r => r.json()).catch(() => []),
+      membersApi.getAll().catch(() => []),
+      subscriptionsApi.getAll().catch(() => []),
+      leadsApi.getAll().catch(() => []),
+      invoicesApi.getAll().catch(() => []),
+      paymentsApi.getAll().catch(() => []),
     ]);
 
     // Store in localStorage
     saveAll(STORAGE_KEYS.SESSION_SLOTS, slots as SessionSlot[]);
     saveAll(STORAGE_KEYS.MEMBERSHIP_PLANS, Array.isArray(plansData) ? plansData : plansData.data || []);
+    saveAll(STORAGE_KEYS.MEMBERS, members as Member[]);
+    saveAll(STORAGE_KEYS.SUBSCRIPTIONS, subscriptions as MembershipSubscription[]);
+    saveAll(STORAGE_KEYS.LEADS, leads as Lead[]);
+    saveAll(STORAGE_KEYS.INVOICES, invoices as Invoice[]);
+    saveAll(STORAGE_KEYS.PAYMENTS, payments as Payment[]);
 
     if (settings) {
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
     }
+
+    // Mark all pre-fetched types in TTL cache so useFreshData skips re-fetching
+    markSynced(['slots', 'plans', 'settings', 'members', 'subscriptions', 'leads', 'invoices', 'payments']);
 
     // Mark essential sync as completed
     localStorage.setItem('yoga_studio_essential_synced', new Date().toISOString());
@@ -5978,6 +6175,7 @@ export async function syncEssentialData(): Promise<void> {
     console.log('[Storage] Essential sync complete:', {
       slots: (slots as SessionSlot[]).length,
       plans: (Array.isArray(plansData) ? plansData : plansData.data || []).length,
+      members: (members as Member[]).length,
       settings: settings ? 'loaded' : 'none',
     });
   } catch (error) {

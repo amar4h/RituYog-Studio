@@ -361,7 +361,7 @@ CRITICAL: When you have just shown an asana preview in the conversation, and the
 
 ### Controlled Vocabularies (use ONLY these values)
 - **type**: asana, pranayama, kriya, exercise, relaxation, vinyasa, surya_namaskar
-- **bodyAreas**: spine, shoulders, hips, knees, hamstrings, calves, ankles, core, neck, respiratory, nervous_system
+- **bodyAreas**: spine, upper_back, lower_back, shoulders, chest, arms, wrists, core, hips, glutes, groin, quadriceps, hamstrings, knees, calves, ankles, feet, neck, respiratory, nervous_system
 - **difficulty**: beginner, intermediate, advanced
 - **breathingCue**: inhale, exhale, hold (optional — only if one cue dominates)
 
@@ -514,7 +514,7 @@ ADMIN;
     }
 
     private function getGeminiFunctionDeclarations(bool $isAdmin = false): array {
-        $bodyAreaEnum = ['spine','shoulders','hips','knees','hamstrings','calves','ankles','core','neck','respiratory','nervous_system'];
+        $bodyAreaEnum = ['spine','upper_back','lower_back','shoulders','chest','arms','wrists','core','hips','glutes','groin','quadriceps','hamstrings','knees','calves','ankles','feet','neck','respiratory','nervous_system'];
 
         $tools = [
             [
@@ -1092,7 +1092,7 @@ ADMIN_TOOLS;
 
         // Validate controlled vocabularies
         $validTypes = ['asana','pranayama','kriya','exercise','relaxation','vinyasa','surya_namaskar'];
-        $validBodyAreas = ['spine','shoulders','hips','knees','hamstrings','calves','ankles','core','neck','respiratory','nervous_system'];
+        $validBodyAreas = ['spine','upper_back','lower_back','shoulders','chest','arms','wrists','core','hips','glutes','groin','quadriceps','hamstrings','knees','calves','ankles','feet','neck','respiratory','nervous_system'];
         $validDifficulty = ['beginner','intermediate','advanced'];
         $validBreathingCues = ['inhale','exhale','hold'];
 

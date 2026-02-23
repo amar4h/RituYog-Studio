@@ -86,6 +86,38 @@ class SessionAllocationsHandler extends BaseHandler {
     }
 
     /**
+     * Override create to update existing allocation for same slot+date
+     */
+    public function create(): array {
+        $data = getRequestBody();
+        $slotId = $data['slotId'] ?? null;
+        $date = $data['date'] ?? null;
+
+        if (!empty($slotId) && !empty($date)) {
+            $existing = $this->queryOne(
+                "SELECT id FROM {$this->table} WHERE slot_id = :slotId AND date = :date",
+                ['slotId' => $slotId, 'date' => $date]
+            );
+
+            if ($existing) {
+                // Update existing allocation with new plan
+                $this->db->prepare(
+                    "UPDATE {$this->table}
+                     SET session_plan_id = :sessionPlanId, allocated_by = :allocatedBy, status = 'scheduled', updated_at = NOW()
+                     WHERE id = :id"
+                )->execute([
+                    'sessionPlanId' => $data['sessionPlanId'] ?? null,
+                    'allocatedBy' => $data['allocatedBy'] ?? null,
+                    'id' => $existing['id'],
+                ]);
+                return $this->getById($existing['id']);
+            }
+        }
+
+        return parent::create();
+    }
+
+    /**
      * Cancel an allocation
      */
     public function cancel($id = null): array {
@@ -149,7 +181,19 @@ class SessionAllocationsHandler extends BaseHandler {
                 ['slotId' => $slot['id'], 'date' => $date]
             );
 
-            if (!$existing) {
+            if ($existing) {
+                // Update existing allocation with new plan
+                $this->db->prepare(
+                    "UPDATE {$this->table}
+                     SET session_plan_id = :sessionPlanId, allocated_by = :allocatedBy, status = 'scheduled', updated_at = NOW()
+                     WHERE id = :id"
+                )->execute([
+                    'sessionPlanId' => $sessionPlanId,
+                    'allocatedBy' => $allocatedBy,
+                    'id' => $existing['id'],
+                ]);
+                $created[] = $this->getById($existing['id']);
+            } else {
                 $id = generateUuid();
                 $this->db->prepare(
                     "INSERT INTO {$this->table}

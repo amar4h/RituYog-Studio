@@ -11,6 +11,7 @@ import {
   settingsService,
   whatsappService,
   membershipPlanService,
+  memberAuthService,
 } from '../../services';
 import { formatCurrency, formatPhone, formatName } from '../../utils/formatUtils';
 import { formatDate, getDaysRemaining, getMonthStart, getMonthEnd, getToday } from '../../utils/dateUtils';
@@ -35,7 +36,17 @@ export function MemberDetailPage() {
   // Renewal reminder template modal state
   const [showRenewalTemplateModal, setShowRenewalTemplateModal] = useState(false);
 
+  // Portal password modal state
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [portalPassword, setPortalPassword] = useState('');
+  const [portalPasswordConfirm, setPortalPasswordConfirm] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [showClearPasswordConfirm, setShowClearPasswordConfirm] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const member = id ? memberService.getById(id) : null;
+  void refreshKey; // used to trigger re-render after data changes
 
   if (!member) {
     return (
@@ -111,6 +122,44 @@ export function MemberDetailPage() {
       navigate(`/admin/members/${member.id}`, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to transfer slot');
+    }
+  };
+
+  const handleSetPassword = async () => {
+    if (!portalPassword.trim() || portalPassword.length < 4) {
+      setError('Password must be at least 4 characters');
+      return;
+    }
+    if (portalPassword !== portalPasswordConfirm) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setPasswordSaving(true);
+    try {
+      await memberAuthService.adminResetPassword(member.id, portalPassword);
+      setSuccess(`Portal password ${member.passwordHash ? 'reset' : 'set'} for ${member.firstName}. Login: phone ${member.phone}`);
+      setShowPasswordModal(false);
+      setPortalPassword('');
+      setPortalPasswordConfirm('');
+      setRefreshKey(k => k + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to set password');
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
+
+  const handleClearPassword = async () => {
+    try {
+      await memberAuthService.clearPassword(member.id);
+      // Update local cache so UI reflects the change
+      memberService.update(member.id, { passwordHash: '' });
+      setSuccess(`Portal password cleared for ${member.firstName}. Member can now self-activate.`);
+      setShowClearPasswordConfirm(false);
+      setRefreshKey(k => k + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to clear password');
     }
   };
 
@@ -212,6 +261,65 @@ export function MemberDetailPage() {
           </dl>
         </Card>
 
+
+        {/* Portal Access */}
+        <Card title="Portal Access">
+          <div className="space-y-3">
+            {member.passwordHash ? (
+              <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+                <svg className="w-5 h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                <div>
+                  <span className="text-sm font-medium text-green-800">Account Activated</span>
+                  <p className="text-xs text-green-600">Login: phone {formatPhone(member.phone)}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+                <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                <div>
+                  <span className="text-sm font-medium text-gray-700">Not Activated</span>
+                  <p className="text-xs text-gray-500">Member can self-activate or admin can set password</p>
+                </div>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => {
+                  setPortalPassword('');
+                  setPortalPasswordConfirm('');
+                  setShowPasswordModal(true);
+                }}
+              >
+                {member.passwordHash ? 'Reset Password' : 'Set Portal Password'}
+              </Button>
+              <Link
+                to={`/member?viewAs=${member.id}`}
+                className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                View Portal
+              </Link>
+            </div>
+            {member.passwordHash && (
+              <button
+                onClick={() => setShowClearPasswordConfirm(true)}
+                className="w-full text-xs text-red-500 hover:text-red-700 py-1"
+              >
+                Clear Password (allow re-activation)
+              </button>
+            )}
+          </div>
+        </Card>
 
         {/* Membership Status */}
         <Card title="Membership">
@@ -503,6 +611,17 @@ export function MemberDetailPage() {
         variant="danger"
       />
 
+      {/* Clear Password Confirmation */}
+      <ConfirmDialog
+        isOpen={showClearPasswordConfirm}
+        onClose={() => setShowClearPasswordConfirm(false)}
+        onConfirm={handleClearPassword}
+        title="Clear Portal Password"
+        message={`Clear the portal password for ${formatName(member.firstName, member.lastName)}? They will need to self-activate again to access the member portal.`}
+        confirmLabel="Clear Password"
+        variant="danger"
+      />
+
       {/* Extra Days Modal */}
       <Modal
         isOpen={showExtraDaysModal}
@@ -637,6 +756,53 @@ export function MemberDetailPage() {
           }
         />
       )}
+
+      {/* Portal Password Modal */}
+      <Modal
+        isOpen={showPasswordModal}
+        onClose={() => {
+          setShowPasswordModal(false);
+          setPortalPassword('');
+          setPortalPasswordConfirm('');
+        }}
+        title={member.passwordHash ? 'Reset Portal Password' : 'Set Portal Password'}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            {member.passwordHash
+              ? `Reset the portal login password for ${formatName(member.firstName, member.lastName)}.`
+              : `Set a password so ${member.firstName} can log in to the member portal.`}
+          </p>
+          <div className="p-3 bg-gray-50 rounded-lg text-sm">
+            <p><span className="text-gray-500">Login phone:</span> {formatPhone(member.phone)}</p>
+          </div>
+          <Input
+            label="New Password"
+            type="password"
+            value={portalPassword}
+            onChange={(e) => setPortalPassword(e.target.value)}
+            placeholder="Minimum 4 characters"
+          />
+          <Input
+            label="Confirm Password"
+            type="password"
+            value={portalPasswordConfirm}
+            onChange={(e) => setPortalPasswordConfirm(e.target.value)}
+            placeholder="Re-enter password"
+          />
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="outline" onClick={() => setShowPasswordModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSetPassword}
+              disabled={passwordSaving || !portalPassword.trim() || portalPassword !== portalPasswordConfirm}
+            >
+              {passwordSaving ? 'Saving...' : member.passwordHash ? 'Reset Password' : 'Set Password'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

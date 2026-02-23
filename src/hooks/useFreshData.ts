@@ -1,8 +1,11 @@
 /**
  * useFreshData Hook
  *
- * Fetches fresh data from API on component mount.
- * Used by admin pages to ensure they always show the latest data.
+ * Fetches fresh data from API on component mount, with TTL-based caching.
+ * If data was fetched within the cache window (default 2 minutes), skips the API call
+ * and renders immediately using cached localStorage data.
+ *
+ * Used by admin and member pages to balance freshness with performance.
  */
 
 import { useState, useEffect } from 'react';
@@ -35,11 +38,49 @@ interface UseFreshDataResult {
   refetch: () => Promise<void>;
 }
 
+// Cache TTL: skip API fetch if data was synced within this many milliseconds
+const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
+
+// Track when each data type was last successfully synced from API
+const lastSyncTimestamps: Record<string, number> = {};
+
+/**
+ * Check if all requested data types are still fresh (within TTL)
+ */
+function allDataFresh(dataTypes: DataType[]): boolean {
+  const now = Date.now();
+  return dataTypes.every(dt => {
+    const lastSync = lastSyncTimestamps[dt];
+    return lastSync != null && (now - lastSync) < CACHE_TTL_MS;
+  });
+}
+
+/**
+ * Mark data types as freshly synced
+ */
+export function markSynced(dataTypes: DataType[]): void {
+  const now = Date.now();
+  for (const dt of dataTypes) {
+    lastSyncTimestamps[dt] = now;
+  }
+}
+
+/**
+ * Get only the stale data types that need fetching
+ */
+function getStaleTypes(dataTypes: DataType[]): DataType[] {
+  const now = Date.now();
+  return dataTypes.filter(dt => {
+    const lastSync = lastSyncTimestamps[dt];
+    return lastSync == null || (now - lastSync) >= CACHE_TTL_MS;
+  });
+}
+
 /**
  * Hook to fetch fresh data from API when component mounts
  *
  * @param dataTypes - Array of data types to fetch (e.g., ['members', 'subscriptions'])
- * @returns { isLoading, error } - Loading state and any error message
+ * @returns { isLoading, error, refetch } - Loading state, error, and manual refetch function
  *
  * @example
  * function MemberListPage() {
@@ -49,22 +90,33 @@ interface UseFreshDataResult {
  * }
  */
 export function useFreshData(dataTypes: DataType[]): UseFreshDataResult {
-  const [isLoading, setIsLoading] = useState(isApiMode());
+  // If all data is fresh, skip loading state entirely — render immediately from localStorage
+  const needsFetch = isApiMode() && !allDataFresh(dataTypes);
+  const [isLoading, setIsLoading] = useState(needsFetch);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = async (forceRefresh = false) => {
     // In localStorage mode, no need to fetch - data is already available
     if (!isApiMode()) {
       setIsLoading(false);
       return;
     }
 
-    // Fetch fresh data from API
+    // Determine which types actually need fetching
+    const typesToFetch = forceRefresh ? dataTypes : getStaleTypes(dataTypes);
+
+    if (typesToFetch.length === 0) {
+      // All data is fresh — no API call needed
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
-      await syncFeatureData(dataTypes);
+      await syncFeatureData(typesToFetch);
+      markSynced(typesToFetch);
       setIsLoading(false);
     } catch (err) {
       console.error('Failed to fetch data:', err);
@@ -77,9 +129,9 @@ export function useFreshData(dataTypes: DataType[]): UseFreshDataResult {
     fetchData();
   }, []); // Empty dependency - runs once on mount
 
-  // Refetch function for manual refresh
+  // Refetch function for manual refresh (always forces fresh fetch)
   const refetch = async () => {
-    await fetchData();
+    await fetchData(true);
   };
 
   return { isLoading, error, refetch };

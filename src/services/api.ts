@@ -78,6 +78,32 @@ function clearSession(): void {
   localStorage.removeItem(SESSION_KEY);
 }
 
+// Member session management (separate from admin)
+const MEMBER_SESSION_KEY = 'yoga_studio_member_session';
+
+export function getMemberSession(): ApiSession | null {
+  try {
+    const data = localStorage.getItem(MEMBER_SESSION_KEY);
+    if (!data) return null;
+    const session: ApiSession = JSON.parse(data);
+    if (new Date(session.expiresAt) < new Date()) {
+      localStorage.removeItem(MEMBER_SESSION_KEY);
+      return null;
+    }
+    return session;
+  } catch {
+    return null;
+  }
+}
+
+export function saveMemberSession(session: ApiSession): void {
+  localStorage.setItem(MEMBER_SESSION_KEY, JSON.stringify(session));
+}
+
+export function clearMemberSession(): void {
+  localStorage.removeItem(MEMBER_SESSION_KEY);
+}
+
 // ============================================
 // HTTP CLIENT
 // ============================================
@@ -890,5 +916,56 @@ export const sessionExecutionsApi = {
 
   getRecent: (limit?: number) => apiRequest<unknown[]>('session-executions', {
     params: { action: 'getRecent', limit }
+  }),
+};
+
+// ============================================
+// MEMBER AUTH API
+// ============================================
+
+export const memberAuthApi = {
+  login: async (phone: string, password: string) => apiRequest<{
+    authenticated: boolean;
+    memberId: string;
+    sessionToken: string;
+    expiresAt: string;
+  }>('member-auth', {
+    method: 'POST',
+    params: { action: 'login' },
+    body: { phone, password },
+    skipAuth: true,
+  }),
+
+  setPassword: async (memberId: string, passwordHash: string) => apiRequest<{ success: boolean }>('member-auth', {
+    method: 'POST',
+    params: { action: 'setPassword' },
+    body: { memberId, passwordHash },
+  }),
+
+  clearPassword: async (memberId: string) => apiRequest<{ success: boolean }>('member-auth', {
+    method: 'POST',
+    params: { action: 'clearPassword' },
+    body: { memberId },
+  }),
+
+  activate: async (phone: string, password: string) => apiRequest<{ success: boolean; message: string }>('member-auth', {
+    method: 'POST',
+    params: { action: 'activate' },
+    body: { phone, password },
+    skipAuth: true,
+  }),
+
+  changePassword: async (memberId: string, currentPassword: string, newPassword: string) => apiRequest<{ success: boolean }>('member-auth', {
+    method: 'POST',
+    params: { action: 'changePassword' },
+    body: { memberId, currentPassword, newPassword },
+    skipAuth: true,
+  }),
+
+  logout: async (sessionToken: string) => apiRequest<{ success: boolean }>('member-auth', {
+    method: 'POST',
+    params: { action: 'logout' },
+    body: { sessionToken },
+    skipAuth: true,
   }),
 };

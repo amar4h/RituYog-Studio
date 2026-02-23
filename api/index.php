@@ -43,6 +43,7 @@ if (empty($id) && !empty($pathParts[2])) {
 $publicEndpoints = [
     'leads' => ['getByToken', 'completeRegistration'],
     'chatbot' => ['chat'],
+    'member-auth' => ['login', 'activate', 'changePassword', 'check', 'logout'],
 ];
 
 // Check if this is a public endpoint (after parsing endpoint/action from path)
@@ -102,6 +103,8 @@ $validEndpoints = [
     'session-allocations',
     'session-plan-allocations',
     'session-executions',
+    // Member Portal
+    'member-auth',
 ];
 
 if (!in_array($endpoint, $validEndpoints)) {

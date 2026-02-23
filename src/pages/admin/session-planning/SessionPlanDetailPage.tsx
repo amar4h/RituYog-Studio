@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Card, Button, Badge, PageLoading, Alert } from '../../../components/common';
-import { sessionPlanService, asanaService, settingsService } from '../../../services';
+import { Card, Button, Badge, Modal, PageLoading, Alert } from '../../../components/common';
+import { sessionPlanService, sessionPlanAllocationService, sessionExecutionService, attendanceService, asanaService, slotService, settingsService } from '../../../services';
 import { useFreshData } from '../../../hooks';
 import { BODY_AREA_LABELS, BREATHING_CUE_OPTIONS } from '../../../constants';
 import { SECTION_LABELS } from '../../../types';
@@ -12,12 +12,16 @@ import type { SessionPlanImageData, SessionPlanImageSection, SessionPlanImageIte
 import { format } from 'date-fns';
 
 export function SessionPlanDetailPage() {
-  const { isLoading } = useFreshData(['session-plans', 'asanas', 'session-executions']);
+  const { isLoading } = useFreshData(['session-plans', 'asanas', 'session-executions', 'session-plan-allocations', 'attendance']);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [collapsedSections, setCollapsedSections] = useState<Set<SectionType>>(new Set());
   const [expandedSurya, setExpandedSurya] = useState<Set<string>>(new Set());
   const [downloading, setDownloading] = useState(false);
+  const [showAllocateModal, setShowAllocateModal] = useState(false);
+  const [allocateDate, setAllocateDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [allocateSuccess, setAllocateSuccess] = useState('');
+  const [allocateError, setAllocateError] = useState('');
 
   const plan = useMemo(() => {
     if (isLoading || !id) return null;
@@ -33,6 +37,54 @@ export function SessionPlanDetailPage() {
     if (!id) return { isOverused: false };
     return sessionPlanService.getOveruseWarning(id);
   }, [id]);
+
+  // All executions for this plan (for computing usage count and past sessions)
+  const allExecutions = useMemo(() => {
+    if (isLoading || !id) return [];
+    return sessionExecutionService.getByPlan(id);
+  }, [id, isLoading]);
+
+  // Actual usage count = number of unique dates this plan was executed
+  const actualUsageCount = useMemo(() => {
+    const uniqueDates = new Set(allExecutions.map(e => e.date));
+    return uniqueDates.size;
+  }, [allExecutions]);
+
+  // Past executions for this plan (attendee count from attendance records — source of truth)
+  const pastExecutions = useMemo(() => {
+    if (isLoading || !id) return [];
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const slots = slotService.getAll();
+    const slotMap = new Map(slots.map(s => [s.id, s.displayName]));
+    return allExecutions
+      .filter(e => e.date <= today)
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .map(e => {
+        // Compute from attendance records directly
+        const present = attendanceService.getBySlotAndDate(e.slotId, e.date)
+          .filter(a => a.status === 'present').length;
+        return {
+          date: e.date,
+          slotName: slotMap.get(e.slotId) || e.slotId,
+          attendeeCount: present || e.attendeeCount || e.memberIds.length,
+        };
+      });
+  }, [id, isLoading, allExecutions]);
+
+  // Future allocations for this plan
+  const futureAllocations = useMemo(() => {
+    if (isLoading || !id) return [];
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const slots = slotService.getAll();
+    const slotMap = new Map(slots.map(s => [s.id, s.displayName]));
+    return sessionPlanAllocationService.getAll()
+      .filter(a => a.sessionPlanId === id && a.date >= today && a.status !== 'cancelled')
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map(a => ({
+        date: a.date,
+        slotName: slotMap.get(a.slotId) || a.slotId,
+      }));
+  }, [id, isLoading]);
 
   if (isLoading) {
     return <PageLoading />;
@@ -106,6 +158,18 @@ export function SessionPlanDetailPage() {
       console.error('Failed to download JPG:', err);
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const handleAllocateToAll = () => {
+    if (!plan) return;
+    try {
+      sessionPlanAllocationService.allocateToAllSlots(plan.id, allocateDate);
+      setAllocateSuccess(`Allocated to all batches on ${format(new Date(allocateDate + 'T00:00:00'), 'dd MMM yyyy')}`);
+      setAllocateError('');
+      setShowAllocateModal(false);
+    } catch (err: any) {
+      setAllocateError(err.message || 'Failed to allocate plan');
     }
   };
 
@@ -235,7 +299,7 @@ export function SessionPlanDetailPage() {
             <p className="text-gray-600 mt-2 italic">— {plan.description}</p>
           )}
           <div className="text-sm text-gray-500 mt-2">
-            Version {plan.version} · Used {plan.usageCount} times
+            Version {plan.version} · Used {actualUsageCount} times
             {plan.lastUsedAt && (
               <> · Last used <span className="whitespace-nowrap">{format(new Date(plan.lastUsedAt), 'dd MMM yyyy')}</span></>
             )}
@@ -248,6 +312,17 @@ export function SessionPlanDetailPage() {
           <Link to={`/admin/session-plans/${plan.id}/edit`}>
             <Button variant="outline">Edit</Button>
           </Link>
+          {plan.isActive && (
+            <Button
+              variant="outline"
+              onClick={() => { setShowAllocateModal(true); setAllocateDate(format(new Date(), 'yyyy-MM-dd')); }}
+            >
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Allocate
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={handleDownloadJPG}
@@ -257,6 +332,17 @@ export function SessionPlanDetailPage() {
           </Button>
         </div>
       </div>
+
+      {allocateSuccess && (
+        <Alert variant="success" dismissible onDismiss={() => setAllocateSuccess('')}>
+          {allocateSuccess}
+        </Alert>
+      )}
+      {allocateError && (
+        <Alert variant="error" dismissible onDismiss={() => setAllocateError('')}>
+          {allocateError}
+        </Alert>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main content - Collapsible sections matching Today's Sessions format */}
@@ -482,7 +568,7 @@ export function SessionPlanDetailPage() {
               <div className="text-sm text-gray-600 space-y-1">
                 <div className="flex justify-between">
                   <span>Times used</span>
-                  <span className="font-medium">{plan.usageCount}</span>
+                  <span className="font-medium">{actualUsageCount}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Last used</span>
@@ -498,9 +584,91 @@ export function SessionPlanDetailPage() {
                 </div>
               </div>
             </div>
+
+            {/* Future Allocations */}
+            {futureAllocations.length > 0 && (
+              <div className="space-y-2 border-t pt-4">
+                <div className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                  <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  Upcoming ({futureAllocations.length})
+                </div>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {futureAllocations.map((a, i) => (
+                    <div key={i} className="flex justify-between text-sm py-1 border-b border-gray-50 last:border-b-0">
+                      <span className="whitespace-nowrap font-medium text-gray-800">
+                        {format(new Date(a.date + 'T00:00:00'), 'dd MMM yyyy')}
+                      </span>
+                      <span className="text-gray-500 text-xs truncate ml-2">{a.slotName}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Past Executions */}
+            {pastExecutions.length > 0 && (
+              <div className="space-y-2 border-t pt-4">
+                <div className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                  <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Past Sessions ({pastExecutions.length})
+                </div>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {pastExecutions.map((e, i) => (
+                    <div key={i} className="flex justify-between items-center text-sm py-1 border-b border-gray-50 last:border-b-0">
+                      <span className="whitespace-nowrap font-medium text-gray-800">
+                        {format(new Date(e.date + 'T00:00:00'), 'dd MMM yyyy')}
+                      </span>
+                      <div className="flex items-center gap-2 ml-2">
+                        <span className="text-gray-500 text-xs truncate">{e.slotName}</span>
+                        {e.attendeeCount > 0 && (
+                          <span className="text-xs text-gray-400 flex items-center gap-0.5" title={`${e.attendeeCount} attended`}>
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            {e.attendeeCount}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </Card>
         </div>
       </div>
+
+      {/* Allocate modal */}
+      {showAllocateModal && (
+        <Modal
+          isOpen={true}
+          onClose={() => setShowAllocateModal(false)}
+          title={`Allocate "${plan.name}"`}
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              This will allocate the plan to <strong>all active batches</strong> on the selected date.
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+              <input
+                type="date"
+                value={allocateDate}
+                onChange={(e) => setAllocateDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowAllocateModal(false)}>Cancel</Button>
+              <Button onClick={handleAllocateToAll}>Allocate to All Batches</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

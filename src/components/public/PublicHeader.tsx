@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { label: 'Testimonials', path: '/rituyog-testimonials' },
   { label: 'Photo Gallery', path: '/yoga-studio-images' },
   { label: 'Our Plans', path: '/yoga-membership-plans' },
+  { label: 'Members', path: '/member/login', local: true },
   { label: 'Admin', path: '/login', local: true },
 ];
 
@@ -24,10 +25,10 @@ export function PublicHeader() {
           {/* Logo */}
           <a href={websiteUrl} className="flex items-center gap-2 shrink-0">
             <img
-              src="/images/logo.png"
+              src={settings.logoData || '/images/logo.png'}
               alt="ऋतुYog"
               className="h-10 sm:h-14 w-auto"
-              style={{ filter: 'hue-rotate(90deg)' }}
+              style={settings.logoData ? undefined : { filter: 'hue-rotate(90deg)' }}
             />
           </a>
 

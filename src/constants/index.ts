@@ -703,6 +703,7 @@ export const STORAGE_KEYS = {
   // Settings & Auth
   SETTINGS: 'yoga_studio_settings',
   AUTH: 'yoga_studio_auth',
+  MEMBER_AUTH: 'yoga_studio_member_auth',
 
   // Legacy (kept for backward compatibility)
   INSTRUCTORS: 'yoga_studio_instructors',
@@ -721,13 +722,22 @@ export type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];
 
 export const BODY_AREA_LABELS: Record<BodyArea, string> = {
   spine: 'Spine',
+  upper_back: 'Upper Back',
+  lower_back: 'Lower Back',
   shoulders: 'Shoulders',
+  chest: 'Chest',
+  arms: 'Arms',
+  wrists: 'Wrists',
+  core: 'Core',
   hips: 'Hips',
-  knees: 'Knees',
+  glutes: 'Glutes',
+  groin: 'Groin',
+  quadriceps: 'Quadriceps',
   hamstrings: 'Hamstrings',
+  knees: 'Knees',
   calves: 'Calves',
   ankles: 'Ankles',
-  core: 'Core',
+  feet: 'Feet',
   neck: 'Neck',
   respiratory: 'Respiratory System',
   nervous_system: 'Nervous System'
@@ -735,13 +745,22 @@ export const BODY_AREA_LABELS: Record<BodyArea, string> = {
 
 export const BODY_AREA_OPTIONS = [
   { value: 'spine' as BodyArea, label: 'Spine' },
+  { value: 'upper_back' as BodyArea, label: 'Upper Back' },
+  { value: 'lower_back' as BodyArea, label: 'Lower Back' },
   { value: 'shoulders' as BodyArea, label: 'Shoulders' },
+  { value: 'chest' as BodyArea, label: 'Chest' },
+  { value: 'arms' as BodyArea, label: 'Arms' },
+  { value: 'wrists' as BodyArea, label: 'Wrists' },
+  { value: 'core' as BodyArea, label: 'Core' },
   { value: 'hips' as BodyArea, label: 'Hips' },
-  { value: 'knees' as BodyArea, label: 'Knees' },
+  { value: 'glutes' as BodyArea, label: 'Glutes' },
+  { value: 'groin' as BodyArea, label: 'Groin' },
+  { value: 'quadriceps' as BodyArea, label: 'Quadriceps' },
   { value: 'hamstrings' as BodyArea, label: 'Hamstrings' },
+  { value: 'knees' as BodyArea, label: 'Knees' },
   { value: 'calves' as BodyArea, label: 'Calves' },
   { value: 'ankles' as BodyArea, label: 'Ankles' },
-  { value: 'core' as BodyArea, label: 'Core' },
+  { value: 'feet' as BodyArea, label: 'Feet' },
   { value: 'neck' as BodyArea, label: 'Neck' },
   { value: 'respiratory' as BodyArea, label: 'Respiratory System' },
   { value: 'nervous_system' as BodyArea, label: 'Nervous System' },

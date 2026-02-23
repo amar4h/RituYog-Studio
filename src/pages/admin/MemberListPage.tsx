@@ -172,12 +172,22 @@ export function MemberListPage() {
             className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
           />
           <div>
-            <Link
-              to={`/admin/members/${member.id}`}
-              className="font-medium text-gray-900 hover:text-indigo-600"
-            >
-              {member.firstName} {member.lastName}
-            </Link>
+            <div className="flex items-center gap-1">
+              <Link
+                to={`/admin/members/${member.id}`}
+                className="font-medium text-gray-900 hover:text-indigo-600"
+              >
+                {member.firstName} {member.lastName}
+              </Link>
+              {member.passwordHash && (
+                <span
+                  title="Portal access activated"
+                  className="inline-flex items-center justify-center w-4 h-4 text-[10px] leading-none bg-indigo-100 text-indigo-600 rounded-full"
+                >
+                  P
+                </span>
+              )}
+            </div>
             <p className="text-sm text-gray-500">{member.email}</p>
           </div>
         </div>

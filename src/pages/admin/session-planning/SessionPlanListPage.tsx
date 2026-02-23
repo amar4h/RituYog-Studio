@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card, Button, Input, Select, DataTable, Badge, StatusBadge, EmptyState, EmptyIcons, Alert, PageLoading } from '../../../components/common';
-import { sessionPlanService } from '../../../services';
+import { Card, Button, Input, Select, DataTable, Badge, StatusBadge, EmptyState, EmptyIcons, Alert, Modal, PageLoading } from '../../../components/common';
+import { sessionPlanService, sessionPlanAllocationService, sessionExecutionService } from '../../../services';
 import { useFreshData } from '../../../hooks';
 import { DIFFICULTY_LEVEL_OPTIONS, BODY_AREA_LABELS } from '../../../constants';
 import { OveruseWarningBadge } from '../../../components/sessionPlanning/OveruseWarningBadge';
@@ -10,13 +10,15 @@ import type { Column } from '../../../components/common';
 import { format } from 'date-fns';
 
 export function SessionPlanListPage() {
-  const { isLoading } = useFreshData(['session-plans', 'asanas', 'session-executions']);
+  const { isLoading } = useFreshData(['session-plans', 'asanas', 'session-executions', 'session-plan-allocations']);
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [levelFilter, setLevelFilter] = useState<string>('');
   const [showInactive, setShowInactive] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+  const [allocatePlan, setAllocatePlan] = useState<SessionPlan | null>(null);
+  const [allocateDate, setAllocateDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
   if (isLoading) {
     return <PageLoading />;
@@ -64,10 +66,43 @@ export function SessionPlanListPage() {
     }
   };
 
+  const handleAllocateToAll = () => {
+    if (!allocatePlan) return;
+    try {
+      sessionPlanAllocationService.allocateToAllSlots(allocatePlan.id, allocateDate);
+      setSuccess(`"${allocatePlan.name}" allocated to all batches on ${format(new Date(allocateDate + 'T00:00:00'), 'dd MMM yyyy')}`);
+      setAllocatePlan(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to allocate plan');
+    }
+  };
+
+  // Compute actual usage count from executions (unique dates per plan)
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const allExecutions = sessionExecutionService.getAll();
+  const planDateSets = new Map<string, Set<string>>();
+  for (const exec of allExecutions) {
+    if (!planDateSets.has(exec.sessionPlanId)) {
+      planDateSets.set(exec.sessionPlanId, new Set());
+    }
+    planDateSets.get(exec.sessionPlanId)!.add(exec.date);
+  }
+  const getUsageCount = (planId: string): number => planDateSets.get(planId)?.size || 0;
+
+  // Find the nearest future allocation date for a plan
+  const allAllocations = sessionPlanAllocationService.getAll();
+  const getNextAllocation = (planId: string): string | null => {
+    const future = allAllocations
+      .filter(a => a.sessionPlanId === planId && a.date >= today && a.status !== 'cancelled')
+      .sort((a, b) => a.date.localeCompare(b.date));
+    return future.length > 0 ? future[0].date : null;
+  };
+
   const columns: Column<SessionPlan>[] = [
     {
       key: 'name',
       header: 'Plan Name',
+      sortValue: (plan) => plan.name.toLowerCase(),
       render: (plan) => {
         const overuseWarning = sessionPlanService.getOveruseWarning(plan.id);
         return (
@@ -95,6 +130,7 @@ export function SessionPlanListPage() {
     {
       key: 'level',
       header: 'Level',
+      sortValue: (plan) => plan.level,
       render: (plan) => (
         <Badge variant={getDifficultyColor(plan.level)}>
           {plan.level.charAt(0).toUpperCase() + plan.level.slice(1)}
@@ -104,6 +140,7 @@ export function SessionPlanListPage() {
     {
       key: 'bodyAreas',
       header: 'Focus Areas',
+      sortable: false,
       render: (plan) => {
         const areas = sessionPlanService.getDominantBodyAreas(plan);
         return (
@@ -123,27 +160,53 @@ export function SessionPlanListPage() {
     {
       key: 'usage',
       header: 'Usage',
+      sortValue: (plan) => getUsageCount(plan.id),
       render: (plan) => (
         <div className="text-center">
-          <div className="font-medium text-gray-900">{plan.usageCount}</div>
+          <div className="font-medium text-gray-900">{getUsageCount(plan.id)}</div>
           <div className="text-xs text-gray-500">times used</div>
         </div>
       ),
     },
     {
-      key: 'lastUsed',
-      header: 'Last Used',
-      render: (plan) => (
-        <span className="text-gray-600 whitespace-nowrap">
-          {plan.lastUsedAt
-            ? format(new Date(plan.lastUsedAt), 'dd MMM yyyy')
-            : 'Never'}
-        </span>
-      ),
+      key: 'schedule',
+      header: 'Schedule',
+      sortValue: (plan) => {
+        const nextAlloc = getNextAllocation(plan.id);
+        return nextAlloc || plan.lastUsedAt || '';
+      },
+      render: (plan) => {
+        const nextAlloc = getNextAllocation(plan.id);
+        if (nextAlloc) {
+          return (
+            <div>
+              <div className="flex items-center gap-1 text-blue-600 font-medium whitespace-nowrap">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                {format(new Date(nextAlloc + 'T00:00:00'), 'dd MMM yyyy')}
+              </div>
+              {plan.lastUsedAt && (
+                <div className="text-xs text-gray-400 whitespace-nowrap">
+                  Last: {format(new Date(plan.lastUsedAt), 'dd MMM')}
+                </div>
+              )}
+            </div>
+          );
+        }
+        return (
+          <span className="text-gray-500 whitespace-nowrap">
+            {plan.lastUsedAt
+              ? format(new Date(plan.lastUsedAt), 'dd MMM yyyy')
+              : 'Never used'}
+          </span>
+        );
+      },
     },
     {
       key: 'status',
       header: 'Status',
+      sortValue: (plan) => plan.isActive ? 'Active' : 'Inactive',
       render: (plan) => (
         <StatusBadge status={plan.isActive ? 'Active' : 'Inactive'} />
       ),
@@ -152,13 +215,25 @@ export function SessionPlanListPage() {
       key: 'actions',
       header: '',
       render: (plan) => (
-        <div className="flex gap-2 justify-end">
+        <div className="flex gap-2 justify-end flex-wrap">
           <Link to={`/admin/session-plans/${plan.id}`}>
             <Button variant="outline" size="sm">View</Button>
           </Link>
           <Link to={`/admin/session-plans/${plan.id}/edit`}>
             <Button variant="outline" size="sm">Edit</Button>
           </Link>
+          {plan.isActive && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { setAllocatePlan(plan); setAllocateDate(format(new Date(), 'yyyy-MM-dd')); }}
+              title="Allocate to all batches"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -283,6 +358,34 @@ export function SessionPlanListPage() {
             keyExtractor={(plan) => plan.id}
           />
         </Card>
+      )}
+
+      {/* Allocate to all batches modal */}
+      {allocatePlan && (
+        <Modal
+          isOpen={true}
+          onClose={() => setAllocatePlan(null)}
+          title={`Allocate "${allocatePlan.name}"`}
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              This will allocate the plan to <strong>all active batches</strong> on the selected date.
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+              <input
+                type="date"
+                value={allocateDate}
+                onChange={(e) => setAllocateDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setAllocatePlan(null)}>Cancel</Button>
+              <Button onClick={handleAllocateToAll}>Allocate to All Batches</Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

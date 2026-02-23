@@ -1,6 +1,8 @@
 import { RouteObject, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoute';
+import { MemberProtectedRoute } from './MemberProtectedRoute';
 import { AdminLayout } from '../components/layout/AdminLayout';
+import { MemberLayout } from '../components/layout/MemberLayout';
 import { PublicLayout } from '../components/layout/PublicLayout';
 import { ErrorPage } from '../components/common/ErrorPage';
 
@@ -58,6 +60,15 @@ const RegisterPage = lazy(() => import('../pages/public/RegisterPage').then(m =>
 const BookTrialPage = lazy(() => import('../pages/public/BookTrialPage').then(m => ({ default: m.BookTrialPage })));
 const LeadCompletionPage = lazy(() => import('../pages/public/LeadCompletionPage').then(m => ({ default: m.LeadCompletionPage })));
 
+// Member portal - lazy loaded
+const MemberLoginPage = lazy(() => import('../pages/member/MemberLoginPage').then(m => ({ default: m.MemberLoginPage })));
+const MemberHomePage = lazy(() => import('../pages/member/MemberHomePage').then(m => ({ default: m.MemberHomePage })));
+const MemberReportPage = lazy(() => import('../pages/member/MemberReportPage').then(m => ({ default: m.MemberReportPage })));
+const MemberBatchReportPage = lazy(() => import('../pages/member/BatchReportPage').then(m => ({ default: m.BatchReportPage })));
+const MemberSettingsPage = lazy(() => import('../pages/member/MemberSettingsPage').then(m => ({ default: m.MemberSettingsPage })));
+const MemberAttendancePage = lazy(() => import('../pages/member/MemberAttendancePage').then(m => ({ default: m.MemberAttendancePage })));
+const MemberMembershipPage = lazy(() => import('../pages/member/MemberMembershipPage').then(m => ({ default: m.MemberMembershipPage })));
+
 // Suspense wrapper for lazy components
 function SuspenseWrapper({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<PageLoading />}>{children}</Suspense>;
@@ -102,6 +113,14 @@ export const routes: RouteObject[] = [
         element: (
           <SuspenseWrapper>
             <LeadCompletionPage />
+          </SuspenseWrapper>
+        ),
+      },
+      {
+        path: '/member/login',
+        element: (
+          <SuspenseWrapper>
+            <MemberLoginPage />
           </SuspenseWrapper>
         ),
       },
@@ -509,6 +528,67 @@ export const routes: RouteObject[] = [
             element: (
               <SuspenseWrapper>
                 <NotificationsPage />
+              </SuspenseWrapper>
+            ),
+          },
+        ],
+      },
+    ],
+  },
+
+  // Member portal - protected
+  {
+    element: <MemberProtectedRoute />,
+    errorElement: <ErrorPage />,
+    children: [
+      {
+        element: <MemberLayout />,
+        children: [
+          {
+            path: '/member',
+            element: (
+              <SuspenseWrapper>
+                <MemberHomePage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/member/my-report',
+            element: (
+              <SuspenseWrapper>
+                <MemberReportPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/member/batch-report',
+            element: (
+              <SuspenseWrapper>
+                <MemberBatchReportPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/member/attendance',
+            element: (
+              <SuspenseWrapper>
+                <MemberAttendancePage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/member/membership',
+            element: (
+              <SuspenseWrapper>
+                <MemberMembershipPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/member/settings',
+            element: (
+              <SuspenseWrapper>
+                <MemberSettingsPage />
               </SuspenseWrapper>
             ),
           },

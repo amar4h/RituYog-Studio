@@ -100,6 +100,9 @@ export interface Member extends BaseEntity {
   // Notes
   notes?: string;
 
+  // Member Portal Auth
+  passwordHash?: string;
+
   // Legacy fields (kept for backward compatibility)
   membershipType?: 'trial' | 'monthly' | 'quarterly' | 'yearly' | 'drop-in';
   membershipStartDate?: string;
@@ -878,8 +881,9 @@ export interface AttendanceLockRecord {
 // ============================================
 
 export const BODY_AREAS = [
-  'spine', 'shoulders', 'hips', 'knees', 'hamstrings',
-  'calves', 'ankles', 'core', 'neck', 'respiratory', 'nervous_system'
+  'spine', 'upper_back', 'lower_back', 'shoulders', 'chest', 'arms', 'wrists',
+  'core', 'hips', 'glutes', 'groin', 'quadriceps', 'hamstrings',
+  'knees', 'calves', 'ankles', 'feet', 'neck', 'respiratory', 'nervous_system'
 ] as const;
 export type BodyArea = typeof BODY_AREAS[number];
 

@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
+import { MemberAuthProvider } from './contexts/MemberAuthContext';
 import { AppRouter } from './router';
 import { initializeStorage, seedDemoData, syncEssentialData, isApiMode, settingsService } from './services';
 
@@ -23,8 +24,11 @@ const queryClient = new QueryClient({
 });
 
 function App() {
-  // Sync essential data in background — don't block rendering
-  // Admin pages use useFreshData() to fetch their own data when accessed
+  // In API mode, wait for essential + common data before rendering routes.
+  // This pre-fetches members, subscriptions, leads, invoices, payments in one batch,
+  // so the dashboard (and most admin pages) render instantly from cache.
+  const [ready, setReady] = useState(!isApiMode());
+
   useEffect(() => {
     if (isApiMode()) {
       syncEssentialData()
@@ -45,6 +49,9 @@ function App() {
         })
         .catch((error) => {
           console.error('Failed to sync essential data:', error);
+        })
+        .finally(() => {
+          setReady(true);
         });
     } else {
       // Set favicon for localStorage mode
@@ -63,10 +70,23 @@ function App() {
     }
   }, []);
 
+  if (!ready) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm text-gray-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <AppRouter />
+        <MemberAuthProvider>
+          <AppRouter />
+        </MemberAuthProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

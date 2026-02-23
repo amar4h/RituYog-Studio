@@ -134,7 +134,7 @@ class SessionExecutionsHandler extends BaseHandler {
                  WHERE slot_id = :slotId AND date = :date AND status = 'present'",
                 ['slotId' => $data['slotId'], 'date' => $data['date']]
             );
-            $memberIds = array_column($attendance, 'member_id');
+            $memberIds = array_column($attendance, 'memberId');
         }
 
         $id = $data['id'] ?? generateUuid();
@@ -162,12 +162,23 @@ class SessionExecutionsHandler extends BaseHandler {
             'attendeeCount' => $attendeeCount,
         ]);
 
-        // Update session plan usage count
-        $this->db->prepare(
-            "UPDATE session_plans
-             SET usage_count = usage_count + 1, last_used_at = NOW(), updated_at = NOW()
-             WHERE id = :id"
-        )->execute(['id' => $data['sessionPlanId']]);
+        // Update session plan usage count (only once per day, not per slot)
+        $alreadyUsedToday = $this->queryOne(
+            "SELECT id FROM {$this->table}
+             WHERE session_plan_id = :planId AND date = :date AND id != :currentId",
+            ['planId' => $data['sessionPlanId'], 'date' => $data['date'], 'currentId' => $id]
+        );
+        if (!$alreadyUsedToday) {
+            $this->db->prepare(
+                "UPDATE session_plans
+                 SET usage_count = usage_count + 1, last_used_at = NOW(), updated_at = NOW()
+                 WHERE id = :id"
+            )->execute(['id' => $data['sessionPlanId']]);
+        } else {
+            $this->db->prepare(
+                "UPDATE session_plans SET last_used_at = NOW(), updated_at = NOW() WHERE id = :id"
+            )->execute(['id' => $data['sessionPlanId']]);
+        }
 
         // Update allocation status if exists
         $this->db->prepare(

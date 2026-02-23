@@ -1,0 +1,3 @@
+first_name,last_name,email,phone,whatsapp_number,age,gender,address,source,assigned_slot_id,status,notes,medical_conditions,emergency_contact_name,emergency_contact_phone,emergency_contact_relationship
+Priya,Sharma,priya.sharma@email.com,9876543210,9876543210,32,female,"123 MG Road, Bangalore",walk-in,slot-0730,active,Regular practitioner,,"Rahul Sharma",9876543211,spouse
+Amit,Patel,amit.patel@email.com,9876543220,,45,male,"456 Park Street, Bangalore",referral,slot-0845,active,,Knee pain - mild,,,

@@ -25,6 +25,7 @@ export {
   trialBookingService,
   settingsService,
   authService,
+  memberAuthService,
   backupService,
   attendanceService,
   attendanceLockService,

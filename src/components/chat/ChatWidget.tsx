@@ -56,16 +56,9 @@ export function ChatWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Only render in API mode
-  if (!isApiMode()) return null;
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   // Scroll on new messages
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   // Focus input when chat opens
@@ -131,6 +124,9 @@ export function ChatWidget() {
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [input, isSending, messages]);
+
+  // Only render in API mode
+  if (!isApiMode()) return null;
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
