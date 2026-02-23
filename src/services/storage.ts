@@ -6131,6 +6131,23 @@ export async function syncEssentialData(): Promise<void> {
     return;
   }
 
+  // If not authenticated, only fetch settings (for favicon/branding).
+  // This keeps the login page fast — no need to load members, invoices, etc.
+  const isLoggedIn = authService.isAuthenticated();
+
+  if (!isLoggedIn) {
+    console.log('[Storage] Not authenticated — loading settings only');
+    try {
+      const settings = await settingsApi.get().catch(() => null);
+      if (settings) {
+        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+      }
+    } catch (error) {
+      console.error('[Storage] Settings sync failed:', error);
+    }
+    return;
+  }
+
   console.log('[Storage] Syncing essential + common data...');
 
   // Import markSynced to update TTL cache so useFreshData skips re-fetching
