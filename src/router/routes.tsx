@@ -68,6 +68,7 @@ const MemberBatchReportPage = lazy(() => import('../pages/member/BatchReportPage
 const MemberSettingsPage = lazy(() => import('../pages/member/MemberSettingsPage').then(m => ({ default: m.MemberSettingsPage })));
 const MemberAttendancePage = lazy(() => import('../pages/member/MemberAttendancePage').then(m => ({ default: m.MemberAttendancePage })));
 const MemberMembershipPage = lazy(() => import('../pages/member/MemberMembershipPage').then(m => ({ default: m.MemberMembershipPage })));
+const MemberInsightsPage = lazy(() => import('../pages/member/MemberInsightsPage').then(m => ({ default: m.MemberInsightsPage })));
 
 // Suspense wrapper for lazy components
 function SuspenseWrapper({ children }: { children: React.ReactNode }) {
@@ -581,6 +582,14 @@ export const routes: RouteObject[] = [
             element: (
               <SuspenseWrapper>
                 <MemberMembershipPage />
+              </SuspenseWrapper>
+            ),
+          },
+          {
+            path: '/member/insights',
+            element: (
+              <SuspenseWrapper>
+                <MemberInsightsPage />
               </SuspenseWrapper>
             ),
           },

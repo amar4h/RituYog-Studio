@@ -8,6 +8,7 @@ import {
   format, startOfMonth, endOfMonth, addMonths, subMonths,
   eachDayOfInterval, getDay, parseISO,
 } from 'date-fns';
+import { ATTENDANCE_TRACKING_START_DATE } from '../../constants';
 
 export function MemberAttendancePage() {
   const { member, memberId, refreshMember } = useMemberAuth();
@@ -25,28 +26,44 @@ export function MemberAttendancePage() {
 
   const today = useMemo(() => new Date().toISOString().split('T')[0], []);
 
-  // Get most recent subscription (active or recently expired)
-  const activeSub = useMemo(() => {
-    if (!member) return null;
-    const subs = subscriptionService.getAll().filter(
+  // All subscriptions for this member (active or expired, started before today)
+  const allSubs = useMemo(() => {
+    if (!member) return [];
+    return subscriptionService.getAll().filter(
       s => s.memberId === member.id &&
         (s.status === 'active' || s.status === 'expired') &&
         s.startDate <= today
-    );
-    return subs.sort((a, b) => b.startDate.localeCompare(a.startDate))[0] || null;
+    ).sort((a, b) => b.startDate.localeCompare(a.startDate));
   }, [member, today]);
+
+  // Most recent subscription (for slot display and summary header)
+  const activeSub = useMemo(() => allSubs[0] || null, [allSubs]);
 
   const slot = useMemo(() => {
     if (!activeSub?.slotId) return null;
     return slotService.getById(activeSub.slotId);
   }, [activeSub]);
 
-  // All attendance records for member+slot
+  // Earliest and latest subscription dates (union of all subs)
+  const subDateRange = useMemo(() => {
+    if (allSubs.length === 0) return null;
+    const earliest = allSubs.reduce((min, s) => s.startDate < min ? s.startDate : min, allSubs[0].startDate);
+    const latest = allSubs.reduce((max, s) => s.endDate > max ? s.endDate : max, allSubs[0].endDate);
+    return { startDate: earliest, endDate: latest };
+  }, [allSubs]);
+
+  // Check if a date falls within ANY subscription period
+  const isWithinAnySub = useMemo(() => {
+    const ranges = allSubs.map(s => ({ start: s.startDate, end: s.endDate }));
+    return (dateStr: string) => ranges.some(r => dateStr >= r.start && dateStr <= r.end);
+  }, [allSubs]);
+
+  // All attendance records for member (across all slots)
   const presentDates = useMemo(() => {
-    if (!member || !activeSub) return new Set<string>();
-    const records = attendanceService.getByMemberAndSlot(member.id, activeSub.slotId);
+    if (!member) return new Set<string>();
+    const records = attendanceService.getByMember(member.id);
     return new Set(records.filter(r => r.status === 'present').map(r => r.date));
-  }, [member, activeSub]);
+  }, [member]);
 
   // Calendar days for the displayed month
   const calendarData = useMemo(() => {
@@ -58,14 +75,15 @@ export function MemberAttendancePage() {
     return { days, paddingBefore: firstDayIdx };
   }, [displayMonth]);
 
-  // Month summary stats
+  // Month summary stats (uses union of all subs for the displayed month)
   const monthSummary = useMemo(() => {
-    if (!member || !activeSub) return { present: 0, total: 0, rate: 0 };
+    if (!member || !activeSub || !subDateRange) return { present: 0, total: 0, rate: 0 };
     const mStart = format(startOfMonth(displayMonth), 'yyyy-MM-dd');
     const mEnd = format(endOfMonth(displayMonth), 'yyyy-MM-dd');
-    // Clamp to subscription period and today
-    const effectiveStart = mStart > activeSub.startDate ? mStart : activeSub.startDate;
-    const effectiveEnd = mEnd < today ? mEnd : (today < activeSub.endDate ? today : activeSub.endDate);
+    // Clamp to full subscription range, tracking start date, and today
+    const rawStart = mStart > subDateRange.startDate ? mStart : subDateRange.startDate;
+    const effectiveStart = rawStart > ATTENDANCE_TRACKING_START_DATE ? rawStart : ATTENDANCE_TRACKING_START_DATE;
+    const effectiveEnd = mEnd < today ? mEnd : (today < subDateRange.endDate ? today : subDateRange.endDate);
     if (effectiveStart > effectiveEnd) return { present: 0, total: 0, rate: 0 };
     const summary = attendanceService.getMemberSummaryForPeriod(
       member.id, activeSub.slotId, effectiveStart, effectiveEnd
@@ -75,14 +93,15 @@ export function MemberAttendancePage() {
       total: summary.totalWorkingDays,
       rate: summary.totalWorkingDays > 0 ? Math.round((summary.presentDays / summary.totalWorkingDays) * 100) : 0,
     };
-  }, [member, activeSub, displayMonth, today]);
+  }, [member, activeSub, subDateRange, displayMonth, today]);
 
   // Navigation constraints
   const canGoPrev = useMemo(() => {
-    if (!activeSub) return false;
+    if (!subDateRange) return false;
     const prevMonthEnd = format(endOfMonth(subMonths(displayMonth, 1)), 'yyyy-MM-dd');
-    return prevMonthEnd >= activeSub.startDate;
-  }, [activeSub, displayMonth]);
+    const earliest = subDateRange.startDate > ATTENDANCE_TRACKING_START_DATE ? subDateRange.startDate : ATTENDANCE_TRACKING_START_DATE;
+    return prevMonthEnd >= earliest;
+  }, [subDateRange, displayMonth]);
 
   const canGoNext = useMemo(() => {
     const nextMonthStart = format(startOfMonth(addMonths(displayMonth, 1)), 'yyyy-MM-dd');
@@ -99,7 +118,7 @@ export function MemberAttendancePage() {
     );
   }
 
-  if (!activeSub) {
+  if (!activeSub || !subDateRange) {
     return (
       <div className="space-y-4">
         <h1 className="text-xl font-bold text-gray-900">My Attendance</h1>
@@ -115,7 +134,7 @@ export function MemberAttendancePage() {
   const getDayStatus = (dateStr: string) => {
     const dayOfWeek = getDay(parseISO(dateStr));
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    const isOutsideSub = dateStr < activeSub.startDate || dateStr > activeSub.endDate;
+    const isOutsideSub = !isWithinAnySub(dateStr);
     const isFuture = dateStr > today;
 
     if (isWeekend || isOutsideSub) return 'inactive';
@@ -132,7 +151,7 @@ export function MemberAttendancePage() {
       <div className="flex items-center justify-between text-xs text-gray-500 px-1">
         <span className="font-medium text-gray-700">{slot?.displayName || activeSub.slotId}</span>
         <span className="whitespace-nowrap">
-          {format(parseISO(activeSub.startDate), 'd MMM')} – {format(parseISO(activeSub.endDate), 'd MMM yyyy')}
+          {format(parseISO(subDateRange.startDate), 'd MMM')} – {format(parseISO(subDateRange.endDate), 'd MMM yyyy')}
         </span>
       </div>
 

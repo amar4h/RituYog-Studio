@@ -2,10 +2,12 @@ import { useMemo, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useMemberAuth } from '../../hooks/useMemberAuth';
 import { useFreshData } from '../../hooks/useFreshData';
-import { subscriptionService, slotService, attendanceService, membershipPlanService } from '../../services';
+import { subscriptionService, slotService, attendanceService, membershipPlanService, settingsService } from '../../services';
 import { PageLoading } from '../../components/common/LoadingSpinner';
 import { Card } from '../../components/common/Card';
+import { getWorkingDaysInRange } from '../../utils/dateUtils';
 import { format, parseISO, differenceInDays } from 'date-fns';
+import { ATTENDANCE_TRACKING_START_DATE } from '../../constants';
 
 export function MemberHomePage() {
   const { member, memberId, isAdminViewing, selectMember, refreshMember } = useMemberAuth();
@@ -19,7 +21,7 @@ export function MemberHomePage() {
       setSearchParams({}, { replace: true });
     }
   }, [viewAsId, isAdminViewing, selectMember, setSearchParams]);
-  const { isLoading } = useFreshData(['members', 'subscriptions', 'attendance', 'slots']);
+  const { isLoading } = useFreshData(['members', 'subscriptions', 'attendance', 'slots', 'settings']);
 
   // After API data loads, refresh member from localStorage (fixes race condition)
   useEffect(() => {
@@ -45,7 +47,10 @@ export function MemberHomePage() {
 
   const monthStats = useMemo(() => {
     if (!member || !activeSub) return { attended: 0, total: 0, rate: 0 };
-    const monthStart = today.substring(0, 7) + '-01';
+    const rawMonthStart = today.substring(0, 7) + '-01';
+    const monthStart = rawMonthStart > ATTENDANCE_TRACKING_START_DATE
+      ? rawMonthStart
+      : ATTENDANCE_TRACKING_START_DATE;
     const summary = attendanceService.getMemberSummaryForPeriod(
       member.id, activeSub.slotId, monthStart, today
     );
@@ -60,6 +65,61 @@ export function MemberHomePage() {
     if (!activeSub) return 0;
     return Math.max(0, differenceInDays(parseISO(activeSub.endDate), new Date()));
   }, [activeSub]);
+
+  // Day streak (calendar days — spans across renewals and batch transfers)
+  const currentStreak = useMemo(() => {
+    if (!member) return 0;
+
+    // All subscriptions for this member (active or expired)
+    const allSubs = subscriptionService.getAll().filter(
+      s => s.memberId === member.id &&
+        (s.status === 'active' || s.status === 'expired') &&
+        s.startDate <= today
+    );
+    if (allSubs.length === 0) return 0;
+
+    const holidays = settingsService.get()?.holidays || [];
+    const earliestSub = allSubs.reduce((min, s) => s.startDate < min ? s.startDate : min, allSubs[0].startDate);
+    const effectiveStart = earliestSub > ATTENDANCE_TRACKING_START_DATE ? earliestSub : ATTENDANCE_TRACKING_START_DATE;
+    if (effectiveStart > today) return 0;
+
+    // Working days: Mon-Fri within any subscription period, minus holidays
+    const isInAnySub = (date: string) => allSubs.some(s => date >= s.startDate && date <= s.endDate);
+    const workingDays = getWorkingDaysInRange(effectiveStart, today).filter(date =>
+      isInAnySub(date) &&
+      !holidays.some(h => h.date === date || (h.isRecurringYearly && h.date.substring(5) === date.substring(5)))
+    );
+    if (workingDays.length === 0) return 0;
+
+    const workingDaySet = new Set(workingDays);
+    const presentDates = new Set(
+      attendanceService.getByMember(member.id)
+        .filter(r => r.status === 'present')
+        .map(r => r.date)
+    );
+
+    // Start from today (or yesterday if today is working but not yet marked)
+    let startPoint = today;
+    if (workingDaySet.has(today) && !presentDates.has(today)) {
+      const d = parseISO(today);
+      d.setDate(d.getDate() - 1);
+      startPoint = format(d, 'yyyy-MM-dd');
+    }
+
+    // Walk backward counting calendar days
+    let earliestPresent = '';
+    const d = parseISO(startPoint);
+    while (format(d, 'yyyy-MM-dd') >= effectiveStart) {
+      const dateStr = format(d, 'yyyy-MM-dd');
+      if (workingDaySet.has(dateStr) && !presentDates.has(dateStr)) break;
+      if (workingDaySet.has(dateStr)) earliestPresent = dateStr;
+      d.setDate(d.getDate() - 1);
+    }
+
+    return earliestPresent
+      ? differenceInDays(parseISO(startPoint), parseISO(earliestPresent)) + 1
+      : 0;
+  }, [member, today]);
 
   if (isLoading) return <PageLoading />;
 
@@ -129,24 +189,30 @@ export function MemberHomePage() {
         </Card>
       )}
 
-      {/* This month stats */}
+      {/* This month stats + streak */}
       <Card>
         <div className="p-4">
           <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">This Month</h3>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-2">
             <div className="text-center">
               <div className="text-2xl font-bold text-indigo-600">{monthStats.attended}</div>
               <div className="text-xs text-gray-500">Sessions</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-700">{monthStats.total}</div>
-              <div className="text-xs text-gray-500">Working Days</div>
+              <div className="text-xs text-gray-500">Work Days</div>
             </div>
             <div className="text-center">
               <div className={`text-2xl font-bold ${monthStats.rate >= 80 ? 'text-green-600' : monthStats.rate >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
                 {monthStats.rate}%
               </div>
-              <div className="text-xs text-gray-500">Attendance</div>
+              <div className="text-xs text-gray-500">Rate</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-orange-500">
+                {currentStreak > 0 ? `${currentStreak}` : '0'}
+              </div>
+              <div className="text-xs text-gray-500">{currentStreak > 0 ? '\uD83D\uDD25 Streak' : 'Streak'}</div>
             </div>
           </div>
         </div>
@@ -203,6 +269,21 @@ export function MemberHomePage() {
               </div>
               <div className="text-sm font-medium text-gray-900">Batch Report</div>
               <div className="text-xs text-gray-500">Batch summary</div>
+            </div>
+          </Card>
+        </Link>
+        <Link to="/member/insights" className="block col-span-2">
+          <Card className="hover:shadow-md transition-shadow h-full">
+            <div className="p-4 flex items-center gap-3">
+              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-medium text-gray-900">Attendance Insights</div>
+                <div className="text-xs text-gray-500">Streaks, trends & consistency</div>
+              </div>
             </div>
           </Card>
         </Link>

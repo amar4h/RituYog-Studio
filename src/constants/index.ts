@@ -717,6 +717,14 @@ export const STORAGE_KEYS = {
 export type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];
 
 // ============================================
+// ATTENDANCE TRACKING START DATE
+// ============================================
+// Attendance records only exist from this date onwards.
+// Used to clamp all attendance calculations so dates before this
+// are not counted as "absent" (they simply weren't tracked).
+export const ATTENDANCE_TRACKING_START_DATE = '2026-01-22';
+
+// ============================================
 // SESSION PLANNING - BODY AREA LABELS
 // ============================================
 
