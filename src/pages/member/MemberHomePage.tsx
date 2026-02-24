@@ -10,7 +10,7 @@ import { format, parseISO, differenceInDays } from 'date-fns';
 import { ATTENDANCE_TRACKING_START_DATE } from '../../constants';
 
 export function MemberHomePage() {
-  const { member, memberId, isAdminViewing, selectMember, refreshMember } = useMemberAuth();
+  const { member, memberId, isAdminViewing, selectMember, refreshMember, familyMembers, switchMember } = useMemberAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Auto-select member from viewAs query param (admin coming from MemberDetailPage)
@@ -23,12 +23,12 @@ export function MemberHomePage() {
   }, [viewAsId, isAdminViewing, selectMember, setSearchParams]);
   const { isLoading } = useFreshData(['members', 'subscriptions', 'attendance', 'slots', 'settings']);
 
-  // After API data loads, refresh member from localStorage (fixes race condition)
+  // After API data loads, refresh member + check family members
   useEffect(() => {
-    if (!isLoading && !member && memberId) {
+    if (!isLoading && memberId) {
       refreshMember();
     }
-  }, [isLoading, member, memberId, refreshMember]);
+  }, [isLoading, memberId, refreshMember]);
 
   const today = useMemo(() => new Date().toISOString().split('T')[0], []);
 
@@ -70,7 +70,6 @@ export function MemberHomePage() {
   const currentStreak = useMemo(() => {
     if (!member) return 0;
 
-    // All subscriptions for this member (active or expired)
     const allSubs = subscriptionService.getAll().filter(
       s => s.memberId === member.id &&
         (s.status === 'active' || s.status === 'expired') &&
@@ -83,7 +82,6 @@ export function MemberHomePage() {
     const effectiveStart = earliestSub > ATTENDANCE_TRACKING_START_DATE ? earliestSub : ATTENDANCE_TRACKING_START_DATE;
     if (effectiveStart > today) return 0;
 
-    // Working days: Mon-Fri within any subscription period, minus holidays
     const isInAnySub = (date: string) => allSubs.some(s => date >= s.startDate && date <= s.endDate);
     const workingDays = getWorkingDaysInRange(effectiveStart, today).filter(date =>
       isInAnySub(date) &&
@@ -98,7 +96,6 @@ export function MemberHomePage() {
         .map(r => r.date)
     );
 
-    // Start from today (or yesterday if today is working but not yet marked)
     let startPoint = today;
     if (workingDaySet.has(today) && !presentDates.has(today)) {
       const d = parseISO(today);
@@ -106,7 +103,6 @@ export function MemberHomePage() {
       startPoint = format(d, 'yyyy-MM-dd');
     }
 
-    // Walk backward counting calendar days
     let earliestPresent = '';
     const d = parseISO(startPoint);
     while (format(d, 'yyyy-MM-dd') >= effectiveStart) {
@@ -145,7 +141,7 @@ export function MemberHomePage() {
     <div className="space-y-4">
       {/* Welcome */}
       <div>
-        <h1 className="text-xl font-bold text-gray-900">
+        <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
           Hi, {member?.firstName}!
         </h1>
         <p className="text-sm text-gray-500 mt-0.5">
@@ -153,13 +149,124 @@ export function MemberHomePage() {
         </p>
       </div>
 
-      {/* Subscription card */}
+      {/* Family member switcher */}
+      {familyMembers.length > 1 && !isAdminViewing && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500">Viewing as:</span>
+          <div className="flex gap-1.5 flex-1 overflow-x-auto">
+            {familyMembers.map(fm => (
+              <button
+                key={fm.id}
+                onClick={() => switchMember(fm.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 flex-shrink-0 ${
+                  fm.id === memberId
+                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm shadow-indigo-500/25'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95'
+                }`}
+              >
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                  fm.id === memberId ? 'bg-white/20 text-white' : 'bg-gray-300 text-white'
+                }`}>
+                  {fm.firstName[0]}
+                </span>
+                {fm.firstName}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Quick navigation — primary actions first */}
+      <div className="grid grid-cols-3 gap-2">
+        <Link to="/member/attendance" className="block active:scale-[0.98] transition-all duration-200">
+          <Card className="h-full">
+            <div className="p-3 text-center">
+              <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center mx-auto mb-1.5 shadow-sm shadow-green-500/10">
+                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+              </div>
+              <div className="text-xs font-medium text-gray-900">Attendance</div>
+            </div>
+          </Card>
+        </Link>
+        <Link to="/member/my-report" className="block active:scale-[0.98] transition-all duration-200">
+          <Card className="h-full">
+            <div className="p-3 text-center">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-1.5 shadow-sm shadow-indigo-500/10">
+                <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <div className="text-xs font-medium text-gray-900">My Report</div>
+            </div>
+          </Card>
+        </Link>
+        <Link to="/member/batch-report" className="block active:scale-[0.98] transition-all duration-200">
+          <Card className="h-full">
+            <div className="p-3 text-center">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-fuchsia-100 rounded-full flex items-center justify-center mx-auto mb-1.5 shadow-sm shadow-purple-500/10">
+                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+              <div className="text-xs font-medium text-gray-900">Batch Report</div>
+            </div>
+          </Card>
+        </Link>
+      </div>
+      <Link to="/member/insights" className="block active:scale-[0.98] transition-all duration-200">
+        <Card>
+          <div className="p-3 flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-orange-100 to-rose-100 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm shadow-orange-500/10">
+              <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+            </div>
+            <div className="text-left">
+              <div className="text-sm font-medium text-gray-900">Attendance Insights</div>
+              <div className="text-xs text-gray-500">Streaks, trends & ranking</div>
+            </div>
+          </div>
+        </Card>
+      </Link>
+
+      {/* This month stats + streak */}
+      <Card>
+        <div className="p-4">
+          <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">This Month</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="text-center">
+              <div className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-indigo-500">{monthStats.attended}</div>
+              <div className="text-xs text-gray-500">Sessions</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-black text-gray-700">{monthStats.total}</div>
+              <div className="text-xs text-gray-500">Work Days</div>
+            </div>
+            <div className="text-center">
+              <div className={`text-2xl font-black ${monthStats.rate >= 80 ? 'text-green-600' : monthStats.rate >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
+                {monthStats.rate}%
+              </div>
+              <div className="text-xs text-gray-500">Rate</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-amber-500">
+                {currentStreak > 0 ? `${currentStreak}` : '0'}
+              </div>
+              <div className="text-xs text-gray-500">{currentStreak > 0 ? '\uD83D\uDD25 Streak' : 'Streak'}</div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Subscription card — details at bottom */}
       {activeSub ? (
         <Card>
           <div className="p-4">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-medium text-indigo-600 uppercase tracking-wide">Active Membership</span>
-              <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Active</span>
+              <span className="text-xs bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Active</span>
             </div>
             <div className="flex items-center justify-between mb-3">
               <div className="text-base font-semibold text-gray-900">
@@ -188,106 +295,6 @@ export function MemberHomePage() {
           </div>
         </Card>
       )}
-
-      {/* This month stats + streak */}
-      <Card>
-        <div className="p-4">
-          <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">This Month</h3>
-          <div className="grid grid-cols-4 gap-2">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-indigo-600">{monthStats.attended}</div>
-              <div className="text-xs text-gray-500">Sessions</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-700">{monthStats.total}</div>
-              <div className="text-xs text-gray-500">Work Days</div>
-            </div>
-            <div className="text-center">
-              <div className={`text-2xl font-bold ${monthStats.rate >= 80 ? 'text-green-600' : monthStats.rate >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
-                {monthStats.rate}%
-              </div>
-              <div className="text-xs text-gray-500">Rate</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-orange-500">
-                {currentStreak > 0 ? `${currentStreak}` : '0'}
-              </div>
-              <div className="text-xs text-gray-500">{currentStreak > 0 ? '\uD83D\uDD25 Streak' : 'Streak'}</div>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Quick navigation */}
-      <div className="grid grid-cols-2 gap-3">
-        <Link to="/member/attendance" className="block">
-          <Card className="hover:shadow-md transition-shadow h-full">
-            <div className="p-4 text-center">
-              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                </svg>
-              </div>
-              <div className="text-sm font-medium text-gray-900">Attendance</div>
-              <div className="text-xs text-gray-500">View history</div>
-            </div>
-          </Card>
-        </Link>
-        <Link to="/member/membership" className="block">
-          <Card className="hover:shadow-md transition-shadow h-full">
-            <div className="p-4 text-center">
-              <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <div className="text-sm font-medium text-gray-900">My Membership</div>
-              <div className="text-xs text-gray-500">Plans & invoices</div>
-            </div>
-          </Card>
-        </Link>
-        <Link to="/member/my-report" className="block">
-          <Card className="hover:shadow-md transition-shadow h-full">
-            <div className="p-4 text-center">
-              <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              </div>
-              <div className="text-sm font-medium text-gray-900">My Report</div>
-              <div className="text-xs text-gray-500">Personal summary</div>
-            </div>
-          </Card>
-        </Link>
-        <Link to="/member/batch-report" className="block">
-          <Card className="hover:shadow-md transition-shadow h-full">
-            <div className="p-4 text-center">
-              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </div>
-              <div className="text-sm font-medium text-gray-900">Batch Report</div>
-              <div className="text-xs text-gray-500">Batch summary</div>
-            </div>
-          </Card>
-        </Link>
-        <Link to="/member/insights" className="block col-span-2">
-          <Card className="hover:shadow-md transition-shadow h-full">
-            <div className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                </svg>
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-medium text-gray-900">Attendance Insights</div>
-                <div className="text-xs text-gray-500">Streaks, trends & consistency</div>
-              </div>
-            </div>
-          </Card>
-        </Link>
-      </div>
     </div>
   );
 }

@@ -31,15 +31,15 @@ export function Card({
   return (
     <div
       className={`
-        bg-white rounded-lg border border-gray-200 shadow-sm
-        ${hover ? 'hover:shadow-md transition-shadow cursor-pointer' : ''}
+        bg-white/80 backdrop-blur-sm rounded-2xl border border-white/60 shadow-lg shadow-indigo-500/5
+        ${hover ? 'hover:shadow-xl hover:shadow-indigo-500/10 hover:scale-[1.01] transition-all duration-200 cursor-pointer' : ''}
         ${onClick ? 'cursor-pointer' : ''}
         ${className}
       `}
       onClick={onClick}
     >
       {(title || actions) && (
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100/80">
           <div>
             {title && <h3 className="text-lg font-semibold text-gray-900">{title}</h3>}
             {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
@@ -60,7 +60,7 @@ interface CardHeaderProps {
 
 export function CardHeader({ title, subtitle, actions }: CardHeaderProps) {
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100/80">
       <div>
         <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
         {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
@@ -86,7 +86,7 @@ interface CardFooterProps {
 
 export function CardFooter({ children, className = '' }: CardFooterProps) {
   return (
-    <div className={`px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-lg ${className}`}>
+    <div className={`px-4 py-3 border-t border-gray-100/80 bg-gray-50/50 rounded-b-2xl ${className}`}>
       {children}
     </div>
   );

@@ -24,10 +24,16 @@ const queryClient = new QueryClient({
 });
 
 function App() {
-  // In API mode, wait for essential + common data before rendering routes.
-  // This pre-fetches members, subscriptions, leads, invoices, payments in one batch,
-  // so the dashboard (and most admin pages) render instantly from cache.
-  const [ready, setReady] = useState(!isApiMode());
+  // In API mode, pre-fetch bulk data so admin pages render instantly.
+  // Only block admin routes — member/public routes render immediately
+  // (their useFreshData hooks handle their own data loading).
+  const [ready, setReady] = useState(() => {
+    if (!isApiMode()) return true;
+    const path = window.location.pathname;
+    // Don't block member portal or public routes
+    if (!path.startsWith('/admin')) return true;
+    return false;
+  });
 
   useEffect(() => {
     if (isApiMode()) {

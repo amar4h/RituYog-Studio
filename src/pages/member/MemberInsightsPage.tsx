@@ -483,14 +483,14 @@ export function MemberInsightsPage() {
       <h1 className="text-xl font-bold text-gray-900">Attendance Insights</h1>
 
       {/* Streak Cards — Daily & Weekly side by side */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Daily Streak */}
         <Card>
           <div className="p-4 text-center">
             <div className="text-3xl mb-1">
               {streakData.currentStreak > 0 ? '\uD83D\uDD25' : '\u2728'}
             </div>
-            <div className="text-4xl font-black text-indigo-600">
+            <div className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
               {streakData.currentStreak}
             </div>
             <div className="text-xs font-medium text-gray-700 mt-1">
@@ -514,7 +514,7 @@ export function MemberInsightsPage() {
             <div className="text-3xl mb-1">
               {weeklyStreakData.currentStreak > 0 ? '\uD83D\uDCAA' : '\u2728'}
             </div>
-            <div className="text-4xl font-black text-purple-600">
+            <div className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-500">
               {weeklyStreakData.currentStreak}
             </div>
             <div className="text-xs font-medium text-gray-700 mt-1">
@@ -537,18 +537,18 @@ export function MemberInsightsPage() {
       {/* Quick Stats Row */}
       <Card>
         <div className="p-4">
-          <div className="grid grid-cols-3 gap-3 text-center">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
             <div>
-              <div className="text-2xl font-bold text-indigo-600">{quickStats.totalSessions}</div>
+              <div className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-indigo-500">{quickStats.totalSessions}</div>
               <div className="text-xs text-gray-500">Total Sessions</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-green-600">{quickStats.bestMonthRate}%</div>
+              <div className="text-2xl font-black text-green-600">{quickStats.bestMonthRate}%</div>
               <div className="text-xs text-gray-500 truncate">{quickStats.bestMonthLabel}</div>
               <div className="text-[10px] text-gray-400">Best Month</div>
             </div>
             <div>
-              <div className={`text-2xl font-bold ${quickStats.avgRate >= 80 ? 'text-green-600' : quickStats.avgRate >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
+              <div className={`text-2xl font-black ${quickStats.avgRate >= 80 ? 'text-green-600' : quickStats.avgRate >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
                 {quickStats.avgRate}%
               </div>
               <div className="text-xs text-gray-500">Average</div>
@@ -576,9 +576,9 @@ export function MemberInsightsPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="flex-1 bg-gray-100 rounded-full h-2 relative">
+                  <div className="flex-1 bg-gray-100/80 rounded-full h-2.5 relative">
                     <div
-                      className="h-2 rounded-full bg-indigo-500 transition-all"
+                      className="h-2.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all"
                       style={{ width: `${ranking.myRate}%` }}
                     />
                   </div>
@@ -609,9 +609,9 @@ export function MemberInsightsPage() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mb-1">
-                    <div className="flex-1 bg-gray-100 rounded-full h-2 relative">
+                    <div className="flex-1 bg-gray-100/80 rounded-full h-2.5 relative">
                       <div
-                        className="h-2 rounded-full bg-purple-500 transition-all"
+                        className="h-2.5 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all"
                         style={{ width: `${ranking.myRate}%` }}
                       />
                     </div>
@@ -662,10 +662,10 @@ export function MemberInsightsPage() {
                     </span>
                   </div>
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-2">
+                <div className="w-full bg-gray-100/80 rounded-full h-2.5">
                   <div
-                    className={`h-2 rounded-full transition-all ${
-                      m.rate >= 80 ? 'bg-green-500' : m.rate >= 50 ? 'bg-amber-500' : 'bg-red-400'
+                    className={`h-2.5 rounded-full transition-all ${
+                      m.rate >= 80 ? 'bg-gradient-to-r from-green-500 to-emerald-400' : m.rate >= 50 ? 'bg-gradient-to-r from-amber-500 to-yellow-400' : 'bg-gradient-to-r from-red-500 to-red-400'
                     }`}
                     style={{ width: `${m.total > 0 ? m.rate : 0}%` }}
                   />

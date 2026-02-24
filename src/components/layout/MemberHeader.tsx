@@ -29,7 +29,7 @@ export function MemberHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-white shadow-sm">
+    <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-white/60 shadow-sm shadow-indigo-500/5">
       <div className="max-w-lg mx-auto px-4 flex items-center justify-between h-14">
         <div className="flex items-center gap-2 min-w-0">
           {settings.logoData && (
@@ -41,7 +41,7 @@ export function MemberHeader() {
             <select
               value={member?.id || ''}
               onChange={(e) => selectMember(e.target.value || null)}
-              className="text-sm font-medium text-gray-900 bg-transparent border border-gray-300 rounded-lg px-2 py-1.5 min-w-0 max-w-[180px] focus:ring-2 focus:ring-indigo-500"
+              className="text-sm font-medium text-gray-900 bg-white/50 border border-gray-200/80 rounded-xl px-2 py-1.5 min-w-0 max-w-[180px] focus:ring-2 focus:ring-indigo-500"
             >
               <option value="">Select member...</option>
               {members.map(m => (
@@ -58,7 +58,7 @@ export function MemberHeader() {
         {isAdminViewing ? (
           <button
             onClick={handleBackToAdmin}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50/80 hover:bg-indigo-100 rounded-xl active:scale-95 transition-all duration-200"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -68,7 +68,7 @@ export function MemberHeader() {
         ) : (
           <button
             onClick={logout}
-            className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100"
+            className="p-2 text-gray-500 hover:text-gray-700 rounded-xl hover:bg-gray-100/80 active:scale-95 transition-all duration-200"
             title="Logout"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

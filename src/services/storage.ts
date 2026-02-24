@@ -2804,7 +2804,7 @@ export const memberAuthService = {
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   },
 
-  login: async (phone: string, password: string): Promise<{ success: boolean; memberId?: string; error?: string }> => {
+  login: async (phone: string, password: string): Promise<{ success: boolean; memberId?: string; error?: string; candidates?: Array<{ id: string; firstName: string; lastName: string }> }> => {
     if (isApiMode()) {
       try {
         // Send SHA-256 hash to match what setPassword stores (bcrypt of SHA-256)
@@ -2829,25 +2829,48 @@ export const memberAuthService = {
       }
     }
 
-    // localStorage mode
+    // localStorage mode — find ALL members matching this phone with a password set
     const members = getAll<Member>(STORAGE_KEYS.MEMBERS);
-    const member = members.find(m => m.phone === phone && m.passwordHash);
-    if (!member) {
+    const matchingMembers = members.filter(m => m.phone === phone && m.passwordHash);
+    if (matchingMembers.length === 0) {
       return { success: false, error: 'Invalid phone number or password' };
     }
 
     const hash = await memberAuthService.hashPassword(password);
-    if (hash !== member.passwordHash) {
+    // Verify password against first member (family members share the same password)
+    if (hash !== matchingMembers[0].passwordHash) {
       return { success: false, error: 'Invalid phone number or password' };
     }
 
+    // Filter to only members whose password matches (in case of mixed passwords)
+    const validMembers = matchingMembers.filter(m => m.passwordHash === hash);
+
+    // Multiple members with same phone + password → return candidates for picker
+    if (validMembers.length > 1) {
+      return {
+        success: false,
+        candidates: validMembers.map(m => ({ id: m.id, firstName: m.firstName, lastName: m.lastName })),
+      };
+    }
+
+    // Single member — login directly
     const authState: MemberAuthState = {
       isAuthenticated: true,
-      memberId: member.id,
+      memberId: validMembers[0].id,
       loginTime: new Date().toISOString(),
     };
     localStorage.setItem(STORAGE_KEYS.MEMBER_AUTH, JSON.stringify(authState));
-    return { success: true, memberId: member.id };
+    return { success: true, memberId: validMembers[0].id };
+  },
+
+  // Complete login for a specific member (used after candidate picker)
+  loginAsMember: (memberId: string): void => {
+    const authState: MemberAuthState = {
+      isAuthenticated: true,
+      memberId,
+      loginTime: new Date().toISOString(),
+    };
+    localStorage.setItem(STORAGE_KEYS.MEMBER_AUTH, JSON.stringify(authState));
   },
 
   logout: (): void => {
@@ -2894,17 +2917,23 @@ export const memberAuthService = {
       }
     }
 
-    // localStorage mode
+    // localStorage mode — find ALL members matching this phone
     const members = getAll<Member>(STORAGE_KEYS.MEMBERS);
-    const member = members.find(m => m.phone === phone);
-    if (!member) {
+    const matchingMembers = members.filter(m => m.phone === phone);
+    if (matchingMembers.length === 0) {
       return { success: false, error: 'No member found with this phone number. Please contact your studio.' };
     }
-    if (member.passwordHash) {
+    // Check if ANY already activated
+    if (matchingMembers.every(m => m.passwordHash)) {
       return { success: false, error: 'Account already activated. Please use Login.' };
     }
+    // Set password for ALL members with this phone (family members share password)
     const hash = await memberAuthService.hashPassword(password);
-    memberService.update(member.id, { passwordHash: hash });
+    for (const m of matchingMembers) {
+      if (!m.passwordHash) {
+        memberService.update(m.id, { passwordHash: hash });
+      }
+    }
     return { success: true };
   },
 
@@ -4051,7 +4080,7 @@ export const attendanceService = {
   // - This ensures consistent "X / Y" display across all members for same period
   getMemberSummaryForPeriod: (
     memberId: string,
-    _slotId: string,
+    slotId: string,
     periodStart: string,
     periodEnd: string
   ): { presentDays: number; totalWorkingDays: number } => {
@@ -4074,13 +4103,35 @@ export const attendanceService = {
 
     const presentDays = presentDates.size;
 
-    // CHANGE 1: Calculate working days based ONLY on selected period (not membership dates)
+    // Calculate working days based ONLY on selected period (not membership dates)
     // Get holidays from settings to exclude them
     const settings = settingsService.get();
     const holidays = settings?.holidays || [];
 
+    // If periodEnd is today and the member's slot hasn't started yet,
+    // exclude today — can't penalize for a session that hasn't run
+    const today = new Date().toISOString().split('T')[0];
+    let effectivePeriodEnd = periodEnd;
+    if (periodEnd >= today && slotId) {
+      const slot = slotService.getById(slotId);
+      if (slot) {
+        const now = new Date();
+        const [hh, mm] = slot.startTime.split(':').map(Number);
+        const slotStart = new Date();
+        slotStart.setHours(hh, mm, 0, 0);
+        if (now < slotStart && periodEnd === today) {
+          // Session hasn't happened yet today — exclude today
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          effectivePeriodEnd = yesterday.toISOString().split('T')[0];
+        }
+      }
+    }
+
     // Count working days (Mon-Fri) in the period, excluding holidays
-    const workingDays = getWorkingDaysInRange(periodStart, periodEnd);
+    const workingDays = effectivePeriodEnd >= periodStart
+      ? getWorkingDaysInRange(periodStart, effectivePeriodEnd)
+      : [];
     const totalWorkingDays = workingDays.filter(date => {
       // Exclude holidays - check both exact date and recurring yearly holidays
       const isHoliday = holidays.some(h => {

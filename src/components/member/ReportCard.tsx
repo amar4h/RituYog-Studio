@@ -28,9 +28,9 @@ function StatTile({ label, value, subtitle, color }: { label: string; value: str
     gray: 'bg-gray-50 text-gray-700',
   };
   return (
-    <div className={`p-3 rounded-lg ${colors[color] || colors.gray}`}>
+    <div className={`p-3 rounded-xl ${colors[color] || colors.gray}`}>
       <div className="text-xs font-medium opacity-75">{label}</div>
-      <div className="text-xl font-bold mt-0.5">{value}</div>
+      <div className="text-xl font-black mt-0.5">{value}</div>
       {subtitle && <div className="text-xs opacity-60">{subtitle}</div>}
     </div>
   );
@@ -57,9 +57,9 @@ function HorizontalBar({ label, percentage }: { label: string; percentage: numbe
         <span className="text-gray-700">{label}</span>
         <span className="text-gray-500">{Math.round(percentage)}%</span>
       </div>
-      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+      <div className="h-2.5 bg-gray-100/80 rounded-full overflow-hidden">
         <div
-          className="h-full bg-indigo-500 rounded-full transition-all"
+          className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all"
           style={{ width: `${Math.max(percentage, 2)}%` }}
         />
       </div>
@@ -72,7 +72,7 @@ function BadgeRow({ items }: { items: Array<{ label: string; count?: number }> }
   return (
     <div className="flex flex-wrap gap-1.5">
       {items.map((item, i) => (
-        <span key={i} className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs">
+        <span key={i} className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs">
           {item.label}
           {item.count !== undefined && (
             <span className="bg-indigo-200 text-indigo-800 px-1.5 py-0.5 rounded-full text-[10px] font-bold">
@@ -96,7 +96,7 @@ export function ReportCard(props: ReportCardProps) {
         <div className="text-center text-sm text-gray-500">{period.label}</div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
           <StatTile label="Sessions" value={d.sessionsAttended} subtitle={`of ${d.totalWorkingDays}`} color="indigo" />
           <StatTile label="Rate" value={`${Math.round(d.attendanceRate)}%`} color={d.attendanceRate >= 80 ? 'green' : d.attendanceRate >= 50 ? 'amber' : 'amber'} />
           <StatTile label="Asanas" value={d.uniqueAsanasCount} subtitle="unique" color="purple" />

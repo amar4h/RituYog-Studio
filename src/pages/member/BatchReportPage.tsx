@@ -84,7 +84,7 @@ export function BatchReportPage() {
         <select
           value={periodType}
           onChange={(e) => setPeriodType(e.target.value as PeriodType)}
-          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+          className="flex-1 px-3 py-2 border border-gray-200/80 rounded-xl bg-gray-50/50 text-sm focus:ring-2 focus:ring-indigo-500"
         >
           {PERIOD_TYPE_OPTIONS.map(opt => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -93,9 +93,9 @@ export function BatchReportPage() {
         <div className="flex gap-1">
           <button
             onClick={() => setPeriodOffset('current')}
-            className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium ${
+            className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
               periodOffset === 'current'
-                ? 'bg-indigo-600 text-white'
+                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm shadow-indigo-500/25'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
@@ -103,9 +103,9 @@ export function BatchReportPage() {
           </button>
           <button
             onClick={() => setPeriodOffset('previous')}
-            className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium ${
+            className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
               periodOffset === 'previous'
-                ? 'bg-indigo-600 text-white'
+                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm shadow-indigo-500/25'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
@@ -116,7 +116,7 @@ export function BatchReportPage() {
 
       {/* Disclaimer for periods before session tracking started */}
       {period.startDate < '2026-02-16' && (
-        <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+        <div className="px-3 py-2 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-700">
           Session plan tracking started on 16 Feb 2026. Data for earlier dates may be incomplete.
         </div>
       )}
@@ -128,7 +128,7 @@ export function BatchReportPage() {
           <button
             onClick={handleDownload}
             disabled={downloading}
-            className="w-full py-3 bg-indigo-600 text-white rounded-lg font-medium text-sm hover:bg-indigo-700 disabled:opacity-50"
+            className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-medium text-sm hover:from-indigo-700 hover:to-purple-700 shadow-lg shadow-indigo-500/25 active:scale-[0.98] transition-all duration-200 disabled:opacity-50"
           >
             {downloading ? 'Generating...' : 'Download as Image'}
           </button>

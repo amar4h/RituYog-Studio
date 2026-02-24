@@ -128,8 +128,8 @@ export function MemberMembershipPage() {
               <span className="text-xs font-medium text-indigo-600 uppercase tracking-wide">Current Plan</span>
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                 activeSub.status === 'active'
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-gray-100 text-gray-600'
+                  ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-700'
+                  : 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-600'
               }`}>
                 {activeSub.status === 'active' ? 'Active' : 'Expired'}
               </span>
@@ -139,7 +139,7 @@ export function MemberMembershipPage() {
               <div className="text-base font-semibold text-gray-900">
                 {activePlan?.name || 'Membership'}
               </div>
-              <div className={`text-lg font-bold ${daysRemaining <= 7 ? 'text-amber-600' : 'text-indigo-600'}`}>
+              <div className={`text-lg font-black ${daysRemaining <= 7 ? 'text-amber-600' : 'bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600'}`}>
                 {daysRemaining}<span className="text-xs font-normal text-gray-500 ml-1">days left</span>
               </div>
             </div>
@@ -190,55 +190,58 @@ export function MemberMembershipPage() {
               {invoices.map(inv => {
                 const paid = inv.amountPaid >= inv.totalAmount;
                 return (
-                  <div key={inv.id} className="flex items-center justify-between py-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium text-gray-900">{inv.invoiceNumber}</div>
-                      <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1.5">
-                        <span className="whitespace-nowrap">
-                          {format(parseISO(inv.invoiceDate || inv.createdAt), 'd MMM yyyy')}
-                        </span>
-                        <span className="text-gray-300">|</span>
-                        <span>{formatCurrency(inv.totalAmount)}</span>
+                  <div key={inv.id} className="py-3">
+                    <div className="flex items-start justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-900">{inv.invoiceNumber}</span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                            paid ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {paid ? 'Paid' : 'Pending'}
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1.5">
+                          <span className="whitespace-nowrap">
+                            {format(parseISO(inv.invoiceDate || inv.createdAt), 'd MMM yyyy')}
+                          </span>
+                          <span className="text-gray-300">|</span>
+                          <span>{formatCurrency(inv.totalAmount)}</span>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-2 ml-3 flex-shrink-0">
-                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                        paid ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                      }`}>
-                        {paid ? 'Paid' : 'Pending'}
-                      </span>
-
-                      {canShare && (
-                        <button
-                          onClick={() => handleShare(inv)}
-                          disabled={downloadingId === inv.id}
-                          className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
-                          title="Share"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                          </svg>
-                        </button>
-                      )}
-
-                      <button
-                        onClick={() => handleDownload(inv)}
-                        disabled={downloadingId === inv.id}
-                        className="p-2 text-indigo-600 hover:text-indigo-800 rounded-lg"
-                        title="Download PDF"
-                      >
-                        {downloadingId === inv.id ? (
-                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                          </svg>
-                        ) : (
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
+                      <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                        {canShare && (
+                          <button
+                            onClick={() => handleShare(inv)}
+                            disabled={downloadingId === inv.id}
+                            className="p-2.5 text-gray-400 hover:text-gray-600 rounded-xl active:scale-90 transition-all duration-200"
+                            title="Share"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                            </svg>
+                          </button>
                         )}
-                      </button>
+
+                        <button
+                          onClick={() => handleDownload(inv)}
+                          disabled={downloadingId === inv.id}
+                          className="p-2.5 text-indigo-600 hover:text-indigo-800 rounded-xl active:scale-90 transition-all duration-200"
+                          title="Download PDF"
+                        >
+                          {downloadingId === inv.id ? (
+                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );

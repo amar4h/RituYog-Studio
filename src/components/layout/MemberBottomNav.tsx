@@ -13,13 +13,20 @@ function NavTab({ to, icon, label }: NavTabProps) {
       to={to}
       end={to === '/member'}
       className={({ isActive }) =>
-        `flex-1 flex flex-col items-center justify-center py-2 text-xs ${
-          isActive ? 'text-indigo-600' : 'text-gray-500'
+        `flex-1 flex flex-col items-center justify-center py-2 text-xs transition-all duration-200 ${
+          isActive ? 'text-indigo-600 font-medium' : 'text-gray-400 active:scale-95'
         }`
       }
     >
-      <span className="w-6 h-6 mb-0.5">{icon}</span>
-      <span>{label}</span>
+      {({ isActive }) => (
+        <>
+          <span className="w-6 h-6 mb-0.5">{icon}</span>
+          <span>{label}</span>
+          {isActive && (
+            <span className="w-5 h-0.5 mt-0.5 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500" />
+          )}
+        </>
+      )}
     </NavLink>
   );
 }
@@ -28,7 +35,7 @@ export function MemberBottomNav() {
   const { isAdminViewing } = useMemberAuth();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-30 safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-white/60 shadow-[0_-4px_20px_rgba(99,102,241,0.04)] z-30 safe-area-bottom">
       <div className="max-w-lg mx-auto flex" style={{ minHeight: '56px' }}>
         <NavTab
           to="/member"
@@ -40,20 +47,20 @@ export function MemberBottomNav() {
           }
         />
         <NavTab
-          to="/member/my-report"
-          label="My Report"
+          to="/member/attendance"
+          label="Attendance"
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
             </svg>
           }
         />
         <NavTab
-          to="/member/batch-report"
-          label="Batch"
+          to="/member/membership"
+          label="Membership"
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           }
         />

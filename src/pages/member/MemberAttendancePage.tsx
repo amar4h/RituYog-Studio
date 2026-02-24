@@ -163,7 +163,7 @@ export function MemberAttendancePage() {
             <button
               onClick={() => setDisplayMonth(m => subMonths(m, 1))}
               disabled={!canGoPrev}
-              className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors"
+              className="p-2 rounded-xl hover:bg-gray-100/80 disabled:opacity-30 active:scale-90 transition-all duration-200"
             >
               <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -175,7 +175,7 @@ export function MemberAttendancePage() {
             <button
               onClick={() => setDisplayMonth(m => addMonths(m, 1))}
               disabled={!canGoNext}
-              className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors"
+              className="p-2 rounded-xl hover:bg-gray-100/80 disabled:opacity-30 active:scale-90 transition-all duration-200"
             >
               <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -207,8 +207,8 @@ export function MemberAttendancePage() {
               return (
                 <div
                   key={dateStr}
-                  className={`w-full aspect-square rounded-lg flex items-center justify-center text-xs font-medium relative
-                    ${status === 'present' ? 'bg-green-100 text-green-700' : ''}
+                  className={`w-full aspect-square rounded-xl flex items-center justify-center text-xs font-medium relative transition-all duration-200
+                    ${status === 'present' ? 'bg-gradient-to-br from-green-400 to-emerald-500 text-white shadow-sm shadow-green-500/20' : ''}
                     ${status === 'absent' ? 'bg-red-50 text-red-400' : ''}
                     ${status === 'inactive' ? 'text-gray-300' : ''}
                     ${status === 'future' ? 'text-gray-300' : ''}
@@ -217,7 +217,7 @@ export function MemberAttendancePage() {
                 >
                   {dayNum}
                   {status === 'present' && (
-                    <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-green-500" />
+                    <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-white/60" />
                   )}
                 </div>
               );
@@ -231,15 +231,15 @@ export function MemberAttendancePage() {
         <div className="p-4">
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
-              <div className="text-2xl font-bold text-green-600">{monthSummary.present}</div>
+              <div className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-green-500 to-emerald-500">{monthSummary.present}</div>
               <div className="text-xs text-gray-500">Present</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-gray-700">{monthSummary.total}</div>
+              <div className="text-2xl font-black text-gray-700">{monthSummary.total}</div>
               <div className="text-xs text-gray-500">Working Days</div>
             </div>
             <div>
-              <div className={`text-2xl font-bold ${monthSummary.rate >= 80 ? 'text-green-600' : monthSummary.rate >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
+              <div className={`text-2xl font-black ${monthSummary.rate >= 80 ? 'text-green-600' : monthSummary.rate >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
                 {monthSummary.rate}%
               </div>
               <div className="text-xs text-gray-500">Attendance</div>
@@ -251,15 +251,15 @@ export function MemberAttendancePage() {
       {/* Legend */}
       <div className="flex items-center justify-center gap-4 text-xs text-gray-500">
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded bg-green-100 border border-green-300" />
+          <span className="w-3.5 h-3.5 rounded-md bg-gradient-to-br from-green-400 to-emerald-500" />
           <span>Present</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded bg-red-50 border border-red-200" />
+          <span className="w-3.5 h-3.5 rounded-md bg-red-50 border border-red-200" />
           <span>Absent</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded bg-gray-50 border border-gray-200" />
+          <span className="w-3.5 h-3.5 rounded-md bg-gray-50 border border-gray-200" />
           <span>Off / N/A</span>
         </div>
       </div>
