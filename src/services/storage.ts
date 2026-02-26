@@ -4103,8 +4103,6 @@ export const attendanceService = {
 
     const presentDays = presentDates.size;
 
-    // Calculate working days based ONLY on selected period (not membership dates)
-    // Get holidays from settings to exclude them
     const settings = settingsService.get();
     const holidays = settings?.holidays || [];
 
@@ -4120,7 +4118,6 @@ export const attendanceService = {
         const slotStart = new Date();
         slotStart.setHours(hh, mm, 0, 0);
         if (now < slotStart && periodEnd === today) {
-          // Session hasn't happened yet today — exclude today
           const yesterday = new Date();
           yesterday.setDate(yesterday.getDate() - 1);
           effectivePeriodEnd = yesterday.toISOString().split('T')[0];
@@ -4128,15 +4125,22 @@ export const attendanceService = {
       }
     }
 
-    // Count working days (Mon-Fri) in the period, excluding holidays
+    // Get member's subscriptions to only count days they were actually enrolled
+    const memberSubs = subscriptionService.getByMember(memberId)
+      .filter(s => s.status === 'active' || s.status === 'expired');
+    const isInAnySub = (date: string) =>
+      memberSubs.some(s => date >= s.startDate && date <= s.endDate);
+
+    // Count working days (Mon-Fri) only within subscription periods, excluding holidays
     const workingDays = effectivePeriodEnd >= periodStart
       ? getWorkingDaysInRange(periodStart, effectivePeriodEnd)
       : [];
     const totalWorkingDays = workingDays.filter(date => {
-      // Exclude holidays - check both exact date and recurring yearly holidays
+      // Must fall within a subscription period
+      if (!isInAnySub(date)) return false;
+      // Exclude holidays
       const isHoliday = holidays.some(h => {
         if (h.date === date) return true;
-        // For recurring yearly holidays, check if month-day matches
         if (h.isRecurringYearly) {
           const holidayMonthDay = h.date.substring(5); // "MM-DD"
           const dateMonthDay = date.substring(5);

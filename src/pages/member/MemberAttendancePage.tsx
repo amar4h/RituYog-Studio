@@ -26,18 +26,29 @@ export function MemberAttendancePage() {
 
   const today = useMemo(() => new Date().toISOString().split('T')[0], []);
 
-  // All subscriptions for this member (active or expired, started before today)
+  // Active subscription that covers today
+  const activeSub = useMemo(() => {
+    if (!member) return null;
+    return subscriptionService.getAll().find(
+      s => s.memberId === member.id && s.status === 'active' && s.startDate <= today && s.endDate >= today
+    ) || null;
+  }, [member, today]);
+
+  // Check if member has ever had any subscription
+  const hasAnySubscription = useMemo(() => {
+    if (!member) return false;
+    return subscriptionService.getByMember(member.id).length > 0;
+  }, [member]);
+
+  // All subscriptions (active + expired) — full chain for calendar range (only when active sub exists)
   const allSubs = useMemo(() => {
-    if (!member) return [];
+    if (!member || !activeSub) return [];
     return subscriptionService.getAll().filter(
       s => s.memberId === member.id &&
         (s.status === 'active' || s.status === 'expired') &&
         s.startDate <= today
     ).sort((a, b) => b.startDate.localeCompare(a.startDate));
-  }, [member, today]);
-
-  // Most recent subscription (for slot display and summary header)
-  const activeSub = useMemo(() => allSubs[0] || null, [allSubs]);
+  }, [member, activeSub, today]);
 
   const slot = useMemo(() => {
     if (!activeSub?.slotId) return null;
@@ -124,7 +135,7 @@ export function MemberAttendancePage() {
         <h1 className="text-xl font-bold text-gray-900">My Attendance</h1>
         <Card>
           <div className="p-6 text-center text-sm text-gray-500">
-            No active subscription found.
+            {hasAnySubscription ? 'Your membership has expired.' : 'No membership exists. Please contact the studio.'}
           </div>
         </Card>
       </div>

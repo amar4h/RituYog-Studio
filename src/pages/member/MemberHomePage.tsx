@@ -32,6 +32,7 @@ export function MemberHomePage() {
 
   const today = useMemo(() => new Date().toISOString().split('T')[0], []);
 
+  // Active subscription that covers today
   const activeSub = useMemo(() => {
     if (!member) return null;
     const subs = subscriptionService.getAll().filter(
@@ -40,26 +41,41 @@ export function MemberHomePage() {
     return subs[0] || null;
   }, [member, today]);
 
+  // Check if member has ever had any subscription
+  const hasAnySubscription = useMemo(() => {
+    if (!member) return false;
+    return subscriptionService.getByMember(member.id).length > 0;
+  }, [member]);
+
+  // All subscriptions (active + expired) — used for full membership chain when active sub exists
+  const allSubs = useMemo(() => {
+    if (!member || !activeSub) return [];
+    return subscriptionService.getAll().filter(
+      s => s.memberId === member.id &&
+        (s.status === 'active' || s.status === 'expired') &&
+        s.startDate <= today
+    );
+  }, [member, activeSub, today]);
+
   const slot = useMemo(() => {
     if (!activeSub?.slotId) return null;
     return slotService.getById(activeSub.slotId);
   }, [activeSub]);
 
-  const monthStats = useMemo(() => {
-    if (!member || !activeSub) return { attended: 0, total: 0, rate: 0 };
-    const rawMonthStart = today.substring(0, 7) + '-01';
-    const monthStart = rawMonthStart > ATTENDANCE_TRACKING_START_DATE
-      ? rawMonthStart
-      : ATTENDANCE_TRACKING_START_DATE;
+  // Overall membership stats (from earliest sub start to today)
+  const membershipStats = useMemo(() => {
+    if (!member || !activeSub || allSubs.length === 0) return { attended: 0, total: 0, rate: 0 };
+    const earliest = allSubs.reduce((min, s) => s.startDate < min ? s.startDate : min, allSubs[0].startDate);
+    const membershipStart = earliest > ATTENDANCE_TRACKING_START_DATE ? earliest : ATTENDANCE_TRACKING_START_DATE;
     const summary = attendanceService.getMemberSummaryForPeriod(
-      member.id, activeSub.slotId, monthStart, today
+      member.id, activeSub.slotId, membershipStart, today
     );
     return {
       attended: summary.presentDays,
       total: summary.totalWorkingDays,
       rate: summary.totalWorkingDays > 0 ? Math.round((summary.presentDays / summary.totalWorkingDays) * 100) : 0,
     };
-  }, [member, activeSub, today]);
+  }, [member, activeSub, allSubs, today]);
 
   const daysRemaining = useMemo(() => {
     if (!activeSub) return 0;
@@ -68,14 +84,7 @@ export function MemberHomePage() {
 
   // Day streak (calendar days — spans across renewals and batch transfers)
   const currentStreak = useMemo(() => {
-    if (!member) return 0;
-
-    const allSubs = subscriptionService.getAll().filter(
-      s => s.memberId === member.id &&
-        (s.status === 'active' || s.status === 'expired') &&
-        s.startDate <= today
-    );
-    if (allSubs.length === 0) return 0;
+    if (!member || !activeSub || allSubs.length === 0) return 0;
 
     const holidays = settingsService.get()?.holidays || [];
     const earliestSub = allSubs.reduce((min, s) => s.startDate < min ? s.startDate : min, allSubs[0].startDate);
@@ -231,34 +240,36 @@ export function MemberHomePage() {
         </Card>
       </Link>
 
-      {/* This month stats + streak */}
-      <Card>
-        <div className="p-4">
-          <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">This Month</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <div className="text-center">
-              <div className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-indigo-500">{monthStats.attended}</div>
-              <div className="text-xs text-gray-500">Sessions</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-black text-gray-700">{monthStats.total}</div>
-              <div className="text-xs text-gray-500">Work Days</div>
-            </div>
-            <div className="text-center">
-              <div className={`text-2xl font-black ${monthStats.rate >= 80 ? 'text-green-600' : monthStats.rate >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
-                {monthStats.rate}%
+      {/* Membership stats + streak */}
+      {activeSub && (
+        <Card>
+          <div className="p-4">
+            <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Membership</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="text-center">
+                <div className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-indigo-500">{membershipStats.attended}</div>
+                <div className="text-xs text-gray-500">Sessions</div>
               </div>
-              <div className="text-xs text-gray-500">Rate</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-amber-500">
-                {currentStreak > 0 ? `${currentStreak}` : '0'}
+              <div className="text-center">
+                <div className="text-2xl font-black text-gray-700">{membershipStats.total}</div>
+                <div className="text-xs text-gray-500">Work Days</div>
               </div>
-              <div className="text-xs text-gray-500">{currentStreak > 0 ? '\uD83D\uDD25 Streak' : 'Streak'}</div>
+              <div className="text-center">
+                <div className={`text-2xl font-black ${membershipStats.rate >= 80 ? 'text-green-600' : membershipStats.rate >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
+                  {membershipStats.rate}%
+                </div>
+                <div className="text-xs text-gray-500">Rate</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-amber-500">
+                  {currentStreak > 0 ? `${currentStreak}` : '0'}
+                </div>
+                <div className="text-xs text-gray-500">{currentStreak > 0 ? '\uD83D\uDD25 Streak' : 'Streak'}</div>
+              </div>
             </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      )}
 
       {/* Subscription card — details at bottom */}
       {activeSub ? (
@@ -291,7 +302,7 @@ export function MemberHomePage() {
       ) : (
         <Card>
           <div className="p-4 text-center text-sm text-gray-500">
-            No active membership found.
+            {hasAnySubscription ? 'Your membership has expired.' : 'No membership exists. Please contact the studio.'}
           </div>
         </Card>
       )}

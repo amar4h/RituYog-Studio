@@ -32,16 +32,19 @@ export function MemberMembershipPage() {
 
   const today = useMemo(() => new Date().toISOString().split('T')[0], []);
 
-  // Active subscription
+  // Active subscription that covers today
   const activeSub = useMemo(() => {
     if (!member) return null;
-    const subs = subscriptionService.getAll().filter(
-      s => s.memberId === member.id &&
-        (s.status === 'active' || s.status === 'expired') &&
-        s.startDate <= today
-    );
-    return subs.sort((a, b) => b.startDate.localeCompare(a.startDate))[0] || null;
+    return subscriptionService.getAll().find(
+      s => s.memberId === member.id && s.status === 'active' && s.startDate <= today && s.endDate >= today
+    ) || null;
   }, [member, today]);
+
+  // Check if member has ever had any subscription
+  const hasAnySubscription = useMemo(() => {
+    if (!member) return false;
+    return subscriptionService.getByMember(member.id).length > 0;
+  }, [member]);
 
   // All subscriptions (for history)
   const allSubs = useMemo(() => {
@@ -169,7 +172,7 @@ export function MemberMembershipPage() {
       ) : (
         <Card>
           <div className="p-6 text-center text-sm text-gray-500">
-            No active subscription found.
+            {hasAnySubscription ? 'Your membership has expired.' : 'No membership exists. Please contact the studio.'}
           </div>
         </Card>
       )}
