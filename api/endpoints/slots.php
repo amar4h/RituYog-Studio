@@ -36,11 +36,13 @@ class SlotsHandler extends BaseHandler {
             throw new Exception('Slot not found');
         }
 
-        // Count membership subscriptions active on this date
+        // Count membership subscriptions covering this date
+        // Include 'expired' status to match localStorage behavior — prevents overbooking
+        // when a subscription is marked expired (e.g., after renewal) but date range still covers the date
         $stmt = $this->db->prepare(
             "SELECT COUNT(*) as count FROM membership_subscriptions
              WHERE slot_id = :slotId
-             AND status = 'active'
+             AND status IN ('active', 'expired')
              AND start_date <= :dateStart
              AND end_date >= :dateEnd"
         );

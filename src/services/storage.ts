@@ -4125,21 +4125,13 @@ export const attendanceService = {
       }
     }
 
-    // Get member's subscriptions to only count days they were actually enrolled
-    const memberSubs = subscriptionService.getByMember(memberId)
-      .filter(s => s.status === 'active' || s.status === 'expired');
-    const isInAnySub = (date: string) =>
-      memberSubs.some(s => date >= s.startDate && date <= s.endDate);
-
-    // Count working days (Mon-Fri) only within subscription periods, excluding holidays
+    // Count working days (Mon-Fri) in the selected period, excluding holidays
+    // Same for ALL members — does NOT factor in subscription dates
     const workingDays = effectivePeriodEnd >= periodStart
       ? getWorkingDaysInRange(periodStart, effectivePeriodEnd)
       : [];
     const totalWorkingDays = workingDays.filter(date => {
-      // Must fall within a subscription period
-      if (!isInAnySub(date)) return false;
-      // Exclude holidays
-      const isHoliday = holidays.some(h => {
+      const isHolidayDate = holidays.some(h => {
         if (h.date === date) return true;
         if (h.isRecurringYearly) {
           const holidayMonthDay = h.date.substring(5); // "MM-DD"
@@ -4148,7 +4140,7 @@ export const attendanceService = {
         }
         return false;
       });
-      return !isHoliday;
+      return !isHolidayDate;
     }).length;
 
     return { presentDays, totalWorkingDays };
@@ -4172,8 +4164,9 @@ export const attendanceService = {
     presentDays: number;
     totalWorkingDays: number;
   }> => {
-    // Get active subscriptions for this slot on this date
-    const subscriptions = subscriptionService.getActiveForSlotOnDate(slotId, date);
+    // Get subscriptions for this slot on this date — only active ones for attendance tiles
+    const subscriptions = subscriptionService.getActiveForSlotOnDate(slotId, date)
+      .filter(s => s.status === 'active');
 
     return subscriptions.map(sub => {
       const member = memberService.getById(sub.memberId);

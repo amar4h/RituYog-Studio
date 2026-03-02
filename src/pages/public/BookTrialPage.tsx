@@ -1,12 +1,12 @@
-import { useState, useEffect, FormEvent, useMemo } from 'react';
+import { useState, useEffect, useCallback, FormEvent, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Card, Button, Input, Textarea, Alert, Modal, SlotSelector } from '../../components/common';
+import { Card, Button, Input, Textarea, Alert, Modal } from '../../components/common';
 import { leadService, memberService, slotService, trialBookingService, settingsService } from '../../services';
 import { isApiMode, trialsApi } from '../../services/api';
 import { validateEmail, validatePhone } from '../../utils/validationUtils';
 import { getToday, formatDate, isHoliday, getHolidayName } from '../../utils/dateUtils';
-import { format, addMonths, addWeeks, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isWeekend, isBefore, isAfter, startOfToday } from 'date-fns';
-import type { MedicalCondition, ConsentRecord, Holiday, Lead, TrialBooking } from '../../types';
+import { format, addDays, subDays, addWeeks, isWeekend, isBefore, isAfter, startOfToday, parseISO } from 'date-fns';
+import type { MedicalCondition, ConsentRecord, Holiday, Lead, TrialBooking, SlotAvailability } from '../../types';
 
 // Route state interface for pre-filled data
 interface LocationState {
@@ -22,8 +22,7 @@ export function BookTrialPage() {
   const settings = settingsService.getOrDefault();
   const holidays: Holiday[] = settings.holidays || [];
 
-  // Check if we have a pre-existing lead from navigation state
-  const [step, setStep] = useState<'form' | 'slots' | 'success'>('form');
+  const [step, setStep] = useState<'form' | 'success'>('form');
   const [leadId, setLeadId] = useState<string | null>(null);
   const [prefilledLead, setPrefilledLead] = useState<Lead | null>(null);
 
@@ -34,8 +33,6 @@ export function BookTrialPage() {
       if (lead) {
         setLeadId(lead.id);
         setPrefilledLead(lead);
-        setStep('slots'); // Skip form step - go directly to slot selection
-        // Pre-select preferred slot if available
         if (locationState.preferredSlotId || lead.preferredSlotId) {
           setSelectedSlotId(locationState.preferredSlotId || lead.preferredSlotId || '');
         }
@@ -61,10 +58,9 @@ export function BookTrialPage() {
     healthDisclaimer: false,
   });
 
-  // Slot selection first, then date
+  // Slot + date selection
   const [selectedSlotId, setSelectedSlotId] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>('');
-  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   // Modal states for T&C and health disclaimer
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -74,17 +70,112 @@ export function BookTrialPage() {
   const [submitError, setSubmitError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Generate calendar days for current month view
-  const calendarDays = useMemo(() => {
-    const monthStart = startOfMonth(currentMonth);
-    const monthEnd = endOfMonth(currentMonth);
-    return eachDayOfInterval({ start: monthStart, end: monthEnd });
-  }, [currentMonth]);
+  // Slot availability
+  const [slotAvailability, setSlotAvailability] = useState<SlotAvailability[]>([]);
+  const [availabilityLoading, setAvailabilityLoading] = useState(true);
 
-  // Get the day of week the month starts on (0 = Sunday)
-  const firstDayOfMonth = useMemo(() => {
-    return startOfMonth(currentMonth).getDay();
-  }, [currentMonth]);
+  // Booking window: 7 days from today
+  const bookingWindowEnd = useMemo(() => addDays(startOfToday(), 7), []);
+
+  // Get next valid working day (skip weekends + holidays), moving forward
+  const getNextValidDay = useCallback((fromDate: string, direction: 'forward' | 'backward') => {
+    let current = parseISO(fromDate);
+    const today = startOfToday();
+
+    const tomorrow = addDays(today, 1);
+
+    for (let i = 0; i < 30; i++) { // safety limit
+      current = direction === 'forward' ? addDays(current, 1) : subDays(current, 1);
+      const dateStr = format(current, 'yyyy-MM-dd');
+
+      // Don't go before tomorrow (no same-day booking)
+      if (isBefore(current, tomorrow)) continue;
+      // Don't go beyond booking window
+      if (isAfter(current, bookingWindowEnd)) return null;
+      // Skip weekends
+      if (isWeekend(current)) continue;
+      // Skip holidays
+      if (isHoliday(dateStr, holidays)) continue;
+
+      return dateStr;
+    }
+    return null;
+  }, [holidays, bookingWindowEnd]);
+
+  // Get initial valid date (always next working day, never today)
+  const getInitialDate = useCallback(() => {
+    const todayStr = format(startOfToday(), 'yyyy-MM-dd');
+    return getNextValidDay(todayStr, 'forward') || format(addDays(startOfToday(), 1), 'yyyy-MM-dd');
+  }, [getNextValidDay]);
+
+  // Fetch availability for a given date
+  const fetchAvailability = useCallback(async (date: string) => {
+    setAvailabilityLoading(true);
+    try {
+      const availability = await slotService.async.getAllSlotsAvailability(date);
+      setSlotAvailability(availability);
+    } catch (err) {
+      console.error('Failed to load slot availability:', err);
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  }, []);
+
+  // Initialize date and fetch availability on mount
+  useEffect(() => {
+    const initialDate = getInitialDate();
+    setSelectedDate(initialDate);
+    fetchAvailability(initialDate);
+  }, []);
+
+  // Navigate to previous valid day
+  const goToPreviousDay = () => {
+    if (!selectedDate) return;
+    const prevDay = getNextValidDay(selectedDate, 'backward');
+    if (prevDay) {
+      setSelectedDate(prevDay);
+      setSelectedSlotId(''); // Reset slot when date changes
+      fetchAvailability(prevDay);
+    }
+  };
+
+  // Navigate to next valid day
+  const goToNextDay = () => {
+    if (!selectedDate) return;
+    const nextDay = getNextValidDay(selectedDate, 'forward');
+    if (nextDay) {
+      setSelectedDate(nextDay);
+      setSelectedSlotId(''); // Reset slot when date changes
+      fetchAvailability(nextDay);
+    }
+  };
+
+  // Check if we can go backward (not before today)
+  const canGoPrevious = useMemo(() => {
+    if (!selectedDate) return false;
+    return getNextValidDay(selectedDate, 'backward') !== null;
+  }, [selectedDate, getNextValidDay]);
+
+  // Check if we can go forward (within 2-week window)
+  const canGoNext = useMemo(() => {
+    if (!selectedDate) return false;
+    return getNextValidDay(selectedDate, 'forward') !== null;
+  }, [selectedDate, getNextValidDay]);
+
+  // Check if a slot's time has already passed for today
+  const isSlotTimePassed = useCallback((slotId: string) => {
+    const todayStr = format(startOfToday(), 'yyyy-MM-dd');
+    if (selectedDate !== todayStr) return false;
+
+    const slot = slots.find(s => s.id === slotId);
+    if (!slot) return false;
+
+    const now = new Date();
+    const [hours, minutes] = slot.startTime.split(':').map(Number);
+    const slotTime = new Date();
+    slotTime.setHours(hours, minutes, 0, 0);
+    return now > slotTime;
+  }, [selectedDate, slots]);
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -107,44 +198,53 @@ export function BookTrialPage() {
     setMedicalConditions(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleFormSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitError('');
 
+    // Validate slot + date selection
+    if (!selectedSlotId || !selectedDate) {
+      setSubmitError('Please select a batch and date at the top');
+      return;
+    }
+
     const newErrors: Record<string, string> = {};
 
-    if (!formData.firstName.trim()) {
-      newErrors.firstName = 'First name is required';
-    }
-    if (!formData.lastName.trim()) {
-      newErrors.lastName = 'Last name is required';
-    }
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!validateEmail(formData.email)) {
-      newErrors.email = 'Invalid email format';
-    }
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'Phone is required';
-    } else if (!validatePhone(formData.phone)) {
-      newErrors.phone = 'Invalid phone number (10 digits required)';
-    }
-    if (!formData.age.trim()) {
-      newErrors.age = 'Age is required';
-    } else {
-      const ageNum = parseInt(formData.age, 10);
-      if (isNaN(ageNum) || ageNum < 5 || ageNum > 100) {
-        newErrors.age = 'Please enter a valid age (5-100)';
+    // Skip form validation if we already have a lead (pre-filled from navigation)
+    if (!prefilledLead) {
+      if (!formData.firstName.trim()) {
+        newErrors.firstName = 'First name is required';
       }
-    }
-    if (!formData.gender) {
-      newErrors.gender = 'Gender is required';
-    }
-    if (!consents.termsAndConditions) {
-      newErrors.termsAndConditions = 'You must accept the terms and conditions';
-    }
-    if (!consents.healthDisclaimer) {
-      newErrors.healthDisclaimer = 'You must acknowledge the health disclaimer';
+      if (!formData.lastName.trim()) {
+        newErrors.lastName = 'Last name is required';
+      }
+      if (!formData.email.trim()) {
+        newErrors.email = 'Email is required';
+      } else if (!validateEmail(formData.email)) {
+        newErrors.email = 'Invalid email format';
+      }
+      if (!formData.phone.trim()) {
+        newErrors.phone = 'Phone is required';
+      } else if (!validatePhone(formData.phone)) {
+        newErrors.phone = 'Invalid phone number (10 digits required)';
+      }
+      if (!formData.age.trim()) {
+        newErrors.age = 'Age is required';
+      } else {
+        const ageNum = parseInt(formData.age, 10);
+        if (isNaN(ageNum) || ageNum < 5 || ageNum > 100) {
+          newErrors.age = 'Please enter a valid age (5-100)';
+        }
+      }
+      if (!formData.gender) {
+        newErrors.gender = 'Gender is required';
+      }
+      if (!consents.termsAndConditions) {
+        newErrors.termsAndConditions = 'You must accept the terms and conditions';
+      }
+      if (!consents.healthDisclaimer) {
+        newErrors.healthDisclaimer = 'You must acknowledge the health disclaimer';
+      }
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -155,102 +255,85 @@ export function BookTrialPage() {
     setLoading(true);
 
     try {
-      // Build consent records
-      const consentRecords: ConsentRecord[] = [
-        {
-          type: 'terms-conditions',
-          consentGiven: consents.termsAndConditions,
-          consentDate: getToday(),
-        },
-        {
-          type: 'health-disclaimer',
-          consentGiven: consents.healthDisclaimer,
-          consentDate: getToday(),
-        },
-      ];
+      let currentLeadId = leadId;
 
-      // Check for duplicate phone/email in members and leads
-      // Use async methods to query API directly (public pages don't have localStorage data)
-      const phone = formData.phone.replace(/\D/g, '');
-      const email = formData.email.trim().toLowerCase();
+      // Create or find lead if not pre-filled
+      if (!prefilledLead) {
+        const consentRecords: ConsentRecord[] = [
+          {
+            type: 'terms-conditions',
+            consentGiven: consents.termsAndConditions,
+            consentDate: getToday(),
+          },
+          {
+            type: 'health-disclaimer',
+            consentGiven: consents.healthDisclaimer,
+            consentDate: getToday(),
+          },
+        ];
 
-      const [existingMemberByPhone, existingMemberByEmail, existingLeadByPhone, existingLeadByEmail] = await Promise.all([
-        memberService.async.getByPhone(phone),
-        memberService.async.getByEmail(email),
-        leadService.async.getByPhone(phone),
-        leadService.async.getByEmail(email),
-      ]);
+        const phone = formData.phone.replace(/\D/g, '');
+        const email = formData.email.trim().toLowerCase();
 
-      if (existingMemberByPhone || existingMemberByEmail) {
-        throw new Error('You are already registered as a member. Please contact the studio for any queries.');
-      }
-      const existingLead = existingLeadByPhone || existingLeadByEmail;
+        const [existingMemberByPhone, existingMemberByEmail, existingLeadByPhone, existingLeadByEmail] = await Promise.all([
+          memberService.async.getByPhone(phone),
+          memberService.async.getByEmail(email),
+          leadService.async.getByPhone(phone),
+          leadService.async.getByEmail(email),
+        ]);
 
-      let lead;
-      if (existingLead) {
-        // Check if they already have a pending/confirmed trial
-        // Use async API in API mode (public pages don't have localStorage data)
-        const existingTrials: TrialBooking[] = isApiMode()
-          ? (await trialsApi.getByLead(existingLead.id)) as TrialBooking[]
-          : trialBookingService.getByLead(existingLead.id);
-        const pendingTrial = existingTrials.find(t => ['pending', 'confirmed'].includes(t.status));
-        if (pendingTrial) {
-          throw new Error('A trial session is already booked. Multiple trials are not allowed. Please contact the studio for any queries.');
+        if (existingMemberByPhone || existingMemberByEmail) {
+          throw new Error('You are already registered as a member. Please contact the studio for any queries.');
+        }
+        const existingLead = existingLeadByPhone || existingLeadByEmail;
+
+        let lead;
+        if (existingLead) {
+          const existingTrials: TrialBooking[] = isApiMode()
+            ? (await trialsApi.getByLead(existingLead.id)) as TrialBooking[]
+            : trialBookingService.getByLead(existingLead.id);
+          const pendingTrial = existingTrials.find(t => ['pending', 'confirmed'].includes(t.status));
+          if (pendingTrial) {
+            throw new Error('A trial session is already booked. Multiple trials are not allowed. Please contact the studio for any queries.');
+          }
+          lead = existingLead;
+        } else {
+          lead = await leadService.async.create({
+            firstName: formData.firstName.trim(),
+            lastName: formData.lastName.trim(),
+            email,
+            phone,
+            age: parseInt(formData.age, 10),
+            gender: formData.gender as 'male' | 'female' | 'other',
+            status: 'new',
+            source: 'online',
+            notes: formData.notes.trim() || undefined,
+            medicalConditions,
+            consentRecords,
+          } as Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>);
         }
 
-        // Existing lead without pending trial - allow booking
-        lead = existingLead;
-      } else {
-        lead = await leadService.async.create({
-          firstName: formData.firstName.trim(),
-          lastName: formData.lastName.trim(),
-          email,
-          phone,
-          age: parseInt(formData.age, 10),
-          gender: formData.gender as 'male' | 'female' | 'other',
-          status: 'new',
-          source: 'online',
-          notes: formData.notes.trim() || undefined,
-          medicalConditions,
-          consentRecords,
-        } as Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>);
+        if (!lead) {
+          throw new Error('Failed to create or update lead');
+        }
+        currentLeadId = lead.id;
       }
 
-      if (!lead) {
-        throw new Error('Failed to create or update lead');
+      // Book the trial
+      if (!currentLeadId) {
+        throw new Error('Lead not found');
       }
 
-      setLeadId(lead.id);
-      setStep('slots');
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to process request');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleBookTrial = async () => {
-    setSubmitError(''); // Clear previous error
-
-    if (!leadId || !selectedSlotId || !selectedDate) {
-      setSubmitError('Please select a time slot and date');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
       if (isApiMode()) {
-        // Use API directly - sync bookTrial reads from empty localStorage on public pages
-        await trialsApi.book({ leadId, slotId: selectedSlotId, date: selectedDate });
-        await leadService.async.update(leadId, {
+        await trialsApi.book({ leadId: currentLeadId, slotId: selectedSlotId, date: selectedDate });
+        await leadService.async.update(currentLeadId, {
           status: 'trial-scheduled',
           trialSlotId: selectedSlotId,
           trialDate: selectedDate,
         });
       } else {
-        trialBookingService.bookTrial(leadId, selectedSlotId, selectedDate);
-        leadService.update(leadId, {
+        trialBookingService.bookTrial(currentLeadId, selectedSlotId, selectedDate);
+        leadService.update(currentLeadId, {
           status: 'trial-scheduled',
           trialSlotId: selectedSlotId,
           trialDate: selectedDate,
@@ -261,92 +344,6 @@ export function BookTrialPage() {
       setSubmitError(err instanceof Error ? err.message : 'Failed to book trial');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const getSlotAvailability = (slotId: string, date: string) => {
-    return slotService.getSlotAvailability(slotId, date);
-  };
-
-  // Get availability status for a date (for the selected slot)
-  // Booking window is limited to 2 weeks ahead
-  const bookingWindowEnd = addWeeks(startOfToday(), 2);
-
-  const getDateAvailability = (date: Date) => {
-    const dateString = format(date, 'yyyy-MM-dd');
-    const today = startOfToday();
-    const todayString = format(today, 'yyyy-MM-dd');
-
-    // Check if date is in the past
-    if (isBefore(date, today)) {
-      return { status: 'past', available: 0, tooltip: 'Past date' };
-    }
-
-    // Check if today and the selected slot's time has already passed
-    if (dateString === todayString && selectedSlotId) {
-      const selectedSlot = slots.find(s => s.id === selectedSlotId);
-      if (selectedSlot) {
-        const now = new Date();
-        const [hours, minutes] = selectedSlot.startTime.split(':').map(Number);
-        const slotTime = new Date();
-        slotTime.setHours(hours, minutes, 0, 0);
-
-        if (now > slotTime) {
-          return { status: 'past', available: 0, tooltip: 'Session time has passed for today' };
-        }
-      }
-    }
-
-    // Check if date is beyond the 2-week booking window
-    if (isAfter(date, bookingWindowEnd)) {
-      return { status: 'unavailable', available: 0, tooltip: 'Beyond 2-week booking window' };
-    }
-
-    // Check if weekend
-    if (isWeekend(date)) {
-      return { status: 'weekend', available: 0, tooltip: 'Weekend - Studio closed' };
-    }
-
-    // Check if holiday
-    if (isHoliday(dateString, holidays)) {
-      const holidayName = getHolidayName(dateString, holidays);
-      return { status: 'holiday', available: 0, tooltip: `Holiday - ${holidayName}` };
-    }
-
-    // If no slot selected, show as available (generic)
-    if (!selectedSlotId) {
-      return { status: 'available', available: -1, tooltip: 'Select a time slot first' };
-    }
-
-    // Get slot availability - only use regular capacity for public booking
-    // Exception slots are reserved for admin use only
-    const availability = getSlotAvailability(selectedSlotId, dateString);
-    const availableSpots = availability.availableRegular;
-
-    if (availableSpots === 0) {
-      return { status: 'full', available: 0, tooltip: 'Fully booked' };
-    } else if (availableSpots <= 2) {
-      return { status: 'limited', available: availableSpots, tooltip: `${availableSpots} spots left` };
-    } else {
-      return { status: 'available', available: availableSpots, tooltip: `${availableSpots} spots available` };
-    }
-  };
-
-  // Navigate months
-  const goToPreviousMonth = () => {
-    const prevMonth = addMonths(currentMonth, -1);
-    // Don't allow going before current month
-    if (!isBefore(prevMonth, startOfMonth(new Date()))) {
-      setCurrentMonth(prevMonth);
-    }
-  };
-
-  const goToNextMonth = () => {
-    const nextMonth = addMonths(currentMonth, 1);
-    // Allow up to 2 months ahead
-    const maxMonth = addMonths(new Date(), 2);
-    if (!isBefore(endOfMonth(maxMonth), startOfMonth(nextMonth))) {
-      setCurrentMonth(nextMonth);
     }
   };
 
@@ -368,9 +365,9 @@ export function BookTrialPage() {
     });
   };
 
-  // Scroll to top on step transitions (form→slots, slots→success)
+  // Scroll to top on success
   useEffect(() => {
-    if (step === 'slots' || step === 'success') {
+    if (step === 'success') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [step]);
@@ -422,427 +419,343 @@ export function BookTrialPage() {
   return (
     <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-12 px-4">
       <div className="max-w-2xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Book Your Free Trial Session</h1>
-          </div>
-
-        {/* Progress */}
-        <div className="flex items-center justify-center mb-8">
-          <div className={`flex items-center ${step === 'form' ? 'text-indigo-600' : 'text-gray-400'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-              step === 'form' ? 'bg-indigo-600 text-white' : 'bg-gray-200'
-            }`}>
-              1
-            </div>
-            <span className="ml-2 font-medium">Your Details</span>
-          </div>
-          <div className="w-12 h-px bg-gray-300 mx-4" />
-          <div className={`flex items-center ${step === 'slots' ? 'text-indigo-600' : 'text-gray-400'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-              step === 'slots' ? 'bg-indigo-600 text-white' : 'bg-gray-200'
-            }`}>
-              2
-            </div>
-            <span className="ml-2 font-medium">Book Slot</span>
-          </div>
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Book Your Free Trial Session</h1>
         </div>
 
-        {step === 'form' && (
-          <form onSubmit={handleFormSubmit} className="space-y-4">
-            {/* Personal Information */}
-            <Card title="Personal Information">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  label="First Name"
-                  value={formData.firstName}
-                  onChange={(e) => handleChange('firstName', e.target.value)}
-                  error={errors.firstName}
-                  required
-                />
-                <Input
-                  label="Last Name"
-                  value={formData.lastName}
-                  onChange={(e) => handleChange('lastName', e.target.value)}
-                  error={errors.lastName}
-                  required
-                />
-                <Input
-                  label="Email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleChange('email', e.target.value)}
-                  error={errors.email}
-                  required
-                />
-                <Input
-                  label="Phone"
-                  value={formData.phone}
-                  onChange={(e) => handleChange('phone', e.target.value)}
-                  error={errors.phone}
-                  placeholder="10-digit mobile number"
-                  required
-                />
-                <Input
-                  label="Age"
-                  type="number"
-                  min={5}
-                  max={100}
-                  value={formData.age}
-                  onChange={(e) => handleChange('age', e.target.value)}
-                  error={errors.age}
-                  placeholder="Your age"
-                  required
-                />
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Gender <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={formData.gender}
-                    onChange={(e) => handleChange('gender', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                      errors.gender ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    required
-                  >
-                    <option value="">Select gender</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                  </select>
-                  {errors.gender && (
-                    <p className="text-sm text-red-600 mt-1">{errors.gender}</p>
-                  )}
-                </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Batch Availability & Selection */}
+          <Card title="Select Batch & Date">
+            {/* Date Navigation */}
+            <div className="flex items-center justify-between mb-4">
+              <button
+                type="button"
+                onClick={goToPreviousDay}
+                disabled={!canGoPrevious}
+                className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-30 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <div className="text-center">
+                <p className="text-lg font-semibold text-gray-900">
+                  {selectedDate ? formatDate(selectedDate) : '...'}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {!selectedDate ? '' : selectedDate === format(startOfToday(), 'yyyy-MM-dd') ? 'Today' : format(parseISO(selectedDate), 'EEEE')}
+                </p>
               </div>
-            </Card>
+              <button
+                type="button"
+                onClick={goToNextDay}
+                disabled={!canGoNext}
+                className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-30 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
 
-            {/* Medical Conditions */}
-            <Card title="Health Information">
-              <p className="text-sm text-gray-600 mb-4">
-                Please list any medical conditions or health concerns we should be aware of.
-                This helps our instructors provide safe and appropriate guidance.
-              </p>
-
-              {medicalConditions.length > 0 && (
-                <div className="space-y-2 mb-4">
-                  {medicalConditions.map((condition, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                      <span className="text-gray-900">{condition.condition}</span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeMedicalCondition(index)}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  ))}
+            {/* Slot Tiles */}
+            <div className="relative mb-4">
+              {availabilityLoading && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 rounded-lg">
+                  <div className="w-5 h-5 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
                 </div>
               )}
+              <div className={`grid grid-cols-2 sm:grid-cols-4 gap-2 transition-opacity ${availabilityLoading ? 'opacity-50 pointer-events-none' : ''}`}>
+                {slots.map(slot => {
+                  const avail = slotAvailability.find(a => a.slotId === slot.id);
+                  const spotsLeft = avail ? avail.availableRegular : 0;
+                  const hasData = slotAvailability.length > 0;
+                  const isFull = hasData && spotsLeft === 0;
+                  const isLimited = hasData && spotsLeft > 0 && spotsLeft <= 2;
+                  const isSelected = selectedSlotId === slot.id;
+                  const timePassed = isSlotTimePassed(slot.id);
+                  const isDisabled = isFull || timePassed;
 
-              <div className="flex gap-2">
-                <Input
-                  value={newCondition}
-                  onChange={(e) => setNewCondition(e.target.value)}
-                  placeholder="e.g., Back pain, High blood pressure"
-                  className="flex-1"
-                />
-                <Button type="button" variant="outline" onClick={addMedicalCondition}>
-                  Add
-                </Button>
+                  return (
+                    <button
+                      key={slot.id}
+                      type="button"
+                      disabled={isDisabled || availabilityLoading}
+                      onClick={() => setSelectedSlotId(slot.id)}
+                      className={`rounded-lg p-3 text-center border-2 transition-all ${
+                        isSelected
+                          ? 'border-indigo-600 bg-indigo-50 ring-2 ring-indigo-200'
+                          : isDisabled
+                          ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed'
+                          : isLimited
+                          ? 'border-yellow-200 bg-yellow-50 hover:border-yellow-400 cursor-pointer'
+                          : 'border-green-200 bg-green-50 hover:border-green-400 cursor-pointer'
+                      }`}
+                    >
+                      <div className={`text-xs font-medium mb-1 ${isSelected ? 'text-indigo-600' : 'text-gray-500'}`}>
+                        {slot.displayName}
+                      </div>
+                      <div className={`text-sm font-semibold ${isSelected ? 'text-indigo-700' : 'text-gray-700'}`}>
+                        {slot.startTime}
+                      </div>
+                      <div className={`text-xs font-medium mt-1 ${
+                        isSelected
+                          ? 'text-indigo-600'
+                          : timePassed
+                          ? 'text-gray-400'
+                          : isFull
+                          ? 'text-red-600'
+                          : isLimited
+                          ? 'text-yellow-700'
+                          : 'text-green-700'
+                      }`}>
+                        {!hasData ? '...' : timePassed ? 'Time passed' : isFull ? 'Full' : `${spotsLeft} spots left`}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-            </Card>
+            </div>
 
-            {/* Additional Notes */}
-            <Card title="Additional Information">
-              <Textarea
-                label="Anything else you'd like us to know?"
-                value={formData.notes}
-                onChange={(e) => handleChange('notes', e.target.value)}
-                rows={3}
-                placeholder="Previous yoga experience, specific goals, questions, etc."
-              />
-            </Card>
-
-            {/* Consents with hyperlinks */}
-            <Card title="Acknowledgements">
-              <div className="space-y-4">
-                <div>
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      id="termsCheckbox"
-                      checked={consents.termsAndConditions}
-                      onChange={(e) => setConsents(prev => ({ ...prev, termsAndConditions: e.target.checked }))}
-                      className="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="termsCheckbox" className="text-sm text-gray-700">
-                      I have read and agree to the{' '}
-                      <button
-                        type="button"
-                        onClick={() => setShowTermsModal(true)}
-                        className="text-indigo-600 hover:text-indigo-800 underline font-medium"
-                      >
-                        Terms and Conditions
-                      </button>
-                    </label>
-                  </div>
-                  {errors.termsAndConditions && (
-                    <p className="text-sm text-red-600 mt-1 ml-7">{errors.termsAndConditions}</p>
-                  )}
-                </div>
-
-                <div>
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      id="disclaimerCheckbox"
-                      checked={consents.healthDisclaimer}
-                      onChange={(e) => setConsents(prev => ({ ...prev, healthDisclaimer: e.target.checked }))}
-                      className="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="disclaimerCheckbox" className="text-sm text-gray-700">
-                      I have read and acknowledge the{' '}
-                      <button
-                        type="button"
-                        onClick={() => setShowDisclaimerModal(true)}
-                        className="text-indigo-600 hover:text-indigo-800 underline font-medium"
-                      >
-                        Health Disclaimer
-                      </button>
-                    </label>
-                  </div>
-                  {errors.healthDisclaimer && (
-                    <p className="text-sm text-red-600 mt-1 ml-7">{errors.healthDisclaimer}</p>
-                  )}
-                </div>
+            {/* Legend */}
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 pt-2 border-t border-gray-100">
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-green-50 border-2 border-green-200"></div>
+                <span>Available</span>
               </div>
-            </Card>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-yellow-50 border-2 border-yellow-200"></div>
+                <span>Limited</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-gray-50 border-2 border-gray-200 opacity-50"></div>
+                <span>Full / Unavailable</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-indigo-50 border-2 border-indigo-600"></div>
+                <span>Selected</span>
+              </div>
+            </div>
 
-            {/* Submit */}
-            {submitError && (
-              <Alert variant="error" dismissible onDismiss={() => setSubmitError('')}>
-                {submitError}
-              </Alert>
+            {/* Selected summary */}
+            {selectedSlotId && selectedDate && (
+              <div className="mt-3 p-3 bg-indigo-50 rounded-lg text-center">
+                <p className="text-sm font-medium text-indigo-900">
+                  {slots.find(s => s.id === selectedSlotId)?.displayName} &middot; {formatDate(selectedDate)}
+                </p>
+                <p className="text-xs text-indigo-600">
+                  {slots.find(s => s.id === selectedSlotId)?.startTime} - {slots.find(s => s.id === selectedSlotId)?.endTime}
+                </p>
+              </div>
             )}
-            <Button type="submit" fullWidth loading={loading}>
-              Continue to Select Slot
-            </Button>
 
+            {/* Note about weekends/holidays */}
+            <p className="text-xs text-gray-400 mt-2 text-center">
+              Sessions run Monday to Friday. Booking available from next working day onwards.
+            </p>
+          </Card>
+
+          {/* Personal Information - hide if pre-filled lead */}
+          {!prefilledLead && (
+            <>
+              <Card title="Personal Information">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="First Name"
+                    value={formData.firstName}
+                    onChange={(e) => handleChange('firstName', e.target.value)}
+                    error={errors.firstName}
+                    required
+                  />
+                  <Input
+                    label="Last Name"
+                    value={formData.lastName}
+                    onChange={(e) => handleChange('lastName', e.target.value)}
+                    error={errors.lastName}
+                    required
+                  />
+                  <Input
+                    label="Email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleChange('email', e.target.value)}
+                    error={errors.email}
+                    required
+                  />
+                  <Input
+                    label="Phone"
+                    value={formData.phone}
+                    onChange={(e) => handleChange('phone', e.target.value)}
+                    error={errors.phone}
+                    placeholder="10-digit mobile number"
+                    required
+                  />
+                  <Input
+                    label="Age"
+                    type="number"
+                    min={5}
+                    max={100}
+                    value={formData.age}
+                    onChange={(e) => handleChange('age', e.target.value)}
+                    error={errors.age}
+                    placeholder="Your age"
+                    required
+                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Gender <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={formData.gender}
+                      onChange={(e) => handleChange('gender', e.target.value)}
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                        errors.gender ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      required
+                    >
+                      <option value="">Select gender</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                    </select>
+                    {errors.gender && (
+                      <p className="text-sm text-red-600 mt-1">{errors.gender}</p>
+                    )}
+                  </div>
+                </div>
+              </Card>
+
+              {/* Medical Conditions */}
+              <Card title="Health Information">
+                <p className="text-sm text-gray-600 mb-4">
+                  Please list any medical conditions or health concerns we should be aware of.
+                  This helps our instructors provide safe and appropriate guidance.
+                </p>
+
+                {medicalConditions.length > 0 && (
+                  <div className="space-y-2 mb-4">
+                    {medicalConditions.map((condition, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+                        <span className="text-gray-900">{condition.condition}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeMedicalCondition(index)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <Input
+                    value={newCondition}
+                    onChange={(e) => setNewCondition(e.target.value)}
+                    placeholder="e.g., Back pain, High blood pressure"
+                    className="flex-1"
+                  />
+                  <Button type="button" variant="outline" onClick={addMedicalCondition}>
+                    Add
+                  </Button>
+                </div>
+              </Card>
+
+              {/* Additional Notes */}
+              <Card title="Additional Information">
+                <Textarea
+                  label="Anything else you'd like us to know?"
+                  value={formData.notes}
+                  onChange={(e) => handleChange('notes', e.target.value)}
+                  rows={3}
+                  placeholder="Previous yoga experience, specific goals, questions, etc."
+                />
+              </Card>
+
+              {/* Consents */}
+              <Card title="Acknowledgements">
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        id="termsCheckbox"
+                        checked={consents.termsAndConditions}
+                        onChange={(e) => setConsents(prev => ({ ...prev, termsAndConditions: e.target.checked }))}
+                        className="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="termsCheckbox" className="text-sm text-gray-700">
+                        I have read and agree to the{' '}
+                        <button
+                          type="button"
+                          onClick={() => setShowTermsModal(true)}
+                          className="text-indigo-600 hover:text-indigo-800 underline font-medium"
+                        >
+                          Terms and Conditions
+                        </button>
+                      </label>
+                    </div>
+                    {errors.termsAndConditions && (
+                      <p className="text-sm text-red-600 mt-1 ml-7">{errors.termsAndConditions}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        id="disclaimerCheckbox"
+                        checked={consents.healthDisclaimer}
+                        onChange={(e) => setConsents(prev => ({ ...prev, healthDisclaimer: e.target.checked }))}
+                        className="mt-1 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="disclaimerCheckbox" className="text-sm text-gray-700">
+                        I have read and acknowledge the{' '}
+                        <button
+                          type="button"
+                          onClick={() => setShowDisclaimerModal(true)}
+                          className="text-indigo-600 hover:text-indigo-800 underline font-medium"
+                        >
+                          Health Disclaimer
+                        </button>
+                      </label>
+                    </div>
+                    {errors.healthDisclaimer && (
+                      <p className="text-sm text-red-600 mt-1 ml-7">{errors.healthDisclaimer}</p>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            </>
+          )}
+
+          {/* Submit */}
+          {submitError && (
+            <Alert variant="error" dismissible onDismiss={() => setSubmitError('')}>
+              {submitError}
+            </Alert>
+          )}
+          <Button
+            type="submit"
+            fullWidth
+            loading={loading}
+            disabled={!selectedSlotId || !selectedDate}
+          >
+            Book Trial Session
+          </Button>
+
+          {!prefilledLead && (
             <p className="text-center text-sm text-gray-500">
               Just want to register your interest?{' '}
               <Link to="/register" className="text-indigo-600 hover:text-indigo-700">
                 Register without booking
               </Link>
             </p>
-          </form>
-        )}
-
-        {step === 'slots' && (
-          <div className="space-y-4">
-            {/* Step 1: Select Time Slot */}
-            <Card title="Step 1: Select Time Slot">
-              <p className="text-sm text-gray-600 mb-4">
-                Choose your preferred session time. Sessions run Monday to Friday.
-              </p>
-              <SlotSelector
-                selectedSlotId={selectedSlotId}
-                onSelect={(slotId) => {
-                  setSelectedSlotId(slotId);
-                  setSelectedDate(''); // Reset date when slot changes
-                }}
-                variant="tiles"
-                columns={4}
-              />
-            </Card>
-
-            {/* Step 2: Calendar Date Selection */}
-            <Card title="Step 2: Select Date">
-              {!selectedSlotId ? (
-                <p className="text-center text-gray-500 py-8">
-                  Please select a time slot first
-                </p>
-              ) : (
-                <>
-                  {/* Calendar Legend */}
-                  <div className="flex flex-wrap gap-4 mb-4 text-xs">
-                    <div className="flex items-center gap-1">
-                      <div className="w-4 h-4 rounded bg-green-100 border border-green-300"></div>
-                      <span>Available</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-4 h-4 rounded bg-yellow-100 border border-yellow-300"></div>
-                      <span>Limited</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-4 h-4 rounded bg-red-100 border border-red-300"></div>
-                      <span>Full</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-4 h-4 rounded bg-gray-200"></div>
-                      <span>Weekend/Holiday</span>
-                    </div>
-                  </div>
-
-                  {/* Month Navigation */}
-                  <div className="flex items-center justify-between mb-4">
-                    <button
-                      type="button"
-                      onClick={goToPreviousMonth}
-                      className="p-2 hover:bg-gray-100 rounded-lg disabled:opacity-50"
-                      disabled={isSameMonth(currentMonth, new Date())}
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                      </svg>
-                    </button>
-                    <h3 className="text-lg font-semibold">
-                      {format(currentMonth, 'MMMM yyyy')}
-                    </h3>
-                    <button
-                      type="button"
-                      onClick={goToNextMonth}
-                      className="p-2 hover:bg-gray-100 rounded-lg"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                  </div>
-
-                  {/* Calendar Grid */}
-                  <div className="grid grid-cols-7 gap-1">
-                    {/* Day headers */}
-                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                      <div key={day} className="text-center text-xs font-medium text-gray-500 py-2">
-                        {day}
-                      </div>
-                    ))}
-
-                    {/* Empty cells for days before month starts */}
-                    {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-                      <div key={`empty-${i}`} className="p-2"></div>
-                    ))}
-
-                    {/* Calendar days */}
-                    {calendarDays.map(day => {
-                      const dateString = format(day, 'yyyy-MM-dd');
-                      const availability = getDateAvailability(day);
-                      const isSelected = selectedDate === dateString;
-                      const isDisabled = availability.status === 'past' ||
-                                        availability.status === 'weekend' ||
-                                        availability.status === 'holiday' ||
-                                        availability.status === 'full' ||
-                                        availability.status === 'unavailable';
-
-                      let bgColor = 'bg-white hover:bg-gray-50';
-                      let textColor = 'text-gray-900';
-                      let borderColor = 'border-gray-200';
-
-                      if (isSelected) {
-                        bgColor = 'bg-indigo-600';
-                        textColor = 'text-white';
-                        borderColor = 'border-indigo-600';
-                      } else if (availability.status === 'past') {
-                        bgColor = 'bg-gray-100';
-                        textColor = 'text-gray-400';
-                      } else if (availability.status === 'weekend' || availability.status === 'holiday') {
-                        bgColor = 'bg-gray-200';
-                        textColor = 'text-gray-500';
-                      } else if (availability.status === 'unavailable') {
-                        bgColor = 'bg-gray-100';
-                        textColor = 'text-gray-400';
-                        borderColor = 'border-gray-200';
-                      } else if (availability.status === 'full') {
-                        bgColor = 'bg-red-50';
-                        textColor = 'text-red-400';
-                        borderColor = 'border-red-200';
-                      } else if (availability.status === 'limited') {
-                        bgColor = 'bg-yellow-50 hover:bg-yellow-100';
-                        borderColor = 'border-yellow-300';
-                      } else if (availability.status === 'available') {
-                        bgColor = 'bg-green-50 hover:bg-green-100';
-                        borderColor = 'border-green-300';
-                      }
-
-                      return (
-                        <button
-                          key={dateString}
-                          type="button"
-                          disabled={isDisabled}
-                          onClick={() => setSelectedDate(dateString)}
-                          title={availability.tooltip}
-                          className={`
-                            p-2 rounded-lg border text-center transition-all
-                            ${bgColor} ${textColor} ${borderColor}
-                            ${isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}
-                            ${isSelected ? 'ring-2 ring-offset-1 ring-indigo-600' : ''}
-                          `}
-                        >
-                          <span className="text-sm font-medium">{format(day, 'd')}</span>
-                          {availability.status === 'holiday' && (
-                            <div className="text-xs truncate" title={availability.tooltip}>
-                              {getHolidayName(dateString, holidays)?.substring(0, 3)}
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </Card>
-
-            {/* Summary */}
-            {selectedSlotId && selectedDate && (
-              <Card title="Your Trial Session">
-                <div className="bg-indigo-50 rounded-lg p-4">
-                  <p className="text-lg font-semibold text-indigo-900">
-                    {formatDate(selectedDate)}
-                  </p>
-                  <p className="text-indigo-700">
-                    {slots.find(s => s.id === selectedSlotId)?.displayName}
-                  </p>
-                  <p className="text-sm text-indigo-600">
-                    {slots.find(s => s.id === selectedSlotId)?.startTime} - {slots.find(s => s.id === selectedSlotId)?.endTime}
-                  </p>
-                </div>
-              </Card>
-            )}
-
-            {submitError && (
-              <Alert variant="error" dismissible onDismiss={() => setSubmitError('')}>
-                {submitError}
-              </Alert>
-            )}
-
-            <div className="flex gap-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setStep('form');
-                  setSubmitError('');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-              >
-                Back
-              </Button>
-              <Button
-                type="button"
-                onClick={handleBookTrial}
-                loading={loading}
-                disabled={!selectedSlotId || !selectedDate}
-                className="flex-1"
-              >
-                Book Trial Session
-              </Button>
-            </div>
-          </div>
-        )}
+          )}
+        </form>
 
         {/* Terms and Conditions Modal */}
         <Modal

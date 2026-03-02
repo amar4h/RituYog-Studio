@@ -44,6 +44,7 @@ $publicEndpoints = [
     'leads' => ['getByToken', 'completeRegistration'],
     'chatbot' => ['chat'],
     'member-auth' => ['login', 'activate', 'changePassword', 'check', 'logout'],
+    'campaign-results' => ['getResults'],
 ];
 
 // Check if this is a public endpoint (after parsing endpoint/action from path)
@@ -105,6 +106,8 @@ $validEndpoints = [
     'session-executions',
     // Member Portal
     'member-auth',
+    // Campaign / Promos (public)
+    'campaign-results',
 ];
 
 if (!in_array($endpoint, $validEndpoints)) {

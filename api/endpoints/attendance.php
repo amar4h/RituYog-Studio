@@ -213,8 +213,8 @@ class AttendanceHandler extends BaseHandler {
         ]);
         $presentDays = (int) $stmt->fetch()['count'];
 
-        // Calculate working days based on period only (not slot-specific)
-        $totalWorkingDays = $this->calculateWorkingDays($memberId, $periodStart, $periodEnd);
+        // Calculate working days in period (same for all members, no subscription filtering)
+        $totalWorkingDays = $this->calculateWorkingDays($periodStart, $periodEnd);
 
         return [
             'presentDays' => $presentDays,
@@ -282,35 +282,47 @@ class AttendanceHandler extends BaseHandler {
     }
 
     /**
-     * Calculate working days for a member's subscription within a period
+     * Calculate working days (Mon-Fri minus holidays) in a period.
+     * Same for all members — does NOT factor in subscription dates.
      */
-    private function calculateWorkingDays(string $memberId, string $periodStart, string $periodEnd): int {
-        // Get member's subscriptions across ALL slots (slot transfer should not affect working days)
-        $subscriptions = $this->query(
-            "SELECT start_date, end_date FROM membership_subscriptions
-             WHERE member_id = :memberId
-             AND status IN ('active', 'expired')
-             AND start_date <= :periodEnd AND end_date >= :periodStart",
-            ['memberId' => $memberId, 'periodStart' => $periodStart, 'periodEnd' => $periodEnd]
-        );
+    private function calculateWorkingDays(string $periodStart, string $periodEnd): int {
+        // Get holidays from settings
+        $settingsStmt = $this->db->prepare("SELECT holidays FROM studio_settings WHERE id = 1");
+        $settingsStmt->execute();
+        $row = $settingsStmt->fetch();
+        $holidays = $row && $row['holidays'] ? json_decode($row['holidays'], true) : [];
+
+        $start = new DateTime($periodStart);
+        $end = new DateTime($periodEnd);
+        if ($start > $end) return 0;
 
         $workingDays = 0;
-        foreach ($subscriptions as $sub) {
-            // Calculate overlap between subscription and period
-            $start = max(new DateTime($sub['startDate']), new DateTime($periodStart));
-            $end = min(new DateTime($sub['endDate']), new DateTime($periodEnd));
-
-            if ($start > $end) continue;
-
-            // Count weekdays (Monday=1 to Friday=5)
-            $current = clone $start;
-            while ($current <= $end) {
-                $dayOfWeek = (int) $current->format('N');
-                if ($dayOfWeek >= 1 && $dayOfWeek <= 5) {
+        $current = clone $start;
+        while ($current <= $end) {
+            $dayOfWeek = (int) $current->format('N');
+            // Only weekdays (Mon=1 to Fri=5)
+            if ($dayOfWeek >= 1 && $dayOfWeek <= 5) {
+                $dateStr = $current->format('Y-m-d');
+                $isHoliday = false;
+                foreach ($holidays as $h) {
+                    $hDate = $h['date'] ?? '';
+                    if ($hDate === $dateStr) {
+                        $isHoliday = true;
+                        break;
+                    }
+                    if (!empty($h['isRecurringYearly'])) {
+                        // Compare MM-DD
+                        if (substr($hDate, 5) === substr($dateStr, 5)) {
+                            $isHoliday = true;
+                            break;
+                        }
+                    }
+                }
+                if (!$isHoliday) {
                     $workingDays++;
                 }
-                $current->modify('+1 day');
             }
+            $current->modify('+1 day');
         }
 
         return $workingDays;

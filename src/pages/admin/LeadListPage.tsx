@@ -113,6 +113,15 @@ export function LeadListPage() {
       render: (lead) => <StatusBadge status={lead.status} />,
     },
     {
+      key: 'createdAt',
+      header: 'Created',
+      render: (lead) => (
+        <span className="text-sm text-gray-500 whitespace-nowrap">
+          {lead.createdAt ? formatDate(lead.createdAt.split('T')[0]) : '—'}
+        </span>
+      ),
+    },
+    {
       key: 'actions',
       header: '',
       render: (lead) => (
