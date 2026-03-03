@@ -4,6 +4,7 @@ import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyI
 import { memberService, slotService, subscriptionService, whatsappService } from '../../services';
 import { formatPhone } from '../../utils/formatUtils';
 import { formatDate, formatDateCompact, getToday, getDaysRemaining } from '../../utils/dateUtils';
+import { formatDistanceToNow, parseISO } from 'date-fns';
 import { useFreshData } from '../../hooks';
 import type { Member, MembershipSubscription } from '../../types';
 import type { Column } from '../../components/common';
@@ -189,6 +190,12 @@ export function MemberListPage() {
               )}
             </div>
             <p className="text-sm text-gray-500">{member.email}</p>
+            {member.lastLogin && (
+              <p className="text-xs text-gray-400">
+                Last seen {formatDistanceToNow(parseISO(member.lastLogin.includes('T') ? member.lastLogin : member.lastLogin.replace(' ', 'T') + 'Z'), { addSuffix: true })}
+                {member.loginCount && member.loginCount > 1 ? ` · ${member.loginCount} logins` : ''}
+              </p>
+            )}
           </div>
         </div>
       ),

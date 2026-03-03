@@ -62,6 +62,12 @@ class MemberAuthHandler extends BaseHandler {
             ]
         );
 
+        // Record login audit: update last_login (UTC) and increment login_count
+        $this->execute(
+            "UPDATE members SET last_login = UTC_TIMESTAMP(), login_count = COALESCE(login_count, 0) + 1 WHERE id = :id",
+            ['id' => $member['id']]
+        );
+
         return [
             'authenticated' => true,
             'memberId' => $member['id'],

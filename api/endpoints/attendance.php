@@ -235,15 +235,17 @@ class AttendanceHandler extends BaseHandler {
             throw new Exception('slotId parameter is required');
         }
 
-        // Get active subscriptions for this slot on this date
+        // Get subscriptions covering this date (active + expired whose dates still cover it)
+        // GROUP BY member_id to deduplicate (e.g., renewed member has old expired + new active)
         $subscriptions = $this->query(
             "SELECT ms.member_id, m.first_name, m.last_name, m.email, m.phone, m.classes_attended
              FROM membership_subscriptions ms
              JOIN members m ON ms.member_id = m.id
              WHERE ms.slot_id = :slotId
-             AND ms.status = 'active'
+             AND ms.status IN ('active', 'expired')
              AND ms.start_date <= :dateStart
-             AND ms.end_date >= :dateEnd",
+             AND ms.end_date >= :dateEnd
+             GROUP BY ms.member_id",
             ['slotId' => $slotId, 'dateStart' => $date, 'dateEnd' => $date]
         );
 

@@ -2804,6 +2804,21 @@ export const memberAuthService = {
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   },
 
+  // Record login audit: update lastLogin timestamp and increment loginCount
+  // In API mode, this is handled server-side in member-auth.php login()
+  _recordLoginAudit: (memberId: string): void => {
+    if (!isApiMode()) {
+      const now = new Date().toISOString();
+      const member = memberService.getById(memberId);
+      if (member) {
+        memberService.update(memberId, {
+          lastLogin: now,
+          loginCount: (member.loginCount || 0) + 1,
+        });
+      }
+    }
+  },
+
   login: async (phone: string, password: string): Promise<{ success: boolean; memberId?: string; error?: string; candidates?: Array<{ id: string; firstName: string; lastName: string }> }> => {
     if (isApiMode()) {
       try {
@@ -2821,6 +2836,7 @@ export const memberAuthService = {
             sessionToken: result.sessionToken,
             expiresAt: result.expiresAt,
           });
+          memberAuthService._recordLoginAudit(result.memberId);
           return { success: true, memberId: result.memberId };
         }
         return { success: false, error: 'Invalid phone number or password' };
@@ -2860,6 +2876,7 @@ export const memberAuthService = {
       loginTime: new Date().toISOString(),
     };
     localStorage.setItem(STORAGE_KEYS.MEMBER_AUTH, JSON.stringify(authState));
+    memberAuthService._recordLoginAudit(validMembers[0].id);
     return { success: true, memberId: validMembers[0].id };
   },
 
@@ -2871,6 +2888,7 @@ export const memberAuthService = {
       loginTime: new Date().toISOString(),
     };
     localStorage.setItem(STORAGE_KEYS.MEMBER_AUTH, JSON.stringify(authState));
+    memberAuthService._recordLoginAudit(memberId);
   },
 
   logout: (): void => {
@@ -4164,9 +4182,15 @@ export const attendanceService = {
     presentDays: number;
     totalWorkingDays: number;
   }> => {
-    // Get subscriptions for this slot on this date — only active ones for attendance tiles
-    const subscriptions = subscriptionService.getActiveForSlotOnDate(slotId, date)
-      .filter(s => s.status === 'active');
+    // Get subscriptions for this slot on this date (active + expired whose dates cover it)
+    // Deduplicate by memberId so a member with renewed subscription doesn't appear twice
+    const allSubscriptions = subscriptionService.getActiveForSlotOnDate(slotId, date);
+    const seenMembers = new Set<string>();
+    const subscriptions = allSubscriptions.filter(s => {
+      if (seenMembers.has(s.memberId)) return false;
+      seenMembers.add(s.memberId);
+      return true;
+    });
 
     return subscriptions.map(sub => {
       const member = memberService.getById(sub.memberId);

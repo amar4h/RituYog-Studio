@@ -102,6 +102,8 @@ export interface Member extends BaseEntity {
 
   // Member Portal Auth
   passwordHash?: string;
+  lastLogin?: string;
+  loginCount?: number;
 
   // Legacy fields (kept for backward compatibility)
   membershipType?: 'trial' | 'monthly' | 'quarterly' | 'yearly' | 'drop-in';
