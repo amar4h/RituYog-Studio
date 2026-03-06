@@ -27,6 +27,7 @@ export function ProductSalePage() {
   ]);
   const [discount, setDiscount] = useState('0');
   const [shippingCost, setShippingCost] = useState('0');
+  const [saleDate, setSaleDate] = useState(getToday());
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -155,8 +156,8 @@ export function ProductSalePage() {
         totalAmount: total,
         amountPaid: 0,
         status: 'sent',
-        invoiceDate: getToday(),
-        dueDate: getToday(),
+        invoiceDate: saleDate,
+        dueDate: saleDate,
         notes: notes || undefined,
       });
 
@@ -218,6 +219,18 @@ export function ProductSalePage() {
               <p className="text-gray-500">{selectedMember.phone}{selectedMember.status !== 'active' ? ` (${selectedMember.status})` : ''}</p>
             </div>
           )}
+        </Card>
+
+        {/* Sale Date */}
+        <Card>
+          <Input
+            label="Sale Date"
+            type="date"
+            value={saleDate}
+            onChange={(e) => setSaleDate(e.target.value)}
+            max={getToday()}
+            required
+          />
         </Card>
 
         {/* Products */}

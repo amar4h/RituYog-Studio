@@ -58,6 +58,9 @@ export function ExpenseListPage() {
     return <PageLoading />;
   }
 
+  // Repair any expenses with missing numbers (from past edit bug)
+  expenseService.repairMissingNumbers();
+
   const allExpenses = expenseService.getAll();
 
   // Calculate period dates

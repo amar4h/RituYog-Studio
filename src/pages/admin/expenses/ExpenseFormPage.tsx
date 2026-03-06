@@ -158,8 +158,7 @@ export function ExpenseFormPage() {
       const totalWithShipping = amount + (formData.category === 'procurement' ? shippingCost : 0);
       const amountPaid = formData.paymentStatus === 'paid' ? totalWithShipping : 0;
 
-      const expenseData: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'> = {
-        expenseNumber: isEditing ? '' : expenseNumber, // Will be ignored on update
+      const commonData = {
         category: formData.category as ExpenseCategory,
         description: formData.description.trim(),
         vendorName: formData.vendorName.trim(),
@@ -182,9 +181,9 @@ export function ExpenseFormPage() {
       };
 
       if (isEditing && id) {
-        expenseService.update(id, expenseData);
+        expenseService.update(id, commonData);
       } else {
-        const createdExpense = expenseService.create(expenseData);
+        const createdExpense = expenseService.create({ ...commonData, expenseNumber });
 
         // If procurement, update inventory
         if (formData.category === 'procurement') {

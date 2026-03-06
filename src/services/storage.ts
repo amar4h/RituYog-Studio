@@ -2076,7 +2076,7 @@ export const invoiceService = {
 
     // Next number is max of (highest existing, startNumber - 1) + 1
     const nextNumber = Math.max(maxNumber, startNumber - 1) + 1;
-    return `${prefix}-${String(nextNumber).padStart(5, '0')}`;
+    return `${prefix}-${String(nextNumber).padStart(6, '0')}`;
   },
 
   // ============================================
@@ -5022,6 +5022,20 @@ export const expenseService = {
     // Next number is max of (highest existing, startNumber - 1) + 1
     const nextNumber = Math.max(maxNum, startNumber - 1) + 1;
     return `${prefix}-${String(nextNumber).padStart(5, '0')}`;
+  },
+
+  // Repair expenses with missing expenseNumber
+  repairMissingNumbers: (): number => {
+    const expenses = getAll<Expense>(STORAGE_KEYS.EXPENSES);
+    let repaired = 0;
+    for (const exp of expenses) {
+      if (!exp.expenseNumber) {
+        const newNumber = expenseService.generateExpenseNumber();
+        expenseService.update(exp.id, { expenseNumber: newNumber });
+        repaired++;
+      }
+    }
+    return repaired;
   },
 
   // Record payment for an expense

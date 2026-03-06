@@ -1,7 +1,7 @@
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { Card, Button, StatusBadge, Alert, Modal, PageLoading } from '../../components/common';
-import { invoiceService, memberService, paymentService, subscriptionService, membershipPlanService, settingsService, whatsappService } from '../../services';
+import { invoiceService, memberService, paymentService, subscriptionService, membershipPlanService, settingsService, whatsappService, inventoryService, productService } from '../../services';
 import { useFreshData } from '../../hooks';
 import { formatCurrency } from '../../utils/formatUtils';
 import { formatDate } from '../../utils/dateUtils';
@@ -164,6 +164,27 @@ export function InvoiceDetailPage() {
       payments.forEach(payment => {
         paymentService.delete(payment.id);
       });
+
+      // Return inventory for product-sale invoices
+      if (invoice.invoiceType === 'product-sale' && invoice.items) {
+        const allTransactions = inventoryService.getAll();
+        for (const item of invoice.items) {
+          // Find the sale transaction for this invoice and product
+          const saleTxn = allTransactions.find(
+            t => t.invoiceId === invoice.id && t.type === 'sale'
+              && item.description.toLowerCase() === (productService.getById(t.productId)?.name?.toLowerCase() || '')
+          );
+          if (saleTxn) {
+            const product = productService.getById(saleTxn.productId);
+            if (product) {
+              const restoredStock = product.currentStock + (item.quantity || 1);
+              productService.updateStock(saleTxn.productId, restoredStock);
+              // Delete the sale transaction
+              inventoryService.delete(saleTxn.id);
+            }
+          }
+        }
+      }
 
       // Delete the invoice
       invoiceService.delete(invoice.id);
