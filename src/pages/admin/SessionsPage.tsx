@@ -1,20 +1,60 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button, Input, Modal, Alert } from '../../components/common';
-import { slotService, memberService, trialBookingService, subscriptionService, leadService } from '../../services';
+import { Card, Button, Input, Select, Modal, Alert } from '../../components/common';
+import { slotService, memberService, trialBookingService, subscriptionService, leadService, sessionExecutionService, sessionPlanAllocationService } from '../../services';
+import { useFreshData } from '../../hooks/useFreshData';
 import { getToday, formatDateCompact } from '../../utils/dateUtils';
 import type { SessionSlot, Member, MembershipSubscription } from '../../types';
 
 export function SessionsPage() {
+  // Load session planning data so auto-complete can find allocations
+  const { isLoading: planDataLoading } = useFreshData([
+    'session-plan-allocations', 'session-plans', 'session-executions', 'slots', 'attendance',
+  ]);
+
+  // Auto-complete session executions for completed slots after data loads
+  const autoCompleteRan = useRef(false);
+  useEffect(() => {
+    if (!planDataLoading && !autoCompleteRan.current) {
+      autoCompleteRan.current = true;
+      const count = sessionExecutionService.autoCompleteExecutions(getToday());
+      if (count > 0) {
+        console.log(`Auto-completed ${count} session execution(s) for today`);
+      }
+    }
+  }, [planDataLoading]);
   const [selectedSlot, setSelectedSlot] = useState<SessionSlot | null>(null);
   const [showCapacityModal, setShowCapacityModal] = useState(false);
   const [capacity, setCapacity] = useState(10);
   const [exceptionCapacity, setExceptionCapacity] = useState(1);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showAddSlotModal, setShowAddSlotModal] = useState(false);
+  const [newSlot, setNewSlot] = useState({
+    displayName: '',
+    startTime: '07:00',
+    endTime: '08:00',
+    capacity: 10,
+    exceptionCapacity: 1,
+    sessionType: 'offline' as 'online' | 'offline' | 'hybrid',
+  });
 
   const slots = slotService.getActive();
   const today = getToday();
+
+  // Determine session status based on current time
+  const getSessionStatus = (slot: SessionSlot): 'upcoming' | 'in-progress' | 'completed' => {
+    if (slot.sessionType === 'online') return 'in-progress'; // Online is always available
+    const now = new Date();
+    const [startH, startM] = slot.startTime.split(':').map(Number);
+    const [endH, endM] = slot.endTime.split(':').map(Number);
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+    if (nowMinutes < startMinutes) return 'upcoming';
+    if (nowMinutes >= endMinutes) return 'completed';
+    return 'in-progress';
+  };
 
   const getSlotData = (slot: SessionSlot) => {
     const trials = trialBookingService.getBySlotAndDate(slot.id, today);
@@ -123,12 +163,40 @@ export function SessionsPage() {
     }
   };
 
+  const handleCreateSlot = () => {
+    try {
+      if (!newSlot.displayName.trim()) {
+        setError('Slot name is required');
+        return;
+      }
+      slotService.create({
+        displayName: newSlot.displayName.trim(),
+        startTime: newSlot.startTime,
+        endTime: newSlot.endTime,
+        capacity: newSlot.capacity,
+        exceptionCapacity: newSlot.exceptionCapacity,
+        sessionType: newSlot.sessionType,
+        isActive: true,
+      });
+      setSuccess(`Slot "${newSlot.displayName}" created`);
+      setShowAddSlotModal(false);
+      setNewSlot({ displayName: '', startTime: '07:00', endTime: '08:00', capacity: 10, exceptionCapacity: 1, sessionType: 'offline' });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create slot');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Session Slots</h1>
-        <p className="text-gray-600">Manage session schedules and capacity. Sessions run Monday to Friday.</p>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Session Slots</h1>
+          <p className="text-gray-600">Manage session schedules and capacity. Sessions run Monday to Friday.</p>
+        </div>
+        <Button onClick={() => setShowAddSlotModal(true)} className="w-full sm:w-auto">
+          + Add Slot
+        </Button>
       </div>
 
       {error && (
@@ -145,26 +213,49 @@ export function SessionsPage() {
 
       {/* Today's Overview */}
       <Card title="Today's Schedule" subtitle={today}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {slots.map(slot => {
             const data = getSlotData(slot);
+            const status = getSessionStatus(slot);
+            const execution = sessionExecutionService.getBySlotAndDate(slot.id, today);
+            const allocation = sessionPlanAllocationService.getBySlotAndDate(slot.id, today);
+            const statusStyles = {
+              completed: 'bg-green-50 border-green-200',
+              'in-progress': 'bg-blue-50 border-blue-200',
+              upcoming: 'bg-gray-50 border-gray-200',
+            };
+            const statusLabel = {
+              completed: 'Completed',
+              'in-progress': 'In Progress',
+              upcoming: 'Upcoming',
+            };
+            const statusColors = {
+              completed: 'text-green-700 bg-green-100',
+              'in-progress': 'text-blue-700 bg-blue-100',
+              upcoming: 'text-gray-600 bg-gray-100',
+            };
             return (
               <div
                 key={slot.id}
-                className="p-4 bg-gray-50 rounded-lg border border-gray-200"
+                className={`p-4 rounded-lg border ${statusStyles[status]}`}
               >
                 <div className="flex justify-between items-start mb-2">
                   <div>
                     <h3 className="font-semibold text-gray-900">{slot.displayName}</h3>
-                    <p className="text-sm text-gray-500">{slot.startTime} - {slot.endTime}</p>
+                    <p className="text-sm text-gray-500">{slot.sessionType === 'online' ? 'Flexible timing' : `${slot.startTime} - ${slot.endTime}`}</p>
                   </div>
-                  <span className={`text-lg font-bold ${
-                    data.utilization >= 90 ? 'text-red-600' :
-                    data.utilization >= 70 ? 'text-yellow-600' :
-                    'text-green-600'
-                  }`}>
-                    {data.utilization}%
-                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColors[status]}`}>
+                      {statusLabel[status]}
+                    </span>
+                    <span className={`text-lg font-bold ${
+                      data.utilization >= 90 ? 'text-red-600' :
+                      data.utilization >= 70 ? 'text-yellow-600' :
+                      'text-green-600'
+                    }`}>
+                      {data.utilization}%
+                    </span>
+                  </div>
                 </div>
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
@@ -190,6 +281,26 @@ export function SessionsPage() {
                     </div>
                   )}
                 </div>
+                {/* Session execution status */}
+                {execution ? (
+                  <div className="mt-2 flex items-center gap-1.5 text-xs text-green-700 bg-green-100 rounded-md px-2 py-1">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="font-medium">Session Recorded</span>
+                    <span className="text-green-600">· {execution.sessionPlanName}</span>
+                  </div>
+                ) : status === 'completed' && allocation ? (
+                  <Link
+                    to={`/admin/session-executions/record?slotId=${slot.id}&date=${today}`}
+                    className="mt-2 flex items-center justify-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-md px-2 py-1 transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Pending Recording
+                  </Link>
+                ) : null}
               </div>
             );
           })}
@@ -203,7 +314,7 @@ export function SessionsPage() {
           <Card
             key={slot.id}
             title={slot.displayName}
-            subtitle={`${slot.startTime} - ${slot.endTime}`}
+            subtitle={slot.sessionType === 'online' ? 'Flexible timing · Can join any running slot' : `${slot.startTime} - ${slot.endTime}`}
           >
             <div className="space-y-4">
               {/* Capacity Info */}
@@ -366,6 +477,71 @@ export function SessionsPage() {
             </Button>
             <Button onClick={handleSaveCapacity}>
               Save Changes
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Add Slot Modal */}
+      <Modal
+        isOpen={showAddSlotModal}
+        onClose={() => setShowAddSlotModal(false)}
+        title="Add New Slot"
+      >
+        <div className="space-y-4">
+          <Input
+            label="Slot Name"
+            value={newSlot.displayName}
+            onChange={(e) => setNewSlot(prev => ({ ...prev, displayName: e.target.value }))}
+            placeholder="e.g., Online, Afternoon 3:00 PM"
+            required
+          />
+          <Select
+            label="Session Type"
+            value={newSlot.sessionType}
+            onChange={(e) => setNewSlot(prev => ({ ...prev, sessionType: e.target.value as 'online' | 'offline' | 'hybrid' }))}
+            options={[
+              { value: 'offline', label: 'Offline (In-Studio)' },
+              { value: 'online', label: 'Online' },
+              { value: 'hybrid', label: 'Hybrid' },
+            ]}
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Start Time"
+              type="time"
+              value={newSlot.startTime}
+              onChange={(e) => setNewSlot(prev => ({ ...prev, startTime: e.target.value }))}
+            />
+            <Input
+              label="End Time"
+              type="time"
+              value={newSlot.endTime}
+              onChange={(e) => setNewSlot(prev => ({ ...prev, endTime: e.target.value }))}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Capacity"
+              type="number"
+              min={1}
+              value={newSlot.capacity}
+              onChange={(e) => setNewSlot(prev => ({ ...prev, capacity: parseInt(e.target.value) || 1 }))}
+            />
+            <Input
+              label="Exception Capacity"
+              type="number"
+              min={0}
+              value={newSlot.exceptionCapacity}
+              onChange={(e) => setNewSlot(prev => ({ ...prev, exceptionCapacity: parseInt(e.target.value) || 0 }))}
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="outline" onClick={() => setShowAddSlotModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateSlot}>
+              Create Slot
             </Button>
           </div>
         </div>

@@ -695,7 +695,7 @@ export function MemberDetailPage() {
           {memberSlot && (
             <div className="p-3 bg-gray-50 rounded-lg text-sm">
               <p><span className="text-gray-500">Current slot:</span> {memberSlot.displayName}</p>
-              <p className="text-gray-400 text-xs">{memberSlot.startTime} - {memberSlot.endTime}</p>
+              <p className="text-gray-400 text-xs">{memberSlot.sessionType === 'online' ? 'Flexible timing' : `${memberSlot.startTime} - ${memberSlot.endTime}`}</p>
             </div>
           )}
           <Select
@@ -719,7 +719,7 @@ export function MemberDetailPage() {
                     : '';
                   return {
                     value: s.id,
-                    label: `${s.displayName} (${s.startTime} - ${s.endTime})${capacityStatus}`,
+                    label: `${s.displayName}${s.sessionType === 'online' ? '' : ` (${s.startTime} - ${s.endTime})`}${capacityStatus}`,
                     disabled: capacityCheck ? !capacityCheck.available : false,
                   };
                 }),

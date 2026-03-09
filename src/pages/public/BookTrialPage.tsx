@@ -18,7 +18,7 @@ export function BookTrialPage() {
   const location = useLocation();
   const locationState = location.state as LocationState | null;
 
-  const slots = slotService.getActive();
+  const slots = slotService.getActive().filter(s => s.sessionType !== 'online');
   const settings = settingsService.getOrDefault();
   const holidays: Holiday[] = settings.holidays || [];
 
@@ -220,13 +220,15 @@ export function BookTrialPage() {
       }
       if (!formData.email.trim()) {
         newErrors.email = 'Email is required';
-      } else if (!validateEmail(formData.email)) {
-        newErrors.email = 'Invalid email format';
+      } else {
+        const emailResult = validateEmail(formData.email);
+        if (!emailResult.isValid) newErrors.email = emailResult.error || 'Invalid email format';
       }
       if (!formData.phone.trim()) {
         newErrors.phone = 'Phone is required';
-      } else if (!validatePhone(formData.phone)) {
-        newErrors.phone = 'Invalid phone number (10 digits required)';
+      } else {
+        const phoneResult = validatePhone(formData.phone);
+        if (!phoneResult.isValid) newErrors.phone = phoneResult.error || 'Invalid phone number';
       }
       if (!formData.age.trim()) {
         newErrors.age = 'Age is required';
@@ -249,6 +251,12 @@ export function BookTrialPage() {
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      setTimeout(() => {
+        const errorEl = document.querySelector('.text-red-600');
+        if (errorEl) {
+          errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
       return;
     }
 
@@ -396,9 +404,11 @@ export function BookTrialPage() {
               <p className="text-indigo-700">
                 {selectedSlot?.displayName}
               </p>
-              <p className="text-sm text-indigo-600">
-                {selectedSlot?.startTime} - {selectedSlot?.endTime}
-              </p>
+              {selectedSlot?.sessionType !== 'online' && (
+                <p className="text-sm text-indigo-600">
+                  {selectedSlot?.startTime} - {selectedSlot?.endTime}
+                </p>
+              )}
             </div>
 
             <div className="text-sm text-gray-600 mb-6">
@@ -497,7 +507,7 @@ export function BookTrialPage() {
                         {slot.displayName}
                       </div>
                       <div className={`text-sm font-semibold ${isSelected ? 'text-indigo-700' : 'text-gray-700'}`}>
-                        {slot.startTime}
+                        {slot.sessionType === 'online' ? 'Flexible' : slot.startTime}
                       </div>
                       <div className={`text-xs font-medium mt-1 ${
                         isSelected
@@ -544,9 +554,9 @@ export function BookTrialPage() {
                 <p className="text-sm font-medium text-indigo-900">
                   {slots.find(s => s.id === selectedSlotId)?.displayName} &middot; {formatDate(selectedDate)}
                 </p>
-                <p className="text-xs text-indigo-600">
-                  {slots.find(s => s.id === selectedSlotId)?.startTime} - {slots.find(s => s.id === selectedSlotId)?.endTime}
-                </p>
+                {(() => { const s = slots.find(s => s.id === selectedSlotId); return s?.sessionType !== 'online' ? (
+                  <p className="text-xs text-indigo-600">{s?.startTime} - {s?.endTime}</p>
+                ) : null; })()}
               </div>
             )}
 

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useMemberAuth } from '../../hooks/useMemberAuth';
 import { useFreshData } from '../../hooks/useFreshData';
-import { sessionAnalyticsService, subscriptionService, slotService } from '../../services';
+import { sessionAnalyticsService, subscriptionService, slotService, sessionExecutionService } from '../../services';
 import { PageLoading } from '../../components/common/LoadingSpinner';
 import { ReportCard } from '../../components/member/ReportCard';
 import { getReportPeriod, PERIOD_TYPE_OPTIONS } from '../../utils/reportPeriods';
@@ -46,6 +46,19 @@ export function BatchReportPage() {
 
   const period = useMemo(() => getReportPeriod(periodType, periodOffset), [periodType, periodOffset]);
 
+  // Auto-complete any missing executions for the report period
+  // Runs as soon as data is loaded — does not depend on member/activeSub (it's a global operation)
+  const [autoCompleteVersion, setAutoCompleteVersion] = useState(0);
+  useEffect(() => {
+    if (!isLoading) {
+      const count = sessionExecutionService.autoCompleteForDateRange(period.startDate, period.endDate);
+      if (count > 0) {
+        console.log(`Auto-completed ${count} session execution(s) for batch report period`);
+        setAutoCompleteVersion(v => v + 1);
+      }
+    }
+  }, [isLoading, period.startDate, period.endDate]);
+
   const reportData = useMemo<BatchReportData | null>(() => {
     if (!activeSub?.slotId) return null;
     try {
@@ -55,7 +68,8 @@ export function BatchReportPage() {
     } catch {
       return null;
     }
-  }, [activeSub, period]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSub, period, autoCompleteVersion]);
 
   const handleDownload = async () => {
     if (!reportData) return;

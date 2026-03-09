@@ -4,33 +4,41 @@ import { useMemberAuth } from '../../hooks/useMemberAuth';
 import { useFreshData } from '../../hooks/useFreshData';
 import { memberAuthService, memberService, subscriptionService, attendanceService, slotService } from '../../services';
 
-// ── Campaign Configuration ──
-// Must match BASANT_RITU_CAMPAIGN dates in AttendancePage.tsx
-const CAMPAIGN_LABEL = 'Basant Ritu Attendance Challenge';
-const CAMPAIGN_PRIZE = 'Yoga Mat Bag from Wiselife';
-const CAMPAIGN_START = '2026-01-23';
-const CAMPAIGN_END = '2026-02-28';
+// ── Monthly Attendance Challenge ──
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
 
 function formatShortName(fullName: string): string {
-  const parts = fullName.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0];
-  return `${parts[0]} ${parts[parts.length - 1][0]}.`;
+  return fullName.trim().split(/\s+/)[0];
 }
 
 // ── Campaign Leaderboard (loads data independently) ──
 function CampaignLeaderboard() {
   const { isLoading } = useFreshData(['members', 'subscriptions', 'attendance', 'slots']);
 
-  const today = useMemo(() => new Date().toISOString().split('T')[0], []);
-  const effectiveEnd = useMemo(() => today < CAMPAIGN_END ? today : CAMPAIGN_END, [today]);
+  const { monthStart, effectiveEnd, monthLabel } = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const start = `${y}-${String(m + 1).padStart(2, '0')}-01`;
+    const lastDay = new Date(y, m + 1, 0).getDate();
+    const end = `${y}-${String(m + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    const today = now.toISOString().split('T')[0];
+    return {
+      monthStart: start,
+      effectiveEnd: today < end ? today : end,
+      monthLabel: `${MONTH_NAMES[m]} ${y}`,
+    };
+  }, []);
 
   const leaderboard = useMemo(() => {
     const allSubs = subscriptionService.getAll().filter(s =>
       (s.status === 'active' || s.status === 'expired') &&
       s.startDate <= effectiveEnd &&
-      s.endDate >= CAMPAIGN_START
+      s.endDate >= monthStart
     );
     const slots = slotService.getAll();
+    const onlineSlotIds = new Set(slots.filter(s => s.sessionType === 'online').map(s => s.id));
 
     const latestSubByMember = new Map<string, { slotId: string; endDate: string }>();
     for (const sub of allSubs) {
@@ -42,6 +50,7 @@ function CampaignLeaderboard() {
 
     const slotGroups = new Map<string, Array<{ memberId: string; name: string }>>();
     for (const [memberId, info] of latestSubByMember) {
+      if (onlineSlotIds.has(info.slotId)) continue;
       const member = memberService.getById(memberId);
       if (!member) continue;
       if (!slotGroups.has(info.slotId)) slotGroups.set(info.slotId, []);
@@ -66,7 +75,7 @@ function CampaignLeaderboard() {
           attendanceService.getByMember(m.memberId)
             .filter(r =>
               r.status === 'present' &&
-              r.date >= CAMPAIGN_START &&
+              r.date >= monthStart &&
               r.date <= effectiveEnd
             )
             .map(r => r.date)
@@ -101,7 +110,7 @@ function CampaignLeaderboard() {
 
     result.sort((a, b) => a.slotTime.localeCompare(b.slotTime));
     return result;
-  }, [today, effectiveEnd]);
+  }, [monthStart, effectiveEnd]);
 
   if (isLoading || leaderboard.length === 0) return null;
 
@@ -110,9 +119,8 @@ function CampaignLeaderboard() {
       <div className="bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-800 rounded-2xl overflow-hidden shadow-lg">
         <div className="text-center pt-4 pb-2 px-4">
           <div className="text-2xl leading-none mb-1">&#127942;</div>
-          <h2 className="text-white font-bold text-sm tracking-wide uppercase">{CAMPAIGN_LABEL}</h2>
-          <p className="text-indigo-300 text-[11px] mt-0.5">Prize: <span className="text-amber-300 font-medium">{CAMPAIGN_PRIZE}</span></p>
-          <p className="text-indigo-200 text-[11px] mt-1">Current standings &middot; Final winner declared on 2nd March</p>
+          <h2 className="text-white font-bold text-sm tracking-wide uppercase">Attendance Leaders &middot; {monthLabel}</h2>
+          <p className="text-indigo-200 text-[11px] mt-1">Current standings &middot; Winners declared on 1st working day of next month</p>
         </div>
         <div className="px-3 pb-3 space-y-1.5">
           {leaderboard.map(batch => (
@@ -120,15 +128,15 @@ function CampaignLeaderboard() {
               <div className="text-indigo-300/70 text-[10px] font-semibold uppercase tracking-wider mb-1.5">
                 {batch.slotName}
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm leading-none">&#129351;</span>
-                <span className="text-amber-200 font-semibold text-[13px] flex-1 truncate">{batch.first.names.join(', ')}</span>
+              <div className="flex items-start gap-2">
+                <span className="text-sm leading-none mt-0.5">&#129351;</span>
+                <span className="text-amber-200 font-semibold text-[13px] flex-1 flex flex-wrap gap-x-1">{batch.first.names.join(', ')}</span>
                 <span className="bg-amber-400/20 text-amber-300 px-2 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap">{batch.first.count} days</span>
               </div>
               {batch.second && batch.first.names.length === 1 && (
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-sm leading-none">&#129352;</span>
-                  <span className="text-gray-300/80 font-medium text-xs flex-1 truncate">{batch.second.names.join(', ')}</span>
+                  <span className="text-gray-300/80 font-medium text-xs flex-1 flex flex-wrap gap-x-1">{batch.second.names.join(', ')}</span>
                   <span className="bg-white/[0.08] text-gray-400 px-2 py-0.5 rounded-full text-[11px] whitespace-nowrap">{batch.second.count} days</span>
                 </div>
               )}

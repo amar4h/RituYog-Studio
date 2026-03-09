@@ -13,7 +13,7 @@ interface SlotSelectorProps {
   // Styling variants
   variant?: 'tiles' | 'pills' | 'cards';
   // Layout
-  columns?: 2 | 4;
+  columns?: number;
   // Exclude specific slots
   excludeSlotId?: string;
   // Current slot indicator
@@ -57,6 +57,12 @@ export function SlotSelector({
     };
   };
 
+  const isOnline = (slot: SessionSlot) => slot.sessionType === 'online';
+  const slotTimeLabel = (slot: SessionSlot) =>
+    isOnline(slot) ? 'Flexible' : `${slot.startTime} - ${slot.endTime}`;
+  const slotPillLabel = (slot: SessionSlot) =>
+    isOnline(slot) ? 'Online' : slot.startTime;
+
   // Render pills variant (compact, for inline use like attendance page)
   if (variant === 'pills') {
     return (
@@ -76,7 +82,7 @@ export function SlotSelector({
             }`}
             title={slot.displayName}
           >
-            {slot.startTime}
+            {slotPillLabel(slot)}
           </button>
         ))}
       </div>
@@ -86,7 +92,7 @@ export function SlotSelector({
   // Render cards variant (for subscription form with capacity info)
   if (variant === 'cards') {
     return (
-      <div className={`grid grid-cols-1 ${columns === 4 ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-2'} gap-4`}>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredSlots.map(slot => {
           const capacity = getSlotCapacityInfo(slot);
           const isCurrent = currentSlotId === slot.id;
@@ -112,7 +118,7 @@ export function SlotSelector({
                   <p className={`font-semibold ${isDisabled ? 'text-red-700' : 'text-gray-900'}`}>
                     {slot.displayName}
                   </p>
-                  <p className="text-sm text-gray-500">{slot.startTime} - {slot.endTime}</p>
+                  <p className="text-sm text-gray-500">{slotTimeLabel(slot)}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   {isCurrent && (
@@ -154,9 +160,9 @@ export function SlotSelector({
     );
   }
 
-  // Default: tiles variant (4-column grid with nice tiles)
+  // Default: tiles variant
   return (
-    <div className={`grid ${columns === 4 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2'} gap-3`}>
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
       {filteredSlots.map(slot => {
         const capacity = showCapacity ? getSlotCapacityInfo(slot) : null;
         const isCurrent = currentSlotId === slot.id;
@@ -179,7 +185,7 @@ export function SlotSelector({
           >
             <p className="font-semibold text-sm">{slot.displayName}</p>
             <p className={`text-xs mt-1 ${isSelected ? 'text-indigo-200' : 'text-gray-500'}`}>
-              {slot.startTime} - {slot.endTime}
+              {slotTimeLabel(slot)}
             </p>
             {isCurrent && (
               <span className={`inline-block mt-1 px-1.5 py-0.5 text-xs rounded ${

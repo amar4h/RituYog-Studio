@@ -1772,21 +1772,37 @@ export const subscriptionService = {
 
 export const slotService = {
   getAll: (): SessionSlot[] => {
-    const slots = getAll<SessionSlot>(STORAGE_KEYS.SESSION_SLOTS);
-    if (slots.length > 0) return slots;
-    // Initialize with default slots
-    slotService.initializeDefaults();
-    return getAll<SessionSlot>(STORAGE_KEYS.SESSION_SLOTS);
+    let slots = getAll<SessionSlot>(STORAGE_KEYS.SESSION_SLOTS);
+    if (slots.length === 0) {
+      // Initialize with default slots
+      slotService.initializeDefaults();
+      slots = getAll<SessionSlot>(STORAGE_KEYS.SESSION_SLOTS);
+    }
+    // Backfill sessionType for slots created before the field was added
+    return slots.map(s => ({
+      ...s,
+      sessionType: s.sessionType || (s.displayName.toLowerCase().includes('online') ? 'online' : 'offline'),
+    }));
   },
 
   getById: (id: string) => getById<SessionSlot>(STORAGE_KEYS.SESSION_SLOTS, id),
+
+  create: (data: Omit<SessionSlot, 'id' | 'createdAt' | 'updatedAt'>) =>
+    createDual<SessionSlot>(STORAGE_KEYS.SESSION_SLOTS, data),
 
   // Dual-mode update: updates localStorage AND immediately writes to API
   update: (id: string, data: Partial<SessionSlot>) =>
     updateDual<SessionSlot>(STORAGE_KEYS.SESSION_SLOTS, id, data),
 
   getActive: (): SessionSlot[] => {
-    return slotService.getAll().filter(s => s.isActive);
+    return slotService.getAll()
+      .filter(s => s.isActive)
+      .sort((a, b) => {
+        // Online slots always last
+        if (a.sessionType === 'online' && b.sessionType !== 'online') return 1;
+        if (a.sessionType !== 'online' && b.sessionType === 'online') return -1;
+        return 0;
+      });
   },
 
   // Initialize default slots
@@ -5798,6 +5814,91 @@ export const sessionExecutionService = {
     return sessionExecutionService.getAll()
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, limit);
+  },
+
+  /**
+   * Auto-complete session executions for completed slots on a given date.
+   * For each active offline slot whose end time has passed:
+   *   - If an allocation exists but no execution has been recorded, auto-create the execution.
+   * This ensures member portal reports have session data without manual recording.
+   * Returns the number of executions auto-created.
+   */
+  autoCompleteExecutions: (date: string): number => {
+    const slots = slotService.getActive();
+    const now = new Date();
+    const today = new Date().toISOString().split('T')[0];
+    const isToday = date === today;
+
+    // Don't process future dates
+    if (date > today) return 0;
+
+    // Find the latest offline slot end time — used as benchmark for online slots
+    const latestOfflineEndMinutes = slots
+      .filter(s => s.sessionType !== 'online')
+      .reduce((max, s) => {
+        const [h, m] = s.endTime.split(':').map(Number);
+        return Math.max(max, h * 60 + m);
+      }, 0);
+
+    let created = 0;
+
+    for (const slot of slots) {
+      // For today, check if the session time is over
+      if (isToday) {
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        if (slot.sessionType === 'online') {
+          // Online slot completes when the last offline session ends
+          if (nowMinutes < latestOfflineEndMinutes) continue;
+        } else {
+          const [endH, endM] = slot.endTime.split(':').map(Number);
+          if (nowMinutes < endH * 60 + endM) continue;
+        }
+      }
+      // For past dates, all slots are considered completed
+
+      // Check if allocation exists but no execution recorded
+      const allocation = sessionPlanAllocationService.getBySlotAndDate(slot.id, date);
+      if (!allocation) continue; // No plan allocated for this slot+date
+
+      const existing = sessionExecutionService.getBySlotAndDate(slot.id, date);
+      if (existing) continue; // Already recorded
+
+      // Auto-create execution from the allocated plan
+      try {
+        sessionExecutionService.create(allocation.sessionPlanId, slot.id, date);
+        created++;
+      } catch (err) {
+        console.warn(`Auto-complete execution failed for ${slot.displayName} on ${date}:`, err);
+      }
+    }
+
+    return created;
+  },
+
+  /**
+   * Auto-complete executions for a date range (e.g., for member report periods).
+   * Only processes weekdays (Mon-Fri) since sessions don't run on weekends.
+   */
+  autoCompleteForDateRange: (startDate: string, endDate: string): number => {
+    const today = new Date().toISOString().split('T')[0];
+    const effectiveEnd = endDate > today ? today : endDate;
+    let totalCreated = 0;
+
+    // Iterate through each date in the range
+    const current = new Date(startDate + 'T00:00:00');
+    const end = new Date(effectiveEnd + 'T00:00:00');
+
+    while (current <= end) {
+      const day = current.getDay();
+      // Only weekdays (Mon=1 to Fri=5)
+      if (day >= 1 && day <= 5) {
+        const dateStr = current.toISOString().split('T')[0];
+        totalCreated += sessionExecutionService.autoCompleteExecutions(dateStr);
+      }
+      current.setDate(current.getDate() + 1);
+    }
+
+    return totalCreated;
   },
 };
 

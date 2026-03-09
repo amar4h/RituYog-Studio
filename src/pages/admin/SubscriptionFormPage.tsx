@@ -380,7 +380,6 @@ export function SubscriptionFormPage() {
                     }
                   }}
                   variant="tiles"
-                  columns={4}
                   showCapacity
                   subscriptionStartDate={formData.startDate}
                   subscriptionEndDate={endDate}
@@ -402,7 +401,9 @@ export function SubscriptionFormPage() {
                 <Card title="Session Slot">
                   <div className="p-4 bg-indigo-50 rounded-lg">
                     <p className="font-semibold text-indigo-900">{selectedSlot.displayName}</p>
-                    <p className="text-sm text-indigo-700">{selectedSlot.startTime} - {selectedSlot.endTime}</p>
+                    {selectedSlot.sessionType !== 'online' && (
+                      <p className="text-sm text-indigo-700">{selectedSlot.startTime} - {selectedSlot.endTime}</p>
+                    )}
                   </div>
                   <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <p className="text-sm text-gray-500">
@@ -497,7 +498,9 @@ export function SubscriptionFormPage() {
                   <div>
                     <p className="text-sm text-gray-500">Session Slot</p>
                     <p className="font-medium text-gray-900">{selectedSlot.displayName}</p>
-                    <p className="text-xs text-gray-500">{selectedSlot.startTime} - {selectedSlot.endTime}</p>
+                    {selectedSlot.sessionType !== 'online' && (
+                      <p className="text-xs text-gray-500">{selectedSlot.startTime} - {selectedSlot.endTime}</p>
+                    )}
                   </div>
                 )}
 

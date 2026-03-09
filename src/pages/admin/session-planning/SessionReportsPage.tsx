@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, Button, Select, SearchableSelect, PageLoading, Badge, Alert } from '../../../components/common';
-import { sessionAnalyticsService, slotService, memberService } from '../../../services';
+import { sessionAnalyticsService, sessionExecutionService, slotService, memberService } from '../../../services';
 import { useFreshData } from '../../../hooks';
 import { BODY_AREA_LABELS } from '../../../constants';
 import type { DifficultyLevel } from '../../../types';
@@ -59,6 +59,18 @@ export function SessionReportsPage() {
     return { startDate: start, endDate: end };
   }, [period]);
 
+  // Auto-complete any missing executions for the analytics date range
+  const [autoCompleteVersion, setAutoCompleteVersion] = useState(0);
+  useEffect(() => {
+    if (!isLoading) {
+      const count = sessionExecutionService.autoCompleteForDateRange(startDate, endDate);
+      if (count > 0) {
+        console.log(`Auto-completed ${count} session execution(s) for reports`);
+        setAutoCompleteVersion(v => v + 1);
+      }
+    }
+  }, [isLoading, startDate, endDate]);
+
   // Member reports: slot members for dropdown
   const rptPeriod = useMemo(() => getReportPeriod(rptPeriodType, rptPeriodOffset), [rptPeriodType, rptPeriodOffset]);
   const slotMembers = useMemo(() => {
@@ -72,17 +84,20 @@ export function SessionReportsPage() {
   const asanaUsage = useMemo(() => {
     if (isLoading) return [];
     return sessionAnalyticsService.getAsanaUsage(startDate, endDate, slotFilter);
-  }, [isLoading, startDate, endDate, slotFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, startDate, endDate, slotFilter, autoCompleteVersion]);
 
   const bodyAreaFocus = useMemo(() => {
     if (isLoading) return [];
     return sessionAnalyticsService.getBodyAreaFocus(startDate, endDate, slotFilter);
-  }, [isLoading, startDate, endDate, slotFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, startDate, endDate, slotFilter, autoCompleteVersion]);
 
   const benefitCoverage = useMemo(() => {
     if (isLoading) return [];
     return sessionAnalyticsService.getBenefitCoverage(startDate, endDate, slotFilter);
-  }, [isLoading, startDate, endDate, slotFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, startDate, endDate, slotFilter, autoCompleteVersion]);
 
   const planEffectiveness = useMemo(() => {
     if (isLoading) return [];
@@ -120,7 +135,7 @@ export function SessionReportsPage() {
   // Slot options for filter
   const slotOptions = [
     { value: '', label: 'All Slots' },
-    ...slots.map(s => ({ value: s.id, label: s.startTime })),
+    ...slots.map(s => ({ value: s.id, label: s.sessionType === 'online' ? s.displayName : s.startTime })),
   ];
 
   return (
@@ -133,7 +148,7 @@ export function SessionReportsPage() {
             Analytics on yoga sessions and asana usage
             {selectedSlotId && slots.find(s => s.id === selectedSlotId) && (
               <span className="ml-1 text-indigo-600 font-medium">
-                • {slots.find(s => s.id === selectedSlotId)?.startTime} slot
+                • {(() => { const s = slots.find(s => s.id === selectedSlotId); return s?.sessionType === 'online' ? s.displayName : s?.startTime; })()} slot
               </span>
             )}
           </p>

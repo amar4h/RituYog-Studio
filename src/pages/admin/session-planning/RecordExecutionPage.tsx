@@ -243,7 +243,7 @@ export function RecordExecutionPage() {
         sections,
         studioName: settings.studioName,
         logoData: settings.logoData,
-        slotTime: selectedSlot?.startTime,
+        slotTime: selectedSlot?.sessionType === 'online' ? 'Flexible' : selectedSlot?.startTime,
         date: format(new Date(selectedDate), 'dd MMM yyyy'),
       };
 
@@ -330,7 +330,7 @@ export function RecordExecutionPage() {
                   }
                 `}
               >
-                {slot.startTime}
+                {slot.sessionType === 'online' ? slot.displayName : slot.startTime}
               </button>
             );
           })}

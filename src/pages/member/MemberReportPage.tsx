@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useMemberAuth } from '../../hooks/useMemberAuth';
 import { useFreshData } from '../../hooks/useFreshData';
-import { sessionAnalyticsService, subscriptionService } from '../../services';
+import { sessionAnalyticsService, subscriptionService, sessionExecutionService } from '../../services';
 import { PageLoading } from '../../components/common/LoadingSpinner';
 import { ReportCard } from '../../components/member/ReportCard';
 import { getReportPeriod, PERIOD_TYPE_OPTIONS } from '../../utils/reportPeriods';
@@ -42,6 +42,19 @@ export function MemberReportPage() {
 
   const period = useMemo(() => getReportPeriod(periodType, periodOffset), [periodType, periodOffset]);
 
+  // Auto-complete any missing executions for the report period before generating report
+  // Runs as soon as data is loaded — does not depend on member/activeSub (it's a global operation)
+  const [autoCompleteVersion, setAutoCompleteVersion] = useState(0);
+  useEffect(() => {
+    if (!isLoading) {
+      const count = sessionExecutionService.autoCompleteForDateRange(period.startDate, period.endDate);
+      if (count > 0) {
+        console.log(`Auto-completed ${count} session execution(s) for report period`);
+        setAutoCompleteVersion(v => v + 1); // Trigger re-render to pick up new executions
+      }
+    }
+  }, [isLoading, period.startDate, period.endDate]);
+
   const reportData = useMemo<MemberReportData | null>(() => {
     if (!member || !activeSub) return null;
     try {
@@ -51,7 +64,8 @@ export function MemberReportPage() {
     } catch {
       return null;
     }
-  }, [member, activeSub, period]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [member, activeSub, period, autoCompleteVersion]);
 
   const handleDownload = async () => {
     if (!reportData) return;

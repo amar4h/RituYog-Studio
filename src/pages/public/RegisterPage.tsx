@@ -94,13 +94,15 @@ export function RegisterPage() {
     }
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
-    } else if (!validateEmail(formData.email)) {
-      newErrors.email = 'Invalid email format';
+    } else {
+      const emailResult = validateEmail(formData.email);
+      if (!emailResult.isValid) newErrors.email = emailResult.error || 'Invalid email format';
     }
     if (!formData.phone.trim()) {
       newErrors.phone = 'Phone is required';
-    } else if (!validatePhone(formData.phone)) {
-      newErrors.phone = 'Invalid phone number (10 digits required)';
+    } else {
+      const phoneResult = validatePhone(formData.phone);
+      if (!phoneResult.isValid) newErrors.phone = phoneResult.error || 'Invalid phone number';
     }
     if (!formData.age.trim()) {
       newErrors.age = 'Age is required';
@@ -113,6 +115,9 @@ export function RegisterPage() {
     if (!formData.gender) {
       newErrors.gender = 'Gender is required';
     }
+    if (!formData.preferredSlotId) {
+      newErrors.preferredSlotId = 'Please select a preferred time slot';
+    }
     if (!consents.termsAndConditions) {
       newErrors.termsAndConditions = 'You must accept the terms and conditions';
     }
@@ -122,6 +127,13 @@ export function RegisterPage() {
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      // Scroll to first error message
+      setTimeout(() => {
+        const errorEl = document.querySelector('.text-red-600');
+        if (errorEl) {
+          errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
       return;
     }
 
@@ -170,7 +182,7 @@ export function RegisterPage() {
         ? `[Preferred: Personal Training] ${formData.notes.trim()}`.trim()
         : formData.notes.trim() || undefined;
 
-      const createdLead = await leadService.create({
+      const createdLead = await leadService.async.create({
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         email: formData.email.trim().toLowerCase(),
@@ -320,13 +332,15 @@ export function RegisterPage() {
           <Card title="Preferred Session Time">
             <Select
               label="Which time slot works best for you?"
+              required
               value={formData.preferredSlotId}
               onChange={(e) => handleChange('preferredSlotId', e.target.value)}
+              error={errors.preferredSlotId}
               options={[
-                { value: '', label: 'No preference' },
+                { value: '', label: 'Select a time slot' },
                 ...slots.map(slot => ({
                   value: slot.id,
-                  label: `${slot.displayName} (${slot.startTime} - ${slot.endTime})`,
+                  label: slot.sessionType === 'online' ? slot.displayName : `${slot.displayName} (${slot.startTime} - ${slot.endTime})`,
                 })),
                 { value: 'personal-training', label: 'Personal Training' },
               ]}

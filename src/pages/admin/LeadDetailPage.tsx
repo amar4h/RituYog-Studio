@@ -4,6 +4,7 @@ import { Card, Button, StatusBadge, Badge, Select, ConfirmDialog, Alert, Modal, 
 import { leadService, slotService, trialBookingService, membershipPlanService, subscriptionService, settingsService, whatsappService } from '../../services';
 import { formatPhone, formatName, formatCurrency } from '../../utils/formatUtils';
 import { formatDate, getToday, calculateSubscriptionEndDate } from '../../utils/dateUtils';
+import { invalidateCache } from '../../hooks/useFreshData';
 import type { Lead } from '../../types';
 
 export function LeadDetailPage() {
@@ -106,13 +107,19 @@ export function LeadDetailPage() {
         selectedSlotId,
         startDate,
         calculatedDiscount,
-        discountReason || undefined
+        discountReason || undefined,
+        undefined, // notes
+        discountType,
+        discountType === 'percentage' ? discountValue : undefined
       );
 
       // If there's a warning (e.g., using exception capacity), show it before navigating
       if (result.warning) {
         alert(result.warning);
       }
+
+      // Invalidate cache so destination pages fetch fresh data including the new member
+      invalidateCache(['members', 'subscriptions', 'invoices', 'leads']);
 
       // Only navigate if everything succeeded
       setShowConvertModal(false);
@@ -316,9 +323,11 @@ export function LeadDetailPage() {
                 {preferredSlot ? (
                   <div className="p-3 bg-indigo-50 rounded-lg">
                     <p className="font-medium text-indigo-900">{preferredSlot.displayName}</p>
-                    <p className="text-sm text-indigo-700">
-                      {preferredSlot.startTime} - {preferredSlot.endTime}
-                    </p>
+                    {preferredSlot.sessionType !== 'online' && (
+                      <p className="text-sm text-indigo-700">
+                        {preferredSlot.startTime} - {preferredSlot.endTime}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <span className="text-gray-400">Not specified</span>
@@ -340,9 +349,11 @@ export function LeadDetailPage() {
                   <p className="text-sm text-blue-700">
                     {formatDate(lead.trialDate)} at {trialSlot.displayName}
                   </p>
-                  <p className="text-sm text-blue-600">
-                    {trialSlot.startTime} - {trialSlot.endTime}
-                  </p>
+                  {trialSlot.sessionType !== 'online' && (
+                    <p className="text-sm text-blue-600">
+                      {trialSlot.startTime} - {trialSlot.endTime}
+                    </p>
+                  )}
                 </div>
                 {lead.status === 'trial-scheduled' && (
                   <Button
@@ -401,9 +412,11 @@ export function LeadDetailPage() {
                       }`}
                     >
                       <p className="font-medium text-gray-900">{slot.displayName}</p>
-                      <p className="text-sm text-gray-500">
-                        {slot.startTime} - {slot.endTime}
-                      </p>
+                      {slot.sessionType !== 'online' && (
+                        <p className="text-sm text-gray-500">
+                          {slot.startTime} - {slot.endTime}
+                        </p>
+                      )}
                       <p className={`text-xs mt-1 ${hasSpace ? 'text-green-600' : 'text-red-600'}`}>
                         {hasSpace
                           ? `${availability.availableRegular + availability.availableException} spots available`
@@ -584,7 +597,7 @@ export function LeadDetailPage() {
                             <p className={`font-semibold text-sm ${isCompletelyFull ? 'text-red-700' : 'text-gray-900'}`}>
                               {slot.displayName}
                             </p>
-                            <p className="text-xs text-gray-500">{slot.startTime} - {slot.endTime}</p>
+                            <p className="text-xs text-gray-500">{slot.sessionType === 'online' ? 'Flexible timing' : `${slot.startTime} - ${slot.endTime}`}</p>
                           </div>
                           <div className="flex flex-col items-end gap-1">
                             {isPreferred && (

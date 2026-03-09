@@ -133,7 +133,7 @@ function SessionPlanPickerModal({ isOpen, onClose, onSelect, plans }: SessionPla
 
 // Slot Tile Component
 interface SlotTileProps {
-  slot: { id: string; displayName: string; startTime: string };
+  slot: { id: string; displayName: string; startTime: string; sessionType?: string };
   date: string;
   allocation: SessionPlanAllocation | null;
   plan: SessionPlan | null;
@@ -169,7 +169,7 @@ function SlotTile({ slot, date, allocation, plan, hasExecution, onAllocate, onCa
         <div className="font-medium text-gray-900 text-sm">{slot.displayName}</div>
         <Badge variant={getStatusBadgeVariant()}>{getStatusLabel()}</Badge>
       </div>
-      <div className="text-xs text-gray-500 mb-3">{slot.startTime}</div>
+      <div className="text-xs text-gray-500 mb-3">{slot.sessionType === 'online' ? 'Flexible' : slot.startTime}</div>
 
       {plan ? (
         <div className="space-y-2">
@@ -455,7 +455,7 @@ export function SessionAllocationPage() {
               </div>
 
               {/* Slot Tiles */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                 {slots.map(slot => {
                   const allocation = getAllocationForSlot(slot.id, date);
                   const plan = allocation ? getPlanById(allocation.sessionPlanId) : null;

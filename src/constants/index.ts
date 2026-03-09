@@ -6,7 +6,7 @@
 import type { SessionSlot, MembershipPlan, StudioSettings, WeeklyAvailability, InvoiceTemplate, WhatsAppTemplates, BodyArea, DifficultyLevel, AsanaType, IntensityLevel, BreathingCue } from '../types';
 
 // ============================================
-// SESSION SLOTS (Fixed 4 slots)
+// SESSION SLOTS
 // ============================================
 
 export const DEFAULT_SESSION_SLOTS: Omit<SessionSlot, 'id' | 'createdAt' | 'updatedAt'>[] = [
@@ -46,6 +46,15 @@ export const DEFAULT_SESSION_SLOTS: Omit<SessionSlot, 'id' | 'createdAt' | 'upda
     sessionType: 'offline',
     isActive: true,
   },
+  {
+    startTime: '00:00',
+    endTime: '23:59',
+    displayName: 'Online',
+    capacity: 100,
+    exceptionCapacity: 0,
+    sessionType: 'online',
+    isActive: true,
+  },
 ];
 
 // Slot IDs for reference
@@ -54,6 +63,7 @@ export const SLOT_IDS = {
   MORNING_LATE: 'slot-0845',
   LATE_MORNING: 'slot-1000',
   EVENING: 'slot-1930',
+  ONLINE: 'slot-online',
 } as const;
 
 // ============================================

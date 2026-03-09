@@ -215,7 +215,7 @@ export function LeadFormPage() {
               onChange={(e) => handleChange('preferredSlotId', e.target.value)}
               options={[
                 { value: '', label: 'No preference' },
-                ...slots.map(s => ({ value: s.id, label: `${s.displayName} (${s.startTime})` })),
+                ...slots.map(s => ({ value: s.id, label: s.sessionType === 'online' ? s.displayName : `${s.displayName} (${s.startTime})` })),
               ]}
             />
             <Select

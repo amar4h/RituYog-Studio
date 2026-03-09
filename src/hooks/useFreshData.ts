@@ -66,6 +66,15 @@ export function markSynced(dataTypes: DataType[]): void {
 }
 
 /**
+ * Invalidate cache for specific data types so next useFreshData call fetches from API
+ */
+export function invalidateCache(dataTypes: DataType[]): void {
+  for (const dt of dataTypes) {
+    delete lastSyncTimestamps[dt];
+  }
+}
+
+/**
  * Get only the stale data types that need fetching
  */
 function getStaleTypes(dataTypes: DataType[]): DataType[] {
