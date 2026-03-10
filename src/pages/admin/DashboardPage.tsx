@@ -14,6 +14,13 @@ import {
 } from '../../services';
 import { getToday, getCurrentMonthRange } from '../../utils/dateUtils';
 import { useFreshData } from '../../hooks';
+import {
+  LEAD_FOLLOW_UP_THRESHOLD_DAYS,
+  EXPIRY_CRITICAL_DAYS,
+  DASHBOARD_LIST_PREVIEW_COUNT,
+  SLOT_UTILIZATION_CRITICAL,
+  SLOT_UTILIZATION_WARNING,
+} from '../../constants';
 
 export function DashboardPage() {
   // Fetch fresh data from API on mount
@@ -156,7 +163,7 @@ export function DashboardPage() {
 
   // Leads needing follow-up (pending leads older than 2 days)
   const twoBusinessDaysAgo = new Date();
-  twoBusinessDaysAgo.setDate(twoBusinessDaysAgo.getDate() - 2);
+  twoBusinessDaysAgo.setDate(twoBusinessDaysAgo.getDate() - LEAD_FOLLOW_UP_THRESHOLD_DAYS);
   const leadsNeedingFollowUp = leads.filter(lead => {
     const createdAt = new Date(lead.createdAt);
     return createdAt < twoBusinessDaysAgo;
@@ -453,8 +460,8 @@ export function DashboardPage() {
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
                   <div
                     className={`h-2.5 rounded-full ${
-                      utilization >= 90 ? 'bg-red-500' :
-                      utilization >= 70 ? 'bg-yellow-500' :
+                      utilization >= SLOT_UTILIZATION_CRITICAL ? 'bg-red-500' :
+                      utilization >= SLOT_UTILIZATION_WARNING ? 'bg-yellow-500' :
                       'bg-green-500'
                     }`}
                     style={{ width: `${utilization}%` }}
@@ -504,7 +511,7 @@ export function DashboardPage() {
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {(showAllExpiring ? expiredSubscriptions : expiredSubscriptions.slice(0, 5)).map(subscription => {
+                  {(showAllExpiring ? expiredSubscriptions : expiredSubscriptions.slice(0, DASHBOARD_LIST_PREVIEW_COUNT)).map(subscription => {
                     const member = memberService.getById(subscription.memberId);
                     const daysAgo = Math.abs(getDaysRemaining(subscription.endDate));
                     const slot = slots.find(s => s.id === subscription.slotId);
@@ -548,14 +555,14 @@ export function DashboardPage() {
                       </div>
                     );
                   })}
-                  {expiredSubscriptions.length > 5 && (
+                  {expiredSubscriptions.length > DASHBOARD_LIST_PREVIEW_COUNT && (
                     <button
                       onClick={() => setShowAllExpiring(!showAllExpiring)}
                       className="w-full text-center text-sm text-indigo-600 hover:text-indigo-800 font-medium pt-2 cursor-pointer"
                     >
                       {showAllExpiring
                         ? 'Show less'
-                        : `+${expiredSubscriptions.length - 5} more expired`}
+                        : `+${expiredSubscriptions.length - DASHBOARD_LIST_PREVIEW_COUNT} more expired`}
                     </button>
                   )}
                 </div>
@@ -568,7 +575,7 @@ export function DashboardPage() {
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {(showAllExpiring ? expiringSubscriptions : expiringSubscriptions.slice(0, 5)).map(subscription => {
+                  {(showAllExpiring ? expiringSubscriptions : expiringSubscriptions.slice(0, DASHBOARD_LIST_PREVIEW_COUNT)).map(subscription => {
                     const member = memberService.getById(subscription.memberId);
                     const daysLeft = getDaysRemaining(subscription.endDate);
                     const slot = slots.find(s => s.id === subscription.slotId);
@@ -578,7 +585,7 @@ export function DashboardPage() {
                         className="flex items-center gap-2 px-3 py-2 bg-yellow-50 rounded-lg"
                       >
                         <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium whitespace-nowrap ${
-                          daysLeft <= 2 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                          daysLeft <= EXPIRY_CRITICAL_DAYS ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
                         }`}>
                           {daysLeft === 0 ? 'Today' : `${daysLeft}d`}
                         </span>
@@ -614,14 +621,14 @@ export function DashboardPage() {
                       </div>
                     );
                   })}
-                  {expiringSubscriptions.length > 5 && (
+                  {expiringSubscriptions.length > DASHBOARD_LIST_PREVIEW_COUNT && (
                     <button
                       onClick={() => setShowAllExpiring(!showAllExpiring)}
                       className="w-full text-center text-sm text-indigo-600 hover:text-indigo-800 font-medium pt-2 cursor-pointer"
                     >
                       {showAllExpiring
                         ? 'Show less'
-                        : `+${expiringSubscriptions.length - 5} more expiring`}
+                        : `+${expiringSubscriptions.length - DASHBOARD_LIST_PREVIEW_COUNT} more expiring`}
                     </button>
                   )}
                 </div>

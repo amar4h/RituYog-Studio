@@ -1,15 +1,26 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, Button, Input, Select, Textarea, Alert, Modal } from '../../components/common';
-import { leadService, memberService, slotService, settingsService } from '../../services';
+import { leadService, memberService, slotService, settingsService, isApiMode } from '../../services';
 import { validateEmail, validatePhone } from '../../utils/validationUtils';
 import { getToday } from '../../utils/dateUtils';
-import type { MedicalCondition, ConsentRecord } from '../../types';
+import type { MedicalCondition, ConsentRecord, SessionSlot } from '../../types';
 
 export function RegisterPage() {
   const navigate = useNavigate();
-  const slots = slotService.getActive();
+  const [slots, setSlots] = useState<SessionSlot[]>(() => slotService.getActive());
   const settings = settingsService.getOrDefault();
+
+  // In API mode, fetch slots from server to avoid stale localStorage defaults
+  useEffect(() => {
+    if (isApiMode()) {
+      slotService.async.getActive().then((freshSlots) => {
+        setSlots(freshSlots);
+      }).catch(() => {
+        // Fall back to localStorage slots
+      });
+    }
+  }, []);
 
   const [createdLeadId, setCreatedLeadId] = useState<string | null>(null);
   const [formData, setFormData] = useState({

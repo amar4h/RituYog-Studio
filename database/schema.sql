@@ -523,7 +523,8 @@ INSERT INTO session_slots (id, start_time, end_time, display_name, capacity, exc
 ('slot-0730', '07:30', '08:30', 'Morning 7:30 AM', 10, 1, 'offline', TRUE),
 ('slot-0845', '08:45', '09:45', 'Morning 8:45 AM', 10, 1, 'offline', TRUE),
 ('slot-1000', '10:00', '11:00', 'Late Morning 10:00 AM', 10, 1, 'offline', TRUE),
-('slot-1930', '19:30', '20:30', 'Evening 7:30 PM', 10, 1, 'offline', TRUE);
+('slot-1930', '19:30', '20:30', 'Evening 7:30 PM', 10, 1, 'offline', TRUE),
+('slot-online', '00:00', '23:59', 'Online', 100, 0, 'online', TRUE);
 
 -- Default membership plans
 INSERT INTO membership_plans (id, name, type, price, duration_months, description, is_active, allowed_session_types, features) VALUES

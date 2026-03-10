@@ -5,6 +5,7 @@ import { slotService, attendanceService, attendanceLockService } from '../../ser
 import { getToday, getMonthStart, getMonthEnd, formatDate } from '../../utils/dateUtils';
 import { parseISO, isWeekend, addDays, subDays, format, startOfMonth, endOfMonth, isAfter, isBefore } from 'date-fns';
 import { useFreshData } from '../../hooks';
+import { ATTENDANCE_EDIT_WINDOW_DAYS, SLOT_SELECTION_OFFSET_MINUTES } from '../../constants';
 
 // ============================================
 // PERIOD PRESETS CONFIGURATION
@@ -104,7 +105,7 @@ function getDefaultSlotId(slots: { id: string; startTime: string }[]): string {
   let defaultSlot = sorted[0];
   for (const slot of sorted) {
     const [h, m] = slot.startTime.split(':').map(Number);
-    if (nowMinutes >= h * 60 + m - 10) {
+    if (nowMinutes >= h * 60 + m - SLOT_SELECTION_OFFSET_MINUTES) {
       defaultSlot = slot;
     }
   }
@@ -161,7 +162,7 @@ export function AttendancePage() {
     const todayDate = parseISO(today);
     const selectedDateObj = parseISO(selectedDate);
     const daysDiff = Math.floor((todayDate.getTime() - selectedDateObj.getTime()) / (1000 * 60 * 60 * 24));
-    return daysDiff >= 0 && daysDiff <= 3;
+    return daysDiff >= 0 && daysDiff <= ATTENDANCE_EDIT_WINDOW_DAYS;
   }, [selectedDate, today]);
 
   // Handle lock toggle for current slot

@@ -1,11 +1,11 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Button, Input, Select, Alert, Modal } from '../../components/common';
-import { leadService, settingsService, slotService } from '../../services';
+import { leadService, settingsService, slotService, isApiMode } from '../../services';
 import { validateEmail, validatePhone } from '../../utils/validationUtils';
 import { getToday } from '../../utils/dateUtils';
 import { GENDER_OPTIONS } from '../../constants';
-import type { Lead, MedicalCondition, ConsentRecord } from '../../types';
+import type { Lead, MedicalCondition, ConsentRecord, SessionSlot } from '../../types';
 
 export function LeadCompletionPage() {
   const { token } = useParams<{ token: string }>();
@@ -28,8 +28,16 @@ export function LeadCompletionPage() {
   const [gender, setGender] = useState<'' | 'male' | 'female' | 'other'>('');
   const [preferredSlotId, setPreferredSlotId] = useState('');
 
-  // Get available slots
-  const slots = slotService.getActive();
+  // Get available slots - fetch from API in API mode to avoid stale defaults
+  const [slots, setSlots] = useState<SessionSlot[]>(() => slotService.getActive());
+
+  useEffect(() => {
+    if (isApiMode()) {
+      slotService.async.getActive().then((freshSlots) => {
+        setSlots(freshSlots);
+      }).catch(() => {});
+    }
+  }, []);
 
   // Form state - health & consent
   const [medicalConditions, setMedicalConditions] = useState<MedicalCondition[]>([]);

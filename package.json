@@ -9,7 +9,18 @@
     "build:rfs": "tsc -b && vite build --mode rfs",
     "build:widget": "vite build --config vite.config.widget.ts",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:legacy": "tsc -p tsconfig.tests.json && node .test-dist/tests/run-tests.js",
+    "e2e": "playwright test --config playwright.local.config.ts --headed",
+    "e2e:headless": "playwright test --config playwright.local.config.ts",
+    "e2e:ui": "playwright test --config playwright.local.config.ts --ui",
+    "e2e:rfs": "cross-env E2E_TARGET=rfs playwright test --config playwright.config.ts",
+    "e2e:rfs:headed": "cross-env E2E_TARGET=rfs playwright test --config playwright.config.ts --headed",
+    "e2e:prod": "cross-env E2E_TARGET=prod playwright test --config playwright.config.ts --grep-invert rfs-crud",
+    "e2e:prod:headed": "cross-env E2E_TARGET=prod playwright test --config playwright.config.ts --headed --grep-invert rfs-crud",
+    "test:dashboard": "node test-dashboard.mjs"
   },
   "dependencies": {
     "@fontsource/noto-sans": "^5.2.10",
@@ -20,12 +31,16 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.12.0",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4.1.18",
     "@tailwindcss/vite": "^4.1.18",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/html2canvas": "^0.5.35",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",
@@ -33,14 +48,17 @@
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.23",
+    "cross-env": "^10.1.0",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "jsdom": "^28.1.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "vitest": "^4.0.18"
   }
 }

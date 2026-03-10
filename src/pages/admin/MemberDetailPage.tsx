@@ -14,6 +14,7 @@ import {
   memberAuthService,
 } from '../../services';
 import { formatCurrency, formatPhone, formatName } from '../../utils/formatUtils';
+import { MEMBER_DETAIL_HISTORY_PREVIEW } from '../../constants';
 import { formatDate, getDaysRemaining, getMonthStart, getMonthEnd, getToday } from '../../utils/dateUtils';
 
 export function MemberDetailPage() {
@@ -537,7 +538,7 @@ export function MemberDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {payments.slice(0, 5).map(payment => (
+                  {payments.slice(0, MEMBER_DETAIL_HISTORY_PREVIEW).map(payment => (
                     <tr key={payment.id}>
                       <td className="px-3 py-2 text-sm text-gray-900">
                         {formatDate(payment.paymentDate)}
@@ -576,7 +577,7 @@ export function MemberDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {invoices.slice(0, 5).map(invoice => (
+                  {invoices.slice(0, MEMBER_DETAIL_HISTORY_PREVIEW).map(invoice => (
                     <tr key={invoice.id}>
                       <td className="px-3 py-2 text-sm font-mono text-gray-900">
                         {invoice.invoiceNumber}

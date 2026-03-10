@@ -5,6 +5,7 @@ import { slotService, memberService, trialBookingService, subscriptionService, l
 import { useFreshData } from '../../hooks/useFreshData';
 import { getToday, formatDateCompact } from '../../utils/dateUtils';
 import type { SessionSlot, Member, MembershipSubscription } from '../../types';
+import { SLOT_UTILIZATION_CRITICAL, SLOT_UTILIZATION_WARNING } from '../../constants';
 
 export function SessionsPage() {
   // Load session planning data so auto-complete can find allocations
@@ -249,8 +250,8 @@ export function SessionsPage() {
                       {statusLabel[status]}
                     </span>
                     <span className={`text-lg font-bold ${
-                      data.utilization >= 90 ? 'text-red-600' :
-                      data.utilization >= 70 ? 'text-yellow-600' :
+                      data.utilization >= SLOT_UTILIZATION_CRITICAL ? 'text-red-600' :
+                      data.utilization >= SLOT_UTILIZATION_WARNING ? 'text-yellow-600' :
                       'text-green-600'
                     }`}>
                       {data.utilization}%

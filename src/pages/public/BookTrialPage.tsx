@@ -6,7 +6,7 @@ import { isApiMode, trialsApi } from '../../services/api';
 import { validateEmail, validatePhone } from '../../utils/validationUtils';
 import { getToday, formatDate, isHoliday, getHolidayName } from '../../utils/dateUtils';
 import { format, addDays, subDays, addWeeks, isWeekend, isBefore, isAfter, startOfToday, parseISO } from 'date-fns';
-import type { MedicalCondition, ConsentRecord, Holiday, Lead, TrialBooking, SlotAvailability } from '../../types';
+import type { MedicalCondition, ConsentRecord, Holiday, Lead, TrialBooking, SlotAvailability, SessionSlot } from '../../types';
 
 // Route state interface for pre-filled data
 interface LocationState {
@@ -18,7 +18,18 @@ export function BookTrialPage() {
   const location = useLocation();
   const locationState = location.state as LocationState | null;
 
-  const slots = slotService.getActive().filter(s => s.sessionType !== 'online');
+  const [slots, setSlots] = useState<SessionSlot[]>(() =>
+    slotService.getActive().filter(s => s.sessionType !== 'online')
+  );
+
+  // In API mode, fetch slots from server to avoid stale localStorage defaults
+  useEffect(() => {
+    if (isApiMode()) {
+      slotService.async.getActive().then((freshSlots) => {
+        setSlots(freshSlots.filter(s => s.sessionType !== 'online'));
+      }).catch(() => {});
+    }
+  }, []);
   const settings = settingsService.getOrDefault();
   const holidays: Holiday[] = settings.holidays || [];
 

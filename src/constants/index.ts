@@ -837,3 +837,58 @@ export const ALLOCATION_STATUS_OPTIONS = [
   { value: 'executed', label: 'Executed', color: 'green' },
   { value: 'cancelled', label: 'Cancelled', color: 'gray' },
 ] as const;
+
+// ============================================
+// APPLICATION THRESHOLDS & LIMITS
+// ============================================
+
+/** Max number of past days where attendance can be edited (today + N previous days) */
+export const ATTENDANCE_EDIT_WINDOW_DAYS = 3;
+
+/** Minutes before slot start time used for auto-selecting the current slot */
+export const SLOT_SELECTION_OFFSET_MINUTES = 10;
+
+/** Number of business days after which a lead needs follow-up */
+export const LEAD_FOLLOW_UP_THRESHOLD_DAYS = 2;
+
+/** Days remaining threshold for critical expiry warning (red) */
+export const EXPIRY_CRITICAL_DAYS = 2;
+
+/** Default days to look ahead for expiring subscriptions */
+export const SUBSCRIPTION_EXPIRY_WINDOW_DAYS = 7;
+
+/** Default days to look back for recently expired subscriptions */
+export const SUBSCRIPTION_RECENTLY_EXPIRED_DAYS = 7;
+
+/** Trial booking expiry in days from creation */
+export const TRIAL_BOOKING_EXPIRY_DAYS = 7;
+
+/** Min past days that are locked by default for attendance */
+export const ATTENDANCE_LOCK_MIN_DAYS = 1;
+
+/** Max past days that are locked by default but still editable (if unlocked) */
+export const ATTENDANCE_LOCK_MAX_DAYS = 3;
+
+/** Number of items to show in dashboard preview lists */
+export const DASHBOARD_LIST_PREVIEW_COUNT = 5;
+
+/** Number of items to show in member detail history previews */
+export const MEMBER_DETAIL_HISTORY_PREVIEW = 5;
+
+/** Slot utilization threshold for critical warning (red) */
+export const SLOT_UTILIZATION_CRITICAL = 90;
+
+/** Slot utilization threshold for warning (yellow) */
+export const SLOT_UTILIZATION_WARNING = 70;
+
+/** Max retry attempts for subscription sync */
+export const MAX_SUBSCRIPTION_SYNC_ATTEMPTS = 10;
+
+/** Base backoff in ms for retry attempts */
+export const BASE_RETRY_BACKOFF_MS = 200;
+
+/** React Query stale time in ms (5 minutes) */
+export const REACT_QUERY_STALE_TIME_MS = 1000 * 60 * 5;
+
+/** Milliseconds per day (used for date calculations) */
+export const MS_PER_DAY = 1000 * 60 * 60 * 24;

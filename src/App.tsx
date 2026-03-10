@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { MemberAuthProvider } from './contexts/MemberAuthContext';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { AppRouter } from './router';
 import { initializeStorage, seedDemoData, syncEssentialData, isApiMode, settingsService } from './services';
+import { REACT_QUERY_STALE_TIME_MS } from './constants';
 
 // Initialize storage for localStorage mode
 // In API mode, syncFromApi will populate localStorage from the server
@@ -16,7 +18,7 @@ if (!isApiMode()) {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
+      staleTime: REACT_QUERY_STALE_TIME_MS,
       retry: 1,
       refetchOnWindowFocus: false,
     },
@@ -88,13 +90,15 @@ function App() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <MemberAuthProvider>
-          <AppRouter />
-        </MemberAuthProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <MemberAuthProvider>
+            <AppRouter />
+          </MemberAuthProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

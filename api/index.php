@@ -45,6 +45,7 @@ $publicEndpoints = [
     'chatbot' => ['chat'],
     'member-auth' => ['login', 'activate', 'changePassword', 'check', 'logout'],
     'campaign-results' => ['getResults'],
+    'slots' => ['getActive'],
 ];
 
 // Check if this is a public endpoint (after parsing endpoint/action from path)
