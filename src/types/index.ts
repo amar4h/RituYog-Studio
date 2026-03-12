@@ -561,6 +561,8 @@ export interface WhatsAppTemplates {
   paymentConfirmation: WhatsAppMessageTemplate;
   paymentReminders: WhatsAppMessageTemplate[];  // Array of templates for payment due reminders
   leadFollowUps: WhatsAppMessageTemplate[];  // Array of templates (2 options)
+  leadSlotAvailability?: WhatsAppMessageTemplate;  // Template for notifying leads about slot availability
+  leadTrialConfirmation?: WhatsAppMessageTemplate;  // Template for confirming trial booking with guidelines
   leadRegistrationLink?: WhatsAppMessageTemplate;  // Template for sharing registration completion link
   generalNotifications: WhatsAppMessageTemplate[];  // 3 templates: Holiday, Google Review, Welcome
 }

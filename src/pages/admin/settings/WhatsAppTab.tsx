@@ -46,6 +46,8 @@ export function WhatsAppTab({ setError, setSuccess, success, loading, setLoading
           : oldSaved.leadFollowUp
             ? [oldSaved.leadFollowUp as WhatsAppTemplates['leadFollowUps'][number]]
             : DEFAULT_WHATSAPP_TEMPLATES.leadFollowUps,
+      leadSlotAvailability: saved.leadSlotAvailability || DEFAULT_WHATSAPP_TEMPLATES.leadSlotAvailability,
+      leadTrialConfirmation: saved.leadTrialConfirmation || DEFAULT_WHATSAPP_TEMPLATES.leadTrialConfirmation,
       generalNotifications: Array.isArray(saved.generalNotifications)
         ? mergeGeneralNotifications(saved.generalNotifications)
         : DEFAULT_WHATSAPP_TEMPLATES.generalNotifications,
@@ -235,6 +237,50 @@ export function WhatsAppTab({ setError, setSuccess, success, loading, setLoading
           </div>
           <p className="mt-2 text-xs text-gray-500">
             Available: {WHATSAPP_PLACEHOLDERS.lead.map(p => p.key).join(', ')}, {WHATSAPP_PLACEHOLDERS.studio.map(p => p.key).join(', ')}
+          </p>
+        </div>
+
+        {/* Lead Slot Availability (Single) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Lead Slot Availability Notification
+          </label>
+          <Textarea
+            value={whatsappTemplates.leadSlotAvailability?.template || ''}
+            onChange={(e) => setWhatsappTemplates(prev => ({
+              ...prev,
+              leadSlotAvailability: {
+                name: prev.leadSlotAvailability?.name || 'Slot Availability',
+                template: e.target.value,
+              }
+            }))}
+            rows={8}
+            placeholder="Hi {leadName}, a slot has become available in our {slotName} session..."
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Available: {WHATSAPP_PLACEHOLDERS.lead.filter(p => p.key !== '{registrationLink}').map(p => p.key).join(', ')}, {WHATSAPP_PLACEHOLDERS.studio.map(p => p.key).join(', ')}
+          </p>
+        </div>
+
+        {/* Lead Trial Confirmation (Single) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Trial Booking Confirmation
+          </label>
+          <Textarea
+            value={whatsappTemplates.leadTrialConfirmation?.template || ''}
+            onChange={(e) => setWhatsappTemplates(prev => ({
+              ...prev,
+              leadTrialConfirmation: {
+                name: prev.leadTrialConfirmation?.name || 'Trial Booking Confirmation',
+                template: e.target.value,
+              }
+            }))}
+            rows={12}
+            placeholder="Hi {leadName}, your trial session has been confirmed..."
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Available: {WHATSAPP_PLACEHOLDERS.lead.filter(p => p.key !== '{registrationLink}').map(p => p.key).join(', ')}, {WHATSAPP_PLACEHOLDERS.studio.map(p => p.key).join(', ')}
           </p>
         </div>
 

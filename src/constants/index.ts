@@ -283,6 +283,46 @@ _This is an automated message. Reply STOP to opt-out._`,
       template: 'Hi {leadName}, this is {studioName} checking in! We noticed you were interested in joining us. Do you have any questions about our yoga classes? We\'re happy to help! Reply or call {studioPhone}.\n\n_This is an automated message. Reply STOP to opt-out._',
     },
   ],
+  leadSlotAvailability: {
+    name: 'Slot Availability',
+    template: `Hi {leadName} Namaste 🌸
+
+Great news! A slot has become available in our *{slotName}* yoga session at {studioName} 🧘‍♀️
+
+If you're interested in joining this session, please reply to this message at the earliest. Slots are offered on a *first come, first serve* basis and may fill up quickly.
+
+We'd love to have you on the mat! 🙏
+
+Warm regards,
+{studioName} ✨
+
+_This is an automated message. Reply STOP to opt-out._`,
+  },
+  leadTrialConfirmation: {
+    name: 'Trial Booking Confirmation',
+    template: `Hi {leadName} Namaste 🌸
+
+Your trial yoga session has been confirmed! 🎉
+
+📅 *Date:* {trialDate}
+🕐 *Session:* {slotName}
+📍 *Studio:* {studioName}
+
+*Guidelines for your session:*
+🧘 Please arrive 10-15 minutes early
+👕 Wear comfortable, stretchable clothing
+🚫 Avoid heavy meals 2 hours before the session
+💧 Carry a water bottle
+🧹 Bring your own yoga mat if possible (mats available at the studio)
+📱 Keep your phone on silent during the session
+
+We look forward to welcoming you! If you have any questions or need to reschedule, please reply to this message or call us at {studioPhone} 🙏
+
+Warm regards,
+{studioName} ✨
+
+_This is an automated message. Reply STOP to opt-out._`,
+  },
   leadRegistrationLink: {
     name: 'Registration Link',
     template: `Hi {leadName} Namaste 🌸
@@ -421,6 +461,8 @@ export const WHATSAPP_PLACEHOLDERS = {
   lead: [
     { key: '{leadName}', description: 'Lead full name' },
     { key: '{leadPhone}', description: 'Lead phone number' },
+    { key: '{slotName}', description: 'Session slot display name' },
+    { key: '{trialDate}', description: 'Trial session date' },
     { key: '{registrationLink}', description: 'Registration completion link' },
   ],
   studio: [

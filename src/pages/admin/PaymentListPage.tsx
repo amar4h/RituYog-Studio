@@ -37,6 +37,21 @@ export function PaymentListPage() {
   // Force re-render after updates
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Pre-build lookup maps to avoid per-row service calls in filter
+  // NOTE: All hooks must be called before the loading early-return (React #310)
+  const memberMap = useMemo(() => {
+    if (isLoading) return new Map<string, { id: string; firstName: string; lastName: string }>();
+    const map = new Map<string, { id: string; firstName: string; lastName: string }>();
+    for (const m of memberService.getAll()) map.set(m.id, m);
+    return map;
+  }, [isLoading, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const invoiceMap = useMemo(() => {
+    if (isLoading) return new Map<string, { id: string; invoiceNumber: string }>();
+    const map = new Map<string, { id: string; invoiceNumber: string }>();
+    for (const inv of invoiceService.getAll()) map.set(inv.id, inv);
+    return map;
+  }, [isLoading, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Show loading state while fetching data
   if (isLoading) {
     return <SkeletonTable rows={8} cols={5} />;
@@ -44,18 +59,6 @@ export function PaymentListPage() {
 
   // Get data after loading is complete (refreshKey triggers re-read after local changes)
   const allPayments = paymentService.getAll();
-
-  // Pre-build lookup maps to avoid per-row service calls in filter
-  const memberMap = useMemo(() => {
-    const map = new Map<string, { id: string; firstName: string; lastName: string }>();
-    for (const m of memberService.getAll()) map.set(m.id, m);
-    return map;
-  }, [allPayments.length, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
-  const invoiceMap = useMemo(() => {
-    const map = new Map<string, { id: string; invoiceNumber: string }>();
-    for (const inv of invoiceService.getAll()) map.set(inv.id, inv);
-    return map;
-  }, [allPayments.length, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Filter payments
   const payments = allPayments.filter(payment => {

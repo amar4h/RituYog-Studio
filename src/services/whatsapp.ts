@@ -73,6 +73,8 @@ export function getWhatsAppTemplates(): WhatsAppTemplates {
     paymentConfirmation: stored.paymentConfirmation || DEFAULT_WHATSAPP_TEMPLATES.paymentConfirmation,
     paymentReminders: stored.paymentReminders?.length ? stored.paymentReminders : DEFAULT_WHATSAPP_TEMPLATES.paymentReminders,
     leadFollowUps: stored.leadFollowUps?.length ? stored.leadFollowUps : DEFAULT_WHATSAPP_TEMPLATES.leadFollowUps,
+    leadSlotAvailability: stored.leadSlotAvailability || DEFAULT_WHATSAPP_TEMPLATES.leadSlotAvailability,
+    leadTrialConfirmation: stored.leadTrialConfirmation || DEFAULT_WHATSAPP_TEMPLATES.leadTrialConfirmation,
     generalNotifications: stored.generalNotifications?.length
       ? mergeGeneralNotifications(stored.generalNotifications)
       : DEFAULT_WHATSAPP_TEMPLATES.generalNotifications,
@@ -330,6 +332,76 @@ export function getLeadFollowUpTemplates(): { name: string; template: string }[]
 }
 
 // ============================================
+// LEAD SLOT AVAILABILITY MESSAGE
+// ============================================
+
+export interface LeadSlotAvailabilityData {
+  lead: Lead;
+  slot: SessionSlot;
+}
+
+export function generateLeadSlotAvailability(data: LeadSlotAvailabilityData): { phone: string; message: string; link: string } {
+  const { lead, slot } = data;
+  const templates = getWhatsAppTemplates();
+  const studioInfo = getStudioPlaceholders();
+
+  const placeholders: Record<string, string> = {
+    leadName: `${lead.firstName} ${lead.lastName}`,
+    leadPhone: lead.phone,
+    slotName: slot.displayName,
+    ...studioInfo,
+  };
+
+  const template = templates.leadSlotAvailability?.template ||
+    DEFAULT_WHATSAPP_TEMPLATES.leadSlotAvailability!.template;
+
+  const message = formatMessage(template, placeholders);
+  const phone = lead.whatsappNumber || lead.phone;
+
+  return {
+    phone,
+    message,
+    link: generateWhatsAppLink(phone, message),
+  };
+}
+
+// ============================================
+// LEAD TRIAL CONFIRMATION MESSAGE
+// ============================================
+
+export interface LeadTrialConfirmationData {
+  lead: Lead;
+  slot: SessionSlot;
+  trialDate: string; // YYYY-MM-DD
+}
+
+export function generateLeadTrialConfirmation(data: LeadTrialConfirmationData): { phone: string; message: string; link: string } {
+  const { lead, slot, trialDate } = data;
+  const templates = getWhatsAppTemplates();
+  const studioInfo = getStudioPlaceholders();
+
+  const placeholders: Record<string, string> = {
+    leadName: `${lead.firstName} ${lead.lastName}`,
+    leadPhone: lead.phone,
+    slotName: slot.displayName,
+    trialDate: formatDate(trialDate),
+    ...studioInfo,
+  };
+
+  const template = templates.leadTrialConfirmation?.template ||
+    DEFAULT_WHATSAPP_TEMPLATES.leadTrialConfirmation!.template;
+
+  const message = formatMessage(template, placeholders);
+  const phone = lead.whatsappNumber || lead.phone;
+
+  return {
+    phone,
+    message,
+    link: generateWhatsAppLink(phone, message),
+  };
+}
+
+// ============================================
 // LEAD REGISTRATION LINK MESSAGE
 // ============================================
 
@@ -486,6 +558,8 @@ export const whatsappService = {
   generatePaymentConfirmation,
   generatePaymentReminder,
   generateLeadFollowUp,
+  generateLeadSlotAvailability,
+  generateLeadTrialConfirmation,
   generateLeadRegistrationLink,
   generateGeneralNotification,
 
@@ -508,6 +582,14 @@ export const whatsappService = {
   },
   sendLeadFollowUp: (data: LeadFollowUpData) => {
     const { phone, message } = generateLeadFollowUp(data);
+    openWhatsApp(phone, message);
+  },
+  sendLeadSlotAvailability: (data: LeadSlotAvailabilityData) => {
+    const { phone, message } = generateLeadSlotAvailability(data);
+    openWhatsApp(phone, message);
+  },
+  sendLeadTrialConfirmation: (data: LeadTrialConfirmationData) => {
+    const { phone, message } = generateLeadTrialConfirmation(data);
     openWhatsApp(phone, message);
   },
   sendLeadRegistrationLink: (data: LeadRegistrationLinkData) => {
