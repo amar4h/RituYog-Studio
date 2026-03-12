@@ -4,7 +4,7 @@
  */
 
 import { isApiMode, subscriptionsApi } from '../api';
-import type { MembershipSubscription, Invoice, Member } from '../../types';
+import type { MembershipSubscription, Invoice, Member, Payment } from '../../types';
 import {
   STORAGE_KEYS,
   SUBSCRIPTION_EXPIRY_WINDOW_DAYS,
@@ -16,6 +16,7 @@ import { memberService } from './memberService';
 import { membershipPlanService } from './planService';
 import { slotService, slotSubscriptionService } from './slotService';
 import { invoiceService } from './invoiceService';
+import { settingsService } from './settingsService';
 
 export const subscriptionService = {
   // Synchronous methods - dual-mode (localStorage + API queue)
@@ -483,6 +484,174 @@ export const subscriptionService = {
     }
 
     return updatedSubscription;
+  },
+
+  // Calculate refund for mid-term cancellation
+  calculateRefund: (
+    subscriptionId: string,
+    cancellationDate: string
+  ): {
+    totalDays: number;
+    usedDays: number;
+    remainingDays: number;
+    dailyRate: number;
+    calculatedRefund: number;
+    payableAmount: number;
+    amountPaid: number;
+    maxRefund: number;
+  } => {
+    const subscription = subscriptionService.getById(subscriptionId);
+    if (!subscription) throw new Error('Subscription not found');
+
+    const start = new Date(subscription.startDate);
+    const end = new Date(subscription.endDate);
+    const cancel = new Date(cancellationDate);
+
+    const totalDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const usedDays = Math.round((cancel.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const remainingDays = Math.max(0, totalDays - usedDays);
+
+    const payableAmount = Number(subscription.payableAmount || 0);
+    const dailyRate = totalDays > 0 ? payableAmount / totalDays : 0;
+    const calculatedRefund = Math.round(dailyRate * remainingDays);
+
+    // Cap refund at amount actually paid
+    const invoices = invoiceService.getByMember(subscription.memberId);
+    const subscriptionInvoice = invoices.find(i => i.subscriptionId === subscriptionId);
+    const amountPaid = Number(subscriptionInvoice?.amountPaid || 0);
+    const maxRefund = Math.min(calculatedRefund, amountPaid);
+
+    return {
+      totalDays,
+      usedDays,
+      remainingDays,
+      dailyRate: Math.round(dailyRate * 100) / 100,
+      calculatedRefund,
+      payableAmount,
+      amountPaid,
+      maxRefund,
+    };
+  },
+
+  // Cancel subscription with refund - creates credit note + refund payment
+  cancelWithRefund: (
+    subscriptionId: string,
+    cancellationDate: string,
+    refundAmount: number,
+    cancellationReason: string,
+    refundPaymentMethod: Payment['paymentMethod']
+  ): { subscription: MembershipSubscription; creditNote: Invoice | null; refundPayment: Payment | null } => {
+    const subscription = subscriptionService.getById(subscriptionId);
+    if (!subscription) throw new Error('Subscription not found');
+    if (subscription.status !== 'active') throw new Error('Can only cancel active subscriptions');
+
+    // Validate cancellation date is within subscription period
+    if (cancellationDate < subscription.startDate || cancellationDate > subscription.endDate) {
+      throw new Error('Cancellation date must be within the subscription period');
+    }
+
+    // Validate refund amount
+    const invoices = invoiceService.getByMember(subscription.memberId);
+    const subscriptionInvoice = invoices.find(i => i.subscriptionId === subscriptionId);
+    const amountPaid = Number(subscriptionInvoice?.amountPaid || 0);
+    if (refundAmount > amountPaid) {
+      throw new Error(`Refund amount cannot exceed amount paid (${amountPaid})`);
+    }
+
+    let creditNote: Invoice | null = null;
+    let refundPayment: Payment | null = null;
+
+    if (refundAmount > 0) {
+      // Generate receipt number (inline to avoid circular dep with paymentService)
+      const settings = settingsService.get();
+      const allPayments = getAll<Payment>(STORAGE_KEYS.PAYMENTS);
+      const receiptPrefix = settings?.receiptPrefix || 'RCP';
+      const receiptStartNumber = settings?.receiptStartNumber || 1;
+      let maxReceiptNum = 0;
+      const receiptPrefixWithDash = receiptPrefix + '-';
+      allPayments.forEach(pmt => {
+        if (pmt.receiptNumber && pmt.receiptNumber.startsWith(receiptPrefixWithDash)) {
+          const numPart = parseInt(pmt.receiptNumber.substring(receiptPrefixWithDash.length), 10);
+          if (!isNaN(numPart) && numPart > maxReceiptNum) maxReceiptNum = numPart;
+        }
+      });
+      const receiptNumber = `${receiptPrefix}-${String(Math.max(maxReceiptNum, receiptStartNumber - 1) + 1).padStart(5, '0')}`;
+
+      const plan = membershipPlanService.getById(subscription.planId);
+      const slot = slotService.getById(subscription.slotId);
+
+      // Create credit note invoice
+      creditNote = invoiceService.create({
+        invoiceNumber: invoiceService.generateInvoiceNumber(),
+        invoiceType: 'credit-note',
+        memberId: subscription.memberId,
+        amount: -refundAmount,
+        totalAmount: -refundAmount,
+        amountPaid: -refundAmount,
+        invoiceDate: cancellationDate,
+        dueDate: cancellationDate,
+        status: 'paid',
+        paidDate: cancellationDate,
+        paymentMethod: refundPaymentMethod,
+        items: [{
+          description: `Cancellation refund: ${plan?.name || 'Membership'} - ${slot?.displayName || 'Unknown slot'} (${cancellationDate} onwards)`,
+          quantity: 1,
+          unitPrice: -refundAmount,
+          total: -refundAmount,
+        }],
+        subscriptionId,
+        notes: `Cancellation reason: ${cancellationReason}`,
+      });
+
+      // Create refund payment record
+      refundPayment = createDual<Payment>(STORAGE_KEYS.PAYMENTS, {
+        invoiceId: creditNote.id,
+        memberId: subscription.memberId,
+        amount: -refundAmount,
+        paymentMethod: refundPaymentMethod,
+        paymentDate: cancellationDate,
+        status: 'refunded',
+        receiptNumber,
+        notes: `Refund for cancelled subscription. Reason: ${cancellationReason}`,
+      });
+    }
+
+    // Update subscription status
+    const updatedSubscription = subscriptionService.update(subscriptionId, {
+      status: 'cancelled',
+      endDate: cancellationDate, // Shorten end date to cancellation date
+      cancelledAt: new Date().toISOString(),
+      cancellationReason,
+      cancellationRefundAmount: refundAmount,
+      creditNoteInvoiceId: creditNote?.id,
+      notes: subscription.notes
+        ? `${subscription.notes}\nCancelled on ${cancellationDate}: ${cancellationReason}. Refund: ${refundAmount}`
+        : `Cancelled on ${cancellationDate}: ${cancellationReason}. Refund: ${refundAmount}`,
+    });
+
+    if (!updatedSubscription) throw new Error('Failed to update subscription');
+
+    // Check if member has any other active subscription
+    const otherActive = subscriptionService.getByMember(subscription.memberId).find(
+      s => s.id !== subscriptionId && s.status === 'active'
+    );
+
+    // Set member inactive only if no other active subscription
+    if (!otherActive) {
+      memberService.update(subscription.memberId, { status: 'inactive' });
+
+      // Deactivate slot subscription
+      const slotSub = slotSubscriptionService.getByMember(subscription.memberId);
+      if (slotSub) {
+        slotSubscriptionService.update(slotSub.id, { isActive: false });
+      }
+    }
+
+    return {
+      subscription: updatedSubscription,
+      creditNote,
+      refundPayment,
+    };
   },
 
   // ============================================

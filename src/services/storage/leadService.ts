@@ -209,6 +209,21 @@ export const leadService = {
     });
   },
 
+  // Regenerate completion token for a lead (when previous token expired)
+  regenerateToken: (leadId: string): Lead | null => {
+    const lead = leadService.getById(leadId);
+    if (!lead || lead.isProfileComplete) return null;
+
+    const token = leadService.generateCompletionToken();
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + TRIAL_BOOKING_EXPIRY_DAYS);
+
+    return leadService.update(leadId, {
+      completionToken: token,
+      completionTokenExpiry: expiryDate.toISOString(),
+    });
+  },
+
   // Generate the registration completion URL for a lead
   getRegistrationUrl: (lead: Lead): string => {
     const baseUrl = window.location.origin;
@@ -439,6 +454,14 @@ export const leadService = {
         return leadsApi.getByToken(token) as Promise<Lead | null>;
       }
       return leadService.getByToken(token);
+    },
+
+    // Regenerate completion token for a lead
+    regenerateToken: async (leadId: string): Promise<Lead | null> => {
+      if (isApiMode()) {
+        return leadsApi.regenerateToken(leadId) as Promise<Lead | null>;
+      }
+      return leadService.regenerateToken(leadId);
     },
 
     // Complete lead registration (public - token auth)

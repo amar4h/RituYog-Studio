@@ -24,14 +24,16 @@ export function WhatsAppTab({ setError, setSuccess, success, loading, setLoading
     // Migrate old structure (single objects) to new structure (arrays)
     // Old: renewalReminder (object), leadFollowUp (object)
     // New: renewalReminders (array), leadFollowUps (array), paymentReminders (array)
-    const oldSaved = saved as any;
+    const oldSaved = saved as unknown as Record<string, unknown>;
 
     return {
       renewalReminders: Array.isArray(saved.renewalReminders)
         ? saved.renewalReminders
-        : oldSaved.renewalReminder
-          ? [oldSaved.renewalReminder]
-          : DEFAULT_WHATSAPP_TEMPLATES.renewalReminders,
+        : Array.isArray(oldSaved.renewalReminder)
+          ? oldSaved.renewalReminder
+          : oldSaved.renewalReminder
+            ? [oldSaved.renewalReminder as WhatsAppTemplates['renewalReminders'][number]]
+            : DEFAULT_WHATSAPP_TEMPLATES.renewalReminders,
       classReminder: saved.classReminder || DEFAULT_WHATSAPP_TEMPLATES.classReminder,
       paymentConfirmation: saved.paymentConfirmation || DEFAULT_WHATSAPP_TEMPLATES.paymentConfirmation,
       paymentReminders: Array.isArray(saved.paymentReminders)
@@ -39,9 +41,11 @@ export function WhatsAppTab({ setError, setSuccess, success, loading, setLoading
         : DEFAULT_WHATSAPP_TEMPLATES.paymentReminders,
       leadFollowUps: Array.isArray(saved.leadFollowUps)
         ? saved.leadFollowUps
-        : oldSaved.leadFollowUp
-          ? [oldSaved.leadFollowUp]
-          : DEFAULT_WHATSAPP_TEMPLATES.leadFollowUps,
+        : Array.isArray(oldSaved.leadFollowUp)
+          ? oldSaved.leadFollowUp
+          : oldSaved.leadFollowUp
+            ? [oldSaved.leadFollowUp as WhatsAppTemplates['leadFollowUps'][number]]
+            : DEFAULT_WHATSAPP_TEMPLATES.leadFollowUps,
       generalNotifications: Array.isArray(saved.generalNotifications)
         ? mergeGeneralNotifications(saved.generalNotifications)
         : DEFAULT_WHATSAPP_TEMPLATES.generalNotifications,

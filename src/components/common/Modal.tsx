@@ -43,6 +43,45 @@ export function Modal({
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
+  // Focus trap: keep Tab cycling within the modal
+  useEffect(() => {
+    if (!isOpen || !modalRef.current) return;
+
+    const modal = modalRef.current;
+    const focusableSelector = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+
+      const focusable = Array.from(modal.querySelectorAll<HTMLElement>(focusableSelector));
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === first || !modal.contains(document.activeElement)) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last || !modal.contains(document.activeElement)) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    // Auto-focus first focusable element
+    requestAnimationFrame(() => {
+      const first = modal.querySelector<HTMLElement>(focusableSelector);
+      if (first) first.focus();
+    });
+
+    document.addEventListener('keydown', handleTab);
+    return () => document.removeEventListener('keydown', handleTab);
+  }, [isOpen]);
+
   // Prevent body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
@@ -69,6 +108,9 @@ export function Modal({
       <div className="flex min-h-full items-center justify-center p-4">
         <div
           ref={modalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
           className={`
             relative bg-white rounded-lg shadow-xl w-full
             transform transition-all
@@ -85,6 +127,7 @@ export function Modal({
               {showCloseButton && (
                 <button
                   onClick={onClose}
+                  aria-label="Close dialog"
                   className="p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                 >
                   <svg

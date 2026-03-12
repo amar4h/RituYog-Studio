@@ -1,14 +1,16 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Modal, ConfirmDialog, Alert } from '../../components/common';
 import { subscriptionService, memberService, membershipPlanService, invoiceService, slotService, isApiMode } from '../../services';
 import { formatCurrency } from '../../utils/formatUtils';
 import { formatDate, getDaysRemaining, calculateSubscriptionEndDate, getToday } from '../../utils/dateUtils';
+import { useDebounce } from '../../hooks';
 import type { MembershipSubscription } from '../../types';
 import type { Column } from '../../components/common';
 
 export function SubscriptionListPage() {
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [paymentFilter, setPaymentFilter] = useState<string>('');
 
@@ -48,8 +50,8 @@ export function SubscriptionListPage() {
   // Filter subscriptions
   const subscriptions = allSubscriptions.filter(sub => {
     const member = memberService.getById(sub.memberId);
-    const matchesSearch = !search || (member &&
-      `${member.firstName} ${member.lastName}`.toLowerCase().includes(search.toLowerCase()));
+    const matchesSearch = !debouncedSearch || (member &&
+      `${member.firstName} ${member.lastName}`.toLowerCase().includes(debouncedSearch.toLowerCase()));
 
     const matchesStatus = !statusFilter || sub.status === statusFilter;
     const matchesPayment = !paymentFilter || sub.paymentStatus === paymentFilter;
@@ -106,6 +108,16 @@ export function SubscriptionListPage() {
       header: 'Remaining',
       sortValue: (sub) => getDaysRemaining(sub.endDate),
       render: (sub) => {
+        if (sub.status === 'cancelled') {
+          return (
+            <div className="text-sm">
+              <span className="text-gray-500 font-medium">Cancelled</span>
+              {sub.cancellationRefundAmount != null && sub.cancellationRefundAmount > 0 && (
+                <p className="text-xs text-orange-600">Refund: {formatCurrency(sub.cancellationRefundAmount)}</p>
+              )}
+            </div>
+          );
+        }
         const days = getDaysRemaining(sub.endDate);
         if (days < 0) {
           return <span className="text-red-600 font-medium">Expired</span>;
@@ -303,6 +315,14 @@ export function SubscriptionListPage() {
     if (!deletingSubscription) return;
 
     try {
+      // Clear subscription reference from linked invoice (prevent orphaned FK)
+      if (deletingSubscription.invoiceId) {
+        const invoice = invoiceService.getById(deletingSubscription.invoiceId);
+        if (invoice) {
+          invoiceService.update(invoice.id, { subscriptionId: undefined });
+        }
+      }
+
       subscriptionService.delete(deletingSubscription.id);
       setDeletingSubscription(null);
       setEditSuccess('Subscription deleted successfully');
@@ -365,7 +385,15 @@ export function SubscriptionListPage() {
       });
 
       // Update subscription with invoice ID (also use async to ensure it persists)
-      await subscriptionService.async.update(sub.id, { invoiceId: invoice.id });
+      try {
+        await subscriptionService.async.update(sub.id, { invoiceId: invoice.id });
+      } catch {
+        // Invoice created but linking failed — still link locally and warn
+        subscriptionService.update(sub.id, { invoiceId: invoice.id });
+        setEditError('Invoice created but linking had an issue. Please verify.');
+        setRefreshKey(k => k + 1);
+        return;
+      }
 
       setEditSuccess('Invoice created successfully');
       setRefreshKey(k => k + 1);

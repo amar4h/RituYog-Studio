@@ -185,7 +185,7 @@ export function ExpenseFormPage() {
       } else {
         const createdExpense = expenseService.create({ ...commonData, expenseNumber });
 
-        // If procurement, update inventory
+        // If procurement, update inventory (use expenseDate so transaction dates align)
         if (formData.category === 'procurement') {
           for (const item of validItems) {
             if (item.productId && item.quantity) {
@@ -194,7 +194,9 @@ export function ExpenseFormPage() {
                 item.quantity,
                 item.unitCost,
                 createdExpense.id,
-                formData.vendorName
+                formData.vendorName,
+                undefined,
+                formData.expenseDate
               );
             }
           }

@@ -140,12 +140,11 @@ export function SalesReportPage() {
       .sort((a, b) => b.sortKey.localeCompare(a.sortKey));
   }, [filteredSales, periodMode]);
 
-  // Summary stats (all-time)
-  const totalRevenue = allSales.reduce((sum, s) => sum + s.revenue, 0);
-  const totalCost = allSales.reduce((sum, s) => sum + s.cost, 0);
+  // Summary stats - reflects current filters
+  const totalRevenue = filteredSales.reduce((sum, s) => sum + s.revenue, 0);
+  const totalCost = filteredSales.reduce((sum, s) => sum + s.cost, 0);
   const totalProfit = totalRevenue - totalCost;
-  const thisMonthSales = allSales.filter(s => s.invoice.invoiceDate.startsWith(thisMonth));
-  const thisMonthRevenue = thisMonthSales.reduce((sum, s) => sum + s.revenue, 0);
+  const hasFilter = !!(dateFrom || dateTo || search);
 
   if (isLoading) {
     return <PageLoading />;
@@ -194,9 +193,9 @@ export function SalesReportPage() {
       <Card>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="p-3 bg-green-50 rounded-lg">
-            <div className="text-xs text-green-600 font-medium">Total Sales</div>
+            <div className="text-xs text-green-600 font-medium">{hasFilter ? 'Filtered Sales' : 'Total Sales'}</div>
             <div className="text-lg font-bold text-green-700 mt-0.5">{formatCurrency(totalRevenue)}</div>
-            <div className="text-xs text-green-500">{allSales.length} invoices</div>
+            <div className="text-xs text-green-500">{filteredSales.length} invoices</div>
           </div>
           <div className="p-3 bg-gray-50 rounded-lg">
             <div className="text-xs text-gray-500 font-medium">Total Cost</div>
@@ -204,7 +203,7 @@ export function SalesReportPage() {
             <div className="text-xs text-gray-400">Cost of goods sold</div>
           </div>
           <div className={`p-3 rounded-lg ${totalProfit >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
-            <div className={`text-xs font-medium ${totalProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>Total Profit</div>
+            <div className={`text-xs font-medium ${totalProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>Profit</div>
             <div className={`text-lg font-bold mt-0.5 ${totalProfit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
               {formatCurrency(totalProfit)}
             </div>
@@ -215,9 +214,11 @@ export function SalesReportPage() {
             )}
           </div>
           <div className="p-3 bg-blue-50 rounded-lg">
-            <div className="text-xs text-blue-600 font-medium">This Month</div>
-            <div className="text-lg font-bold text-blue-700 mt-0.5">{formatCurrency(thisMonthRevenue)}</div>
-            <div className="text-xs text-blue-500">{thisMonthSales.length} sales</div>
+            <div className="text-xs text-blue-600 font-medium">Avg per Sale</div>
+            <div className="text-lg font-bold text-blue-700 mt-0.5">
+              {formatCurrency(filteredSales.length > 0 ? totalRevenue / filteredSales.length : 0)}
+            </div>
+            <div className="text-xs text-blue-500">{filteredSales.length} sales</div>
           </div>
         </div>
       </Card>

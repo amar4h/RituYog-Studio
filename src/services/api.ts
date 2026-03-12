@@ -287,6 +287,11 @@ export const leadsApi = {
     body: { memberId }
   }),
 
+  regenerateToken: (id: string) => apiRequest<unknown | null>('leads', {
+    method: 'POST',
+    params: { action: 'regenerateToken', id },
+  }),
+
   // Public endpoints (no auth required - token-based)
   getByToken: (token: string) => apiRequest<unknown | null>('leads', {
     params: { action: 'getByToken', token },

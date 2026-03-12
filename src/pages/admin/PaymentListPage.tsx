@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Modal, Alert, PageLoading } from '../../components/common';
+import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Modal, Alert, SkeletonTable } from '../../components/common';
 import { paymentService, memberService, invoiceService, subscriptionService, membershipPlanService, whatsappService } from '../../services';
 import { formatCurrency } from '../../utils/formatUtils';
 import { formatDate, getCurrentMonthRange, getToday } from '../../utils/dateUtils';
-import { useFreshData } from '../../hooks';
+import { useFreshData, useDebounce } from '../../hooks';
 import type { Payment } from '../../types';
 import type { Column } from '../../components/common';
 
@@ -13,8 +13,11 @@ export function PaymentListPage() {
   const { isLoading } = useFreshData(['payments', 'invoices', 'members']);
 
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search);
   const [methodFilter, setMethodFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   // Edit/Delete state
   const [showEditModal, setShowEditModal] = useState(false);
@@ -36,26 +39,40 @@ export function PaymentListPage() {
 
   // Show loading state while fetching data
   if (isLoading) {
-    return <PageLoading />;
+    return <SkeletonTable rows={8} cols={5} />;
   }
 
   // Get data after loading is complete (refreshKey triggers re-read after local changes)
   const allPayments = paymentService.getAll();
 
+  // Pre-build lookup maps to avoid per-row service calls in filter
+  const memberMap = useMemo(() => {
+    const map = new Map<string, { id: string; firstName: string; lastName: string }>();
+    for (const m of memberService.getAll()) map.set(m.id, m);
+    return map;
+  }, [allPayments.length, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const invoiceMap = useMemo(() => {
+    const map = new Map<string, { id: string; invoiceNumber: string }>();
+    for (const inv of invoiceService.getAll()) map.set(inv.id, inv);
+    return map;
+  }, [allPayments.length, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Filter payments
   const payments = allPayments.filter(payment => {
-    const member = memberService.getById(payment.memberId);
-    const invoice = invoiceService.getById(payment.invoiceId);
+    const member = memberMap.get(payment.memberId);
+    const invoice = invoiceMap.get(payment.invoiceId);
 
-    const matchesSearch = !search || (member &&
-      `${member.firstName} ${member.lastName}`.toLowerCase().includes(search.toLowerCase())) ||
-      (invoice && invoice.invoiceNumber.toLowerCase().includes(search.toLowerCase())) ||
-      (payment.receiptNumber && payment.receiptNumber.toLowerCase().includes(search.toLowerCase()));
+    const matchesSearch = !debouncedSearch || (member &&
+      `${member.firstName} ${member.lastName}`.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+      (invoice && invoice.invoiceNumber.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+      (payment.receiptNumber && payment.receiptNumber.toLowerCase().includes(debouncedSearch.toLowerCase()));
 
     const matchesMethod = !methodFilter || payment.paymentMethod === methodFilter;
     const matchesStatus = !statusFilter || payment.status === statusFilter;
+    const matchesDateFrom = !dateFrom || payment.paymentDate >= dateFrom;
+    const matchesDateTo = !dateTo || payment.paymentDate <= dateTo;
 
-    return matchesSearch && matchesMethod && matchesStatus;
+    return matchesSearch && matchesMethod && matchesStatus && matchesDateFrom && matchesDateTo;
   });
 
   const columns: Column<Payment>[] = [
@@ -72,7 +89,7 @@ export function PaymentListPage() {
       key: 'member',
       header: 'Member',
       render: (payment) => {
-        const member = memberService.getById(payment.memberId);
+        const member = memberMap.get(payment.memberId);
         if (!member) return <span className="text-gray-400">Unknown</span>;
         return (
           <Link
@@ -88,7 +105,7 @@ export function PaymentListPage() {
       key: 'invoice',
       header: 'Invoice',
       render: (payment) => {
-        const invoice = invoiceService.getById(payment.invoiceId);
+        const invoice = invoiceMap.get(payment.invoiceId);
         if (!invoice) return <span className="text-gray-400">-</span>;
         return (
           <Link
@@ -146,7 +163,7 @@ export function PaymentListPage() {
               member,
               payment,
               invoice,
-              plan: plan || { name: 'Membership' } as any,
+              plan: plan || { name: 'Membership' },
               subscription: subscription || undefined,
             }).link
           : null;
@@ -225,6 +242,22 @@ export function PaymentListPage() {
     if (editFormData.amount <= 0) {
       setError('Amount must be greater than 0');
       return;
+    }
+
+    if (!editFormData.paymentDate) {
+      setError('Payment date is required');
+      return;
+    }
+
+    // Validate amount doesn't exceed invoice total
+    const invoice = invoiceService.getById(selectedPayment.invoiceId);
+    if (invoice) {
+      const otherPaymentsTotal = Number(invoice.amountPaid || 0) - Number(selectedPayment.amount || 0);
+      const maxAllowed = Number(invoice.totalAmount || 0) - otherPaymentsTotal;
+      if (editFormData.amount > maxAllowed) {
+        setError(`Amount cannot exceed ${formatCurrency(maxAllowed)} (invoice balance)`);
+        return;
+      }
     }
 
     try {
@@ -370,7 +403,7 @@ export function PaymentListPage() {
 
       {/* Filters */}
       <Card>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <Input
             placeholder="Search by member, invoice, or receipt..."
             value={search}
@@ -399,6 +432,18 @@ export function PaymentListPage() {
               { value: 'refunded', label: 'Refunded' },
             ]}
           />
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            placeholder="From date"
+          />
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            placeholder="To date"
+          />
           <div className="flex items-center">
             <span className="text-sm text-gray-600">
               {payments.length} payments found
@@ -412,12 +457,12 @@ export function PaymentListPage() {
         <EmptyState
           icon={EmptyIcons.document}
           title="No payments found"
-          description={search || methodFilter || statusFilter
+          description={search || methodFilter || statusFilter || dateFrom || dateTo
             ? "Try adjusting your filters to find what you're looking for."
             : "Record your first payment to get started."
           }
           action={
-            !search && !methodFilter && !statusFilter && (
+            !search && !methodFilter && !statusFilter && !dateFrom && !dateTo && (
               <Link to="/admin/payments/record">
                 <Button>Record Payment</Button>
               </Link>
@@ -437,10 +482,15 @@ export function PaymentListPage() {
       {/* Edit Modal */}
       <Modal
         isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
+        onClose={() => { setShowEditModal(false); setError(''); }}
         title="Edit Payment"
       >
         <div className="space-y-4">
+          {error && (
+            <Alert variant="error" dismissible onDismiss={() => setError('')}>
+              {error}
+            </Alert>
+          )}
           <Input
             label="Amount (₹)"
             type="number"

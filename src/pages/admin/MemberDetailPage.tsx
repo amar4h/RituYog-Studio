@@ -16,6 +16,7 @@ import {
 import { formatCurrency, formatPhone, formatName } from '../../utils/formatUtils';
 import { MEMBER_DETAIL_HISTORY_PREVIEW } from '../../constants';
 import { formatDate, getDaysRemaining, getMonthStart, getMonthEnd, getToday } from '../../utils/dateUtils';
+import type { PaymentMethod } from '../../types';
 
 export function MemberDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -44,6 +45,14 @@ export function MemberDetailPage() {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [showClearPasswordConfirm, setShowClearPasswordConfirm] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Cancel membership modal state
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelDate, setCancelDate] = useState(getToday());
+  const [cancelRefundAmount, setCancelRefundAmount] = useState(0);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelPaymentMethod, setCancelPaymentMethod] = useState<PaymentMethod>('cash');
+  const [cancelConfirmText, setCancelConfirmText] = useState('');
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const member = id ? memberService.getById(id) : null;
@@ -161,6 +170,49 @@ export function MemberDetailPage() {
       setRefreshKey(k => k + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to clear password');
+    }
+  };
+
+  // Refund calculation for cancel modal
+  const refundCalc = subscription && showCancelModal
+    ? (() => {
+        try {
+          return subscriptionService.calculateRefund(subscription.id, cancelDate);
+        } catch {
+          return null;
+        }
+      })()
+    : null;
+
+  const handleCancelMembership = () => {
+    if (!subscription) return;
+    if (cancelConfirmText !== 'CANCEL') {
+      setError('Please type CANCEL to confirm');
+      return;
+    }
+    if (!cancelReason.trim()) {
+      setError('Please provide a cancellation reason');
+      return;
+    }
+
+    try {
+      subscriptionService.cancelWithRefund(
+        subscription.id,
+        cancelDate,
+        cancelRefundAmount,
+        cancelReason,
+        cancelPaymentMethod
+      );
+      setSuccess(
+        `Membership cancelled successfully.${cancelRefundAmount > 0 ? ` Refund of ${formatCurrency(cancelRefundAmount)} recorded.` : ' No refund issued.'}`
+      );
+      setShowCancelModal(false);
+      setCancelConfirmText('');
+      setCancelReason('');
+      setCancelRefundAmount(0);
+      navigate(`/admin/members/${member.id}`, { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to cancel membership');
     }
   };
 
@@ -403,6 +455,29 @@ export function MemberDetailPage() {
                     Transfer Slot
                   </Button>
                 </div>
+                {subscription.status === 'active' && (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    fullWidth
+                    onClick={() => {
+                      const today = getToday();
+                      setCancelDate(today);
+                      setCancelReason('');
+                      setCancelPaymentMethod('cash');
+                      setCancelConfirmText('');
+                      try {
+                        const calc = subscriptionService.calculateRefund(subscription.id, today);
+                        setCancelRefundAmount(calc.maxRefund);
+                      } catch {
+                        setCancelRefundAmount(0);
+                      }
+                      setShowCancelModal(true);
+                    }}
+                  >
+                    Cancel Membership
+                  </Button>
+                )}
               </div>
             </div>
           ) : (
@@ -755,7 +830,7 @@ export function MemberDetailPage() {
             whatsappService.generateRenewalReminder({
               member,
               subscription,
-              plan: membershipPlanService.getById(subscription.planId) || { name: 'Membership' } as any,
+              plan: membershipPlanService.getById(subscription.planId) || { name: 'Membership' },
               templateIndex,
             }).link
           }
@@ -808,6 +883,139 @@ export function MemberDetailPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Cancel Membership Modal */}
+      {subscription && (
+        <Modal
+          isOpen={showCancelModal}
+          onClose={() => {
+            setShowCancelModal(false);
+            setCancelConfirmText('');
+          }}
+          title="Cancel Membership"
+          size="lg"
+        >
+          <div className="space-y-4">
+            <Alert variant="warning">
+              This action will cancel the membership immediately. The subscription end date will be set to the cancellation date and the member will be marked inactive.
+            </Alert>
+
+            {/* Member & subscription info */}
+            <div className="p-3 bg-gray-50 rounded-lg text-sm space-y-1">
+              <p><span className="text-gray-500">Member:</span> {formatName(member.firstName, member.lastName)}</p>
+              <p><span className="text-gray-500">Plan:</span> {membershipPlanService.getById(subscription.planId)?.name || 'Unknown'}</p>
+              <p><span className="text-gray-500">Period:</span> {formatDate(subscription.startDate)} - {formatDate(subscription.endDate)}</p>
+              <p><span className="text-gray-500">Amount paid:</span> {formatCurrency(refundCalc?.amountPaid || 0)}</p>
+            </div>
+
+            {/* Cancellation date */}
+            <Input
+              label="Cancellation Date (last active day)"
+              type="date"
+              value={cancelDate}
+              min={subscription.startDate}
+              max={subscription.endDate}
+              onChange={(e) => {
+                setCancelDate(e.target.value);
+                // Recalculate refund when date changes
+                try {
+                  const calc = subscriptionService.calculateRefund(subscription.id, e.target.value);
+                  setCancelRefundAmount(calc.maxRefund);
+                } catch {
+                  setCancelRefundAmount(0);
+                }
+              }}
+            />
+
+            {/* Refund breakdown */}
+            {refundCalc && (
+              <div className="p-3 bg-blue-50 rounded-lg text-sm space-y-1">
+                <p className="font-medium text-blue-900">Refund Calculation</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-blue-800">
+                  <p>Total days in plan:</p><p className="text-right">{refundCalc.totalDays}</p>
+                  <p>Days used:</p><p className="text-right">{refundCalc.usedDays}</p>
+                  <p>Remaining days:</p><p className="text-right">{refundCalc.remainingDays}</p>
+                  <p>Daily rate:</p><p className="text-right">{formatCurrency(refundCalc.dailyRate)}</p>
+                  <p className="font-medium">Calculated refund:</p>
+                  <p className="text-right font-medium">{formatCurrency(refundCalc.calculatedRefund)}</p>
+                  {refundCalc.calculatedRefund > refundCalc.amountPaid && (
+                    <>
+                      <p className="text-orange-700">Capped at amount paid:</p>
+                      <p className="text-right text-orange-700">{formatCurrency(refundCalc.amountPaid)}</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Editable refund amount */}
+            <Input
+              label="Actual Refund Amount"
+              type="number"
+              min={0}
+              max={refundCalc?.amountPaid || 0}
+              value={cancelRefundAmount || ''}
+              onChange={(e) => setCancelRefundAmount(Math.max(0, Number(e.target.value) || 0))}
+            />
+            {cancelRefundAmount > (refundCalc?.amountPaid || 0) && (
+              <p className="text-sm text-red-600">Cannot exceed amount paid ({formatCurrency(refundCalc?.amountPaid || 0)})</p>
+            )}
+
+            {/* Refund payment method */}
+            {cancelRefundAmount > 0 && (
+              <Select
+                label="Refund Payment Method"
+                value={cancelPaymentMethod}
+                onChange={(e) => setCancelPaymentMethod(e.target.value as PaymentMethod)}
+                options={[
+                  { value: 'cash', label: 'Cash' },
+                  { value: 'upi', label: 'UPI' },
+                  { value: 'bank-transfer', label: 'Bank Transfer' },
+                  { value: 'card', label: 'Card' },
+                  { value: 'cheque', label: 'Cheque' },
+                  { value: 'other', label: 'Other' },
+                ]}
+              />
+            )}
+
+            {/* Reason */}
+            <Input
+              label="Cancellation Reason"
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="e.g., Personal reasons, Relocation, Health issues"
+              required
+            />
+
+            {/* Confirmation */}
+            <div className="pt-2 border-t">
+              <Input
+                label='Type "CANCEL" to confirm'
+                value={cancelConfirmText}
+                onChange={(e) => setCancelConfirmText(e.target.value.toUpperCase())}
+                placeholder="CANCEL"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="outline" onClick={() => setShowCancelModal(false)}>
+                Go Back
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleCancelMembership}
+                disabled={
+                  cancelConfirmText !== 'CANCEL' ||
+                  !cancelReason.trim() ||
+                  cancelRefundAmount > (refundCalc?.amountPaid || 0)
+                }
+              >
+                Cancel Membership{cancelRefundAmount > 0 ? ` & Refund ${formatCurrency(cancelRefundAmount)}` : ''}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

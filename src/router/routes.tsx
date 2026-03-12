@@ -5,6 +5,7 @@ import { AdminLayout } from '../components/layout/AdminLayout';
 import { MemberLayout } from '../components/layout/MemberLayout';
 import { PublicLayout } from '../components/layout/PublicLayout';
 import { ErrorPage } from '../components/common/ErrorPage';
+import { PageErrorBoundary } from '../components/common/PageErrorBoundary';
 
 // Public pages
 import { LoginPage } from '../pages/public/LoginPage';
@@ -70,9 +71,13 @@ const MemberAttendancePage = lazy(() => import('../pages/member/MemberAttendance
 const MemberMembershipPage = lazy(() => import('../pages/member/MemberMembershipPage').then(m => ({ default: m.MemberMembershipPage })));
 const MemberInsightsPage = lazy(() => import('../pages/member/MemberInsightsPage').then(m => ({ default: m.MemberInsightsPage })));
 
-// Suspense wrapper for lazy components
+// Suspense wrapper for lazy components with page-level error boundary
 function SuspenseWrapper({ children }: { children: React.ReactNode }) {
-  return <Suspense fallback={<PageLoading />}>{children}</Suspense>;
+  return (
+    <PageErrorBoundary>
+      <Suspense fallback={<PageLoading />}>{children}</Suspense>
+    </PageErrorBoundary>
+  );
 }
 
 export const routes: RouteObject[] = [

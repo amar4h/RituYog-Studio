@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Modal, Alert, SlotSelector, PageLoading } from '../../components/common';
+import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Modal, Alert, SlotSelector, SkeletonTable } from '../../components/common';
 import { memberService, slotService, subscriptionService, whatsappService } from '../../services';
 import { formatPhone } from '../../utils/formatUtils';
 import { formatDate, formatDateCompact, getToday, getDaysRemaining } from '../../utils/dateUtils';
 import { formatDistanceToNow, parseISO } from 'date-fns';
-import { useFreshData } from '../../hooks';
+import { useFreshData, useDebounce } from '../../hooks';
 import type { Member, MembershipSubscription } from '../../types';
 import type { Column } from '../../components/common';
 
@@ -89,6 +89,7 @@ export function MemberListPage() {
 
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [slotFilter, setSlotFilter] = useState<string>('');
   const [hideExpired, setHideExpired] = useState(true);
@@ -119,41 +120,73 @@ export function MemberListPage() {
   const [individualTransferReason, setIndividualTransferReason] = useState('');
   const [individualTransferError, setIndividualTransferError] = useState('');
 
-  // Show loading state while fetching data
-  if (isLoading) {
-    return <PageLoading />;
-  }
+  // Get data (empty arrays during loading, populated after)
+  const allMembers = isLoading ? [] : (() => { memberService.reconcileStatuses(); return memberService.getAll(); })();
+  const slots = isLoading ? [] : slotService.getActive();
 
-  // Reconcile stale member/subscription statuses based on actual dates
-  memberService.reconcileStatuses();
-
-  // Get data after loading is complete
-  const allMembers = memberService.getAll();
-  const slots = slotService.getActive();
-
-  // Filter members
+  // Pre-compute subscription map: memberId → relevant subscription (avoids per-row service calls)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _refresh = refreshKey; // trigger re-render on member updates
+  const subscriptionMap = useMemo(() => {
+    if (isLoading) return { map: new Map<string, MembershipSubscription | null>(), subsByMember: new Map<string, MembershipSubscription[]>() };
+    const allSubs = subscriptionService.getAll();
+    const today = getToday();
+    const map = new Map<string, MembershipSubscription | null>();
+
+    // Group subs by memberId
+    const subsByMember = new Map<string, MembershipSubscription[]>();
+    for (const sub of allSubs) {
+      const arr = subsByMember.get(sub.memberId) || [];
+      arr.push(sub);
+      subsByMember.set(sub.memberId, arr);
+    }
+
+    for (const member of allMembers) {
+      const subs = subsByMember.get(member.id) || [];
+      if (subs.length === 0) { map.set(member.id, null); continue; }
+
+      const active = subs.find(s => s.status === 'active' && s.startDate <= today && s.endDate >= today);
+      if (active) { map.set(member.id, active); continue; }
+
+      const scheduled = subs.find(s => s.status === 'scheduled' || (s.status === 'active' && s.startDate > today));
+      if (scheduled) { map.set(member.id, scheduled); continue; }
+
+      const recentlyExpired = subs.find(s => {
+        const daysAgo = getDaysRemaining(s.endDate);
+        return daysAgo < 0 && daysAgo >= -30;
+      });
+      map.set(member.id, recentlyExpired || subs[0]);
+    }
+    return { map, subsByMember };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allMembers.length, refreshKey, isLoading]);
+
+  // Memoized check: does member have active/scheduled subscription?
+  const hasActiveSubscription = useCallback((memberId: string) => {
+    const today = getToday();
+    const subs = subscriptionMap.subsByMember.get(memberId) || [];
+    return subs.some(s =>
+      (s.status === 'active' && s.startDate <= today && s.endDate >= today) ||
+      (s.status === 'scheduled') ||
+      (s.status === 'active' && s.startDate > today)
+    );
+  }, [subscriptionMap]);
+
+  // Show loading state while fetching data
+  if (isLoading) {
+    return <SkeletonTable rows={8} cols={6} />;
+  }
+
+  // Filter members
   const members = allMembers.filter(member => {
-    const matchesSearch = !search ||
-      `${member.firstName} ${member.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
-      member.email.toLowerCase().includes(search.toLowerCase()) ||
-      member.phone.includes(search);
+    const matchesSearch = !debouncedSearch ||
+      `${member.firstName} ${member.lastName}`.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      member.email.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      member.phone.includes(debouncedSearch);
 
     const matchesStatus = !statusFilter || member.status === statusFilter;
     const matchesSlot = !slotFilter || member.assignedSlotId === slotFilter;
-
-    // Hide expired members (no currently active or future scheduled subscription)
-    const matchesExpiredFilter = !hideExpired || (() => {
-      const today = getToday();
-      const subs = subscriptionService.getByMember(member.id);
-      // Check if any subscription is currently active (within date range) or scheduled for future
-      return subs.some(s =>
-        (s.status === 'active' && s.startDate <= today && s.endDate >= today) ||
-        (s.status === 'scheduled') ||
-        (s.status === 'active' && s.startDate > today)
-      );
-    })();
+    const matchesExpiredFilter = !hideExpired || hasActiveSubscription(member.id);
 
     return matchesSearch && matchesStatus && matchesSlot && matchesExpiredFilter;
   });
@@ -228,12 +261,12 @@ export function MemberListPage() {
       key: 'subscription',
       header: 'Membership',
       sortValue: (member) => {
-        const subscription = getRelevantSubscription(member.id);
+        const subscription = subscriptionMap.map.get(member.id) ?? null;
         if (!subscription) return null;
         return subscription.endDate;
       },
       render: (member) => {
-        const subscription = getRelevantSubscription(member.id);
+        const subscription = subscriptionMap.map.get(member.id) ?? null;
         if (!subscription) {
           return <StatusBadge status="inactive" />;
         }
@@ -295,6 +328,7 @@ export function MemberListPage() {
                 setRefreshKey(k => k + 1);
               }}
               title={member.googleReviewGiven ? 'Review given - click to unmark' : 'Mark as review given'}
+              aria-label={member.googleReviewGiven ? 'Unmark Google review' : 'Mark as Google review given'}
               className={`p-1 rounded text-lg leading-none ${
                 member.googleReviewGiven
                   ? 'text-yellow-500 hover:text-yellow-600'
@@ -313,9 +347,10 @@ export function MemberListPage() {
                     member,
                     templateIndex: 1,
                   });
-                  if (result.link) window.open(result.link, '_blank');
+                  if (result.link) window.open(result.link, '_blank', 'noopener,noreferrer');
                 }}
                 title="Send Google Review request via WhatsApp"
+                aria-label="Send Google Review request via WhatsApp"
                 className="p-1 rounded text-green-600 hover:text-green-700 hover:bg-green-50"
               >
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">

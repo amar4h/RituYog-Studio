@@ -15,5 +15,6 @@ export { Checkbox, Radio, RadioGroup } from './Checkbox';
 export { SlotSelector } from './SlotSelector';
 export { ErrorPage } from './ErrorPage';
 export { ErrorBoundary } from './ErrorBoundary';
+export { PageErrorBoundary } from './PageErrorBoundary';
 export { WhatsAppTemplateModal } from './WhatsAppTemplateModal';
 export { DateNavigator } from './DateNavigator';

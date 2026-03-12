@@ -198,6 +198,44 @@ class LeadsHandler extends BaseHandler {
     }
 
     /**
+     * Regenerate completion token for a lead (admin action)
+     * Used when the previous registration link has expired
+     */
+    public function regenerateToken(): ?array {
+        $id = getQueryParam('id');
+        if (empty($id)) {
+            throw new Exception('Lead ID is required');
+        }
+
+        $lead = $this->getById($id);
+        if (!$lead) {
+            throw new Exception('Lead not found');
+        }
+
+        if (!empty($lead['isProfileComplete'])) {
+            throw new Exception('Lead has already completed registration');
+        }
+
+        $token = bin2hex(random_bytes(32));
+        $expiry = date('Y-m-d H:i:s', strtotime('+7 days'));
+
+        $this->execute(
+            "UPDATE {$this->table} SET
+             completion_token = :token,
+             completion_token_expiry = :expiry,
+             updated_at = NOW()
+             WHERE id = :id",
+            [
+                'id' => $id,
+                'token' => $token,
+                'expiry' => $expiry,
+            ]
+        );
+
+        return $this->getById($id);
+    }
+
+    /**
      * Complete lead registration (PUBLIC - token auth)
      * Updates lead with personal info, email, medical conditions, and consent records
      */

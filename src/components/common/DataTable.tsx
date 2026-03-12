@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useMemo, useEffect } from 'react';
 
 export interface Column<T> {
   key: keyof T | string;
@@ -19,6 +19,7 @@ interface DataTableProps<T> {
   loading?: boolean;
   sortable?: boolean;
   className?: string;
+  pageSize?: number;
 }
 
 type SortDirection = 'asc' | 'desc' | null;
@@ -32,9 +33,16 @@ export function DataTable<T>({
   loading = false,
   sortable = true,
   className = '',
+  pageSize = 25,
 }: DataTableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset to page 1 when data changes (e.g. filter applied)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [data.length]);
 
   const handleSort = (key: string) => {
     if (!sortable) return;
@@ -52,10 +60,9 @@ export function DataTable<T>({
     }
   };
 
-  const sortedData = [...data].sort((a, b) => {
+  const sortedData = useMemo(() => [...data].sort((a, b) => {
     if (!sortKey || !sortDirection) return 0;
 
-    // Use sortValue extractor if the column provides one
     const sortColumn = columns.find(c => String(c.key) === sortKey);
     const aValue = sortColumn?.sortValue ? sortColumn.sortValue(a) : getNestedValue(a, sortKey);
     const bValue = sortColumn?.sortValue ? sortColumn.sortValue(b) : getNestedValue(b, sortKey);
@@ -66,7 +73,12 @@ export function DataTable<T>({
 
     const comparison = aValue < bValue ? -1 : 1;
     return sortDirection === 'asc' ? comparison : -comparison;
-  });
+  }), [data, sortKey, sortDirection, columns]);
+
+  const totalPages = Math.ceil(sortedData.length / pageSize);
+  const paginatedData = sortedData.length > pageSize
+    ? sortedData.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+    : sortedData;
 
   const alignStyles = {
     left: 'text-left',
@@ -97,6 +109,11 @@ export function DataTable<T>({
                 `}
                 style={{ width: column.width }}
                 onClick={() => column.sortable !== false && handleSort(String(column.key))}
+                aria-sort={
+                  sortKey === String(column.key) && sortDirection
+                    ? sortDirection === 'asc' ? 'ascending' : 'descending'
+                    : undefined
+                }
               >
                 <div className="flex items-center gap-1">
                   <span>{column.header}</span>
@@ -112,7 +129,7 @@ export function DataTable<T>({
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {sortedData.length === 0 ? (
+          {paginatedData.length === 0 ? (
             <tr>
               <td
                 colSpan={columns.length}
@@ -122,7 +139,7 @@ export function DataTable<T>({
               </td>
             </tr>
           ) : (
-            sortedData.map((item) => (
+            paginatedData.map((item) => (
               <tr
                 key={keyExtractor(item)}
                 onClick={() => onRowClick?.(item)}
@@ -146,6 +163,18 @@ export function DataTable<T>({
           )}
         </tbody>
       </table>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
+          <span className="text-sm text-gray-500">
+            Showing {((currentPage - 1) * pageSize) + 1}–{Math.min(currentPage * pageSize, sortedData.length)} of {sortedData.length}
+          </span>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -220,7 +249,7 @@ export function Pagination({
   }
 
   return (
-    <nav className={`flex items-center justify-center gap-1 ${className}`}>
+    <nav aria-label="Table pagination" className={`flex items-center justify-center gap-1 ${className}`}>
       <button
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}

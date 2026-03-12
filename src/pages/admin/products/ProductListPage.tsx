@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Alert, PageLoading } from '../../../components/common';
+import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Alert, SkeletonTable } from '../../../components/common';
 import { productService } from '../../../services';
 import { formatCurrency } from '../../../utils/formatUtils';
 import { useFreshData } from '../../../hooks';
@@ -18,7 +18,7 @@ export function ProductListPage() {
   const [error, setError] = useState('');
 
   if (isLoading) {
-    return <PageLoading />;
+    return <SkeletonTable rows={8} cols={5} />;
   }
 
   const allProducts = productService.getAll();

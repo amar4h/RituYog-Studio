@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card, Button, Input, Select, DataTable, Badge, StatusBadge, EmptyState, EmptyIcons, Alert, Modal, PageLoading } from '../../../components/common';
+import { Card, Button, Input, Select, DataTable, Badge, StatusBadge, EmptyState, EmptyIcons, Alert, Modal, SkeletonTable } from '../../../components/common';
 import { sessionPlanService, sessionPlanAllocationService, sessionExecutionService } from '../../../services';
 import { useFreshData } from '../../../hooks';
 import { DIFFICULTY_LEVEL_OPTIONS, BODY_AREA_LABELS } from '../../../constants';
@@ -21,7 +21,7 @@ export function SessionPlanListPage() {
   const [allocateDate, setAllocateDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
   if (isLoading) {
-    return <PageLoading />;
+    return <SkeletonTable rows={8} cols={5} />;
   }
 
   const allPlans = sessionPlanService.getAll();

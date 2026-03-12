@@ -226,7 +226,7 @@ export function InvoiceDetailPage() {
                 member,
                 payment: payments[0],
                 invoice,
-                plan: plan || { name: 'Membership' } as any,
+                plan: plan || { name: 'Membership' },
                 subscription: subscription || undefined,
               }).link}
               target="_blank"

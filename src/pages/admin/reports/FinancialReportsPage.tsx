@@ -71,17 +71,21 @@ export function FinancialReportsPage() {
   }
 
   // Calculate revenue breakdown
-  const payments = paymentService.getAll().filter(p =>
-    p.paymentDate >= startDate && p.paymentDate <= endDate && p.status === 'completed'
+  const allPeriodPayments = paymentService.getAll().filter(p =>
+    p.paymentDate >= startDate && p.paymentDate <= endDate
   );
-  const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
+  const payments = allPeriodPayments.filter(p => p.status === 'completed');
+  const refundPayments = allPeriodPayments.filter(p => p.status === 'refunded');
+  const totalRefunds = Math.abs(refundPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0));
+  const grossRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
+  const totalRevenue = grossRevenue - totalRefunds;
 
   // Get invoices to separate membership vs product revenue
   const invoices = invoiceService.getAll();
   const membershipRevenue = payments
     .filter(p => {
       const invoice = invoices.find(i => i.id === p.invoiceId);
-      return invoice && invoice.invoiceType !== 'product-sale';
+      return invoice && invoice.invoiceType !== 'product-sale' && invoice.invoiceType !== 'credit-note';
     })
     .reduce((sum, p) => sum + p.amount, 0);
 
@@ -238,9 +242,11 @@ export function FinancialReportsPage() {
       <Card>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="p-3 bg-green-50 rounded-lg">
-            <div className="text-xs text-green-600 font-medium">Total Revenue</div>
+            <div className="text-xs text-green-600 font-medium">Net Revenue</div>
             <div className="text-lg font-bold text-green-700 mt-0.5">{formatCurrency(totalRevenue)}</div>
-            <div className="text-xs text-green-500">{payments.length} payments</div>
+            <div className="text-xs text-green-500">
+              {payments.length} payments{totalRefunds > 0 ? ` · ${refundPayments.length} refund${refundPayments.length !== 1 ? 's' : ''}` : ''}
+            </div>
           </div>
           <div className="p-3 bg-red-50 rounded-lg">
             <div className="text-xs text-red-600 font-medium">Total Expenses</div>
@@ -283,6 +289,15 @@ export function FinancialReportsPage() {
               </div>
               <div className="text-xl font-bold text-purple-600">{formatCurrency(productRevenue)}</div>
             </div>
+            {totalRefunds > 0 && (
+              <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
+                <div>
+                  <div className="font-medium text-gray-900">Refunds</div>
+                  <div className="text-sm text-gray-500">{refundPayments.length} cancellation refund{refundPayments.length !== 1 ? 's' : ''}</div>
+                </div>
+                <div className="text-xl font-bold text-orange-600">-{formatCurrency(totalRefunds)}</div>
+              </div>
+            )}
             {productRevenue > 0 && (
               <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                 <div>
@@ -406,7 +421,7 @@ export function FinancialReportsPage() {
                 </tr>
               </thead>
               <tbody>
-                {monthlyData.map((month, index) => (
+                {[...monthlyData].reverse().map((month, index) => (
                   <tr key={index} className="border-b">
                     <td className="py-2">{month.month}</td>
                     <td className="text-right text-green-600">{formatCurrency(month.revenue)}</td>

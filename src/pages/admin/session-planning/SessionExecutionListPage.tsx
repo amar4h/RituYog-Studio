@@ -9,7 +9,7 @@ import {
   Badge,
   EmptyState,
   EmptyIcons,
-  PageLoading,
+  SkeletonTable,
 } from '../../../components/common';
 import { sessionExecutionService, sessionPlanService, slotService } from '../../../services';
 import { useFreshData } from '../../../hooks';
@@ -32,7 +32,7 @@ export function SessionExecutionListPage() {
   }, [isLoading]);
 
   if (isLoading) {
-    return <PageLoading />;
+    return <SkeletonTable rows={8} cols={5} />;
   }
 
   const allExecutions = sessionExecutionService.getAll();

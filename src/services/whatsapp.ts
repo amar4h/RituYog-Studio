@@ -50,7 +50,7 @@ export function formatMessage(template: string, data: Record<string, string>): s
  */
 export function openWhatsApp(phone: string, message: string): void {
   const link = generateWhatsAppLink(phone, message);
-  window.open(link, '_blank');
+  window.open(link, '_blank', 'noopener,noreferrer');
 }
 
 /**
@@ -123,7 +123,7 @@ function formatDate(dateStr: string): string {
 export interface RenewalReminderData {
   member: Member;
   subscription: MembershipSubscription;
-  plan: MembershipPlan;
+  plan: Pick<MembershipPlan, 'name'>;
   templateIndex?: number;  // Which template to use (0-based index)
 }
 
@@ -217,7 +217,7 @@ export interface PaymentConfirmationData {
   member: Member;
   payment: Payment;
   invoice: Invoice;
-  plan: MembershipPlan;
+  plan: Pick<MembershipPlan, 'name'>;
   subscription?: MembershipSubscription;
 }
 

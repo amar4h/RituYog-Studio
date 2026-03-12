@@ -559,7 +559,7 @@ export function SessionReportsPage() {
                     }
                     // Open WhatsApp chat with the member
                     if (waNumber) {
-                      window.open(`https://wa.me/91${waNumber}`, '_blank');
+                      window.open(`https://wa.me/91${waNumber}`, '_blank', 'noopener,noreferrer');
                     }
                   } else {
                     // For batch reports: use native share sheet

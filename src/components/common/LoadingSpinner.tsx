@@ -18,7 +18,7 @@ export function LoadingSpinner({
   fullScreen = false,
 }: LoadingSpinnerProps) {
   const spinner = (
-    <div className={`flex flex-col items-center justify-center ${className}`}>
+    <div className={`flex flex-col items-center justify-center ${className}`} role="status" aria-busy="true">
       <div
         className={`
           animate-spin rounded-full
@@ -27,6 +27,7 @@ export function LoadingSpinner({
         `}
       />
       {text && <p className="mt-3 text-sm text-gray-500">{text}</p>}
+      {!text && <span className="sr-only">Loading...</span>}
     </div>
   );
 

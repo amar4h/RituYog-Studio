@@ -161,13 +161,15 @@ export function ProductSalePage() {
         notes: notes || undefined,
       });
 
-      // Deduct inventory for each item
+      // Deduct inventory for each item (use saleDate so COGS aligns with invoice date)
       for (const item of validItems) {
         inventoryService.recordSale(
           item.productId,
           item.quantity,
           item.product!.costPrice,
-          invoice.id
+          invoice.id,
+          undefined,
+          saleDate
         );
       }
 

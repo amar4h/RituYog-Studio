@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Card, Button, Input, Textarea, Alert, Modal } from '../../components/common';
 import { leadService, memberService, slotService, trialBookingService, settingsService } from '../../services';
 import { isApiMode, trialsApi } from '../../services/api';
+import { renderMarkdownContent } from '../../utils/renderMarkdown';
 import { validateEmail, validatePhone } from '../../utils/validationUtils';
 import { getToday, formatDate, isHoliday, getHolidayName } from '../../utils/dateUtils';
 import { format, addDays, subDays, addWeeks, isWeekend, isBefore, isAfter, startOfToday, parseISO } from 'date-fns';
@@ -366,23 +367,8 @@ export function BookTrialPage() {
     }
   };
 
-  // Render markdown-like content (basic)
-  const renderContent = (content: string) => {
-    return content.split('\n').map((line, i) => {
-      if (line.startsWith('# ')) {
-        return <h2 key={i} className="text-xl font-bold mb-3">{line.substring(2)}</h2>;
-      } else if (line.startsWith('## ')) {
-        return <h3 key={i} className="text-lg font-semibold mb-2">{line.substring(3)}</h3>;
-      } else if (line.match(/^\d+\./)) {
-        const htmlContent = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        return <p key={i} className="ml-4 mb-1" dangerouslySetInnerHTML={{ __html: htmlContent }} />;
-      } else if (line.trim() === '') {
-        return <br key={i} />;
-      } else {
-        return <p key={i} className="mb-2" dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />;
-      }
-    });
-  };
+  // Render markdown-like content (safe — no dangerouslySetInnerHTML)
+  const renderContent = renderMarkdownContent;
 
   // Scroll to top on success
   useEffect(() => {

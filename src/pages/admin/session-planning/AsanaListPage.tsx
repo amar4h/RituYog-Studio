@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card, Button, Input, Select, DataTable, Badge, StatusBadge, EmptyState, EmptyIcons, Alert, PageLoading } from '../../../components/common';
+import { Card, Button, Input, Select, DataTable, Badge, StatusBadge, EmptyState, EmptyIcons, Alert, SkeletonTable } from '../../../components/common';
 import { asanaService } from '../../../services';
 import { useFreshData } from '../../../hooks';
 import { ASANA_TYPE_OPTIONS, DIFFICULTY_LEVEL_OPTIONS, BODY_AREA_OPTIONS, BODY_AREA_LABELS, BREATHING_CUE_OPTIONS } from '../../../constants';
@@ -19,7 +19,7 @@ export function AsanaListPage() {
   const [error, setError] = useState('');
 
   if (isLoading) {
-    return <PageLoading />;
+    return <SkeletonTable rows={8} cols={5} />;
   }
 
   const allAsanas = asanaService.getAll();

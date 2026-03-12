@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Alert, PageLoading } from '../../../components/common';
+import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Alert, SkeletonTable } from '../../../components/common';
 import { expenseService, inventoryService, productService, invoiceService } from '../../../services';
 import { formatCurrency } from '../../../utils/formatUtils';
 import { formatDate, getToday } from '../../../utils/dateUtils';
@@ -55,7 +55,7 @@ export function ExpenseListPage() {
   const [bdPeriod, setBdPeriod] = useState<BreakdownPeriod>('fy');
 
   if (isLoading) {
-    return <PageLoading />;
+    return <SkeletonTable rows={8} cols={5} />;
   }
 
   // Repair any expenses with missing numbers (from past edit bug)

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, Button, Input, Select, DataTable, Modal, Alert, EmptyState, EmptyIcons, PageLoading } from '../../../components/common';
+import { Card, Button, Input, Select, DataTable, Modal, Alert, EmptyState, EmptyIcons, SkeletonTable } from '../../../components/common';
 import { productService, inventoryService } from '../../../services';
 import { formatCurrency } from '../../../utils/formatUtils';
 import { formatDate } from '../../../utils/dateUtils';
@@ -29,7 +29,7 @@ export function InventoryPage() {
   const [productTransactions, setProductTransactions] = useState<InventoryTransaction[]>([]);
 
   if (isLoading) {
-    return <PageLoading />;
+    return <SkeletonTable rows={8} cols={5} />;
   }
 
   const allProducts = productService.getAll().filter(p => p.isActive);

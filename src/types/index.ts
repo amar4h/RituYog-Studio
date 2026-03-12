@@ -205,6 +205,12 @@ export interface MembershipSubscription extends BaseEntity {
   extraDays?: number;
   extraDaysReason?: string;
 
+  // Cancellation tracking
+  cancelledAt?: string;              // ISO date when cancellation was processed
+  cancellationReason?: string;       // Admin-entered reason
+  cancellationRefundAmount?: number; // Actual refund given (may differ from calculated)
+  creditNoteInvoiceId?: string;      // Link to the credit note invoice
+
   notes?: string;
 }
 
@@ -312,7 +318,7 @@ export interface TrialBooking extends BaseEntity {
 // ============================================
 
 export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'partially-paid' | 'overdue' | 'cancelled';
-export type InvoiceType = 'membership' | 'product-sale';
+export type InvoiceType = 'membership' | 'product-sale' | 'credit-note';
 
 export interface InvoiceItem {
   description: string;

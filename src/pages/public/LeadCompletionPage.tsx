@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Button, Input, Select, Alert, Modal } from '../../components/common';
 import { leadService, settingsService, slotService, isApiMode } from '../../services';
 import { validateEmail, validatePhone } from '../../utils/validationUtils';
+import { renderMarkdownContent } from '../../utils/renderMarkdown';
 import { getToday } from '../../utils/dateUtils';
 import { GENDER_OPTIONS } from '../../constants';
 import type { Lead, MedicalCondition, ConsentRecord, SessionSlot } from '../../types';
@@ -103,23 +104,8 @@ export function LeadCompletionPage() {
     fetchLead();
   }, [token]);
 
-  // Render markdown-like content
-  const renderContent = (content: string) => {
-    return content.split('\n').map((line, i) => {
-      if (line.startsWith('# ')) {
-        return <h2 key={i} className="text-xl font-bold mb-3">{line.substring(2)}</h2>;
-      } else if (line.startsWith('## ')) {
-        return <h3 key={i} className="text-lg font-semibold mb-2">{line.substring(3)}</h3>;
-      } else if (line.match(/^\d+\./)) {
-        const htmlContent = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        return <p key={i} className="ml-4 mb-1" dangerouslySetInnerHTML={{ __html: htmlContent }} />;
-      } else if (line.trim() === '') {
-        return <br key={i} />;
-      } else {
-        return <p key={i} className="mb-2" dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />;
-      }
-    });
-  };
+  // Render markdown-like content (safe — no dangerouslySetInnerHTML)
+  const renderContent = renderMarkdownContent;
 
   const addMedicalCondition = () => {
     if (newCondition.trim()) {

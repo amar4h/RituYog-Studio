@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Alert, WhatsAppTemplateModal, PageLoading } from '../../components/common';
+import { Card, Button, Input, Select, DataTable, StatusBadge, EmptyState, EmptyIcons, Alert, WhatsAppTemplateModal, SkeletonTable } from '../../components/common';
 import { QuickAddLeadModal } from '../../components/leads/QuickAddLeadModal';
 import { leadService, slotService, whatsappService } from '../../services';
 import { formatPhone } from '../../utils/formatUtils';
 import { formatDate } from '../../utils/dateUtils';
-import { useFreshData } from '../../hooks';
+import { useFreshData, useDebounce } from '../../hooks';
 import type { Lead } from '../../types';
 import type { Column } from '../../components/common';
 
@@ -15,6 +15,7 @@ export function LeadListPage() {
 
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -25,7 +26,7 @@ export function LeadListPage() {
 
   // Show loading state while fetching data
   if (isLoading) {
-    return <PageLoading />;
+    return <SkeletonTable rows={8} cols={5} />;
   }
 
   // Get data after loading is complete
@@ -35,10 +36,10 @@ export function LeadListPage() {
 
   // Filter leads (converted leads already excluded by getUnconverted)
   const leads = allLeads.filter(lead => {
-    const matchesSearch = !search ||
-      `${lead.firstName} ${lead.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
-      lead.email.toLowerCase().includes(search.toLowerCase()) ||
-      lead.phone.includes(search);
+    const matchesSearch = !debouncedSearch ||
+      `${lead.firstName} ${lead.lastName}`.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      lead.email.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      lead.phone.includes(debouncedSearch);
 
     const matchesStatus = !statusFilter || lead.status === statusFilter;
 
@@ -129,17 +130,33 @@ export function LeadListPage() {
           {lead.status !== 'converted' && lead.status !== 'lost' && (
             <>
               {/* Share Registration Link - only for quick-added leads with incomplete profiles */}
-              {lead.completionToken && !lead.isProfileComplete && (
-                <button
-                  onClick={() => handleShareRegistrationLink(lead)}
-                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded hover:bg-blue-200 transition-colors"
-                  title="Share registration link via WhatsApp"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                  </svg>
-                  Share Link
-                </button>
+              {!lead.isProfileComplete && lead.completionToken && (
+                (() => {
+                  const isExpired = lead.completionTokenExpiry && lead.completionTokenExpiry < new Date().toISOString();
+                  return isExpired ? (
+                    <button
+                      onClick={() => handleRegenerateLink(lead)}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-700 bg-amber-100 rounded hover:bg-amber-200 transition-colors"
+                      title="Registration link expired - click to generate a new link"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Renew Link
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleShareRegistrationLink(lead)}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded hover:bg-blue-200 transition-colors"
+                      title="Share registration link via WhatsApp"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                      </svg>
+                      Share Link
+                    </button>
+                  );
+                })()
               )}
               <button
                 onClick={() => {
@@ -178,7 +195,28 @@ export function LeadListPage() {
       registrationLink: registrationUrl,
     });
 
-    window.open(link, '_blank');
+    window.open(link, '_blank', 'noopener,noreferrer');
+  };
+
+  // Handle regenerating an expired registration link
+  const handleRegenerateLink = async (lead: Lead) => {
+    try {
+      const updated = await leadService.async.regenerateToken(lead.id);
+      if (updated) {
+        refetch();
+        const registrationUrl = leadService.getRegistrationUrl(updated);
+        const { link } = whatsappService.generateLeadRegistrationLink({
+          lead: updated,
+          registrationLink: registrationUrl,
+        });
+        window.open(link, '_blank', 'noopener,noreferrer');
+        setSuccess(`New registration link generated for "${lead.firstName} ${lead.lastName}".`);
+      } else {
+        setError('Failed to regenerate link.');
+      }
+    } catch {
+      setError('Failed to regenerate registration link.');
+    }
   };
 
   // Handle quick add success

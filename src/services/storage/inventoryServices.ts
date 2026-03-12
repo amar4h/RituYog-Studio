@@ -158,7 +158,8 @@ export const inventoryService = {
     unitCost: number,
     expenseId?: string,
     vendorName?: string,
-    notes?: string
+    notes?: string,
+    date?: string
   ): InventoryTransaction => {
     const product = productService.getById(productId);
     if (!product) {
@@ -167,7 +168,6 @@ export const inventoryService = {
 
     const previousStock = product.currentStock;
     const newStock = previousStock + quantity;
-    const today = new Date().toISOString().split('T')[0];
 
     // Create transaction record
     const transaction = inventoryService.create({
@@ -180,7 +180,7 @@ export const inventoryService = {
       vendorName,
       previousStock,
       newStock,
-      transactionDate: today,
+      transactionDate: date || new Date().toISOString().split('T')[0],
       notes,
     });
 
@@ -196,7 +196,8 @@ export const inventoryService = {
     quantity: number,
     unitCost: number,
     invoiceId: string,
-    notes?: string
+    notes?: string,
+    date?: string
   ): InventoryTransaction => {
     const product = productService.getById(productId);
     if (!product) {
@@ -209,7 +210,6 @@ export const inventoryService = {
 
     const previousStock = product.currentStock;
     const newStock = previousStock - quantity;
-    const today = new Date().toISOString().split('T')[0];
 
     // Create transaction record
     const transaction = inventoryService.create({
@@ -221,7 +221,7 @@ export const inventoryService = {
       invoiceId,
       previousStock,
       newStock,
-      transactionDate: today,
+      transactionDate: date || new Date().toISOString().split('T')[0],
       notes,
     });
 
@@ -235,7 +235,8 @@ export const inventoryService = {
   recordConsumption: (
     productId: string,
     quantity: number,
-    notes?: string
+    notes?: string,
+    date?: string
   ): { transaction: InventoryTransaction; expense: Expense } => {
     const product = productService.getById(productId);
     if (!product) {
@@ -248,7 +249,7 @@ export const inventoryService = {
 
     const previousStock = product.currentStock;
     const newStock = previousStock - quantity;
-    const today = new Date().toISOString().split('T')[0];
+    const today = date || new Date().toISOString().split('T')[0];
     const totalCost = quantity * product.costPrice;
 
     // Create expense record for studio consumption
@@ -297,7 +298,8 @@ export const inventoryService = {
   recordAdjustment: (
     productId: string,
     newStockLevel: number,
-    notes?: string
+    notes?: string,
+    date?: string
   ): InventoryTransaction => {
     const product = productService.getById(productId);
     if (!product) {
@@ -306,7 +308,7 @@ export const inventoryService = {
 
     const previousStock = product.currentStock;
     const quantityChange = newStockLevel - previousStock;
-    const today = new Date().toISOString().split('T')[0];
+    const today = date || new Date().toISOString().split('T')[0];
 
     // Create transaction record
     const transaction = inventoryService.create({

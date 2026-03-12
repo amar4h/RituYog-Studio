@@ -570,7 +570,7 @@ export function NotificationsPage() {
         }
 
         if (link) {
-          window.open(link, '_blank');
+          window.open(link, '_blank', 'noopener,noreferrer');
         }
       });
 

@@ -53,7 +53,7 @@ export function WhatsAppTemplateModal({
     const extra = needsExtraDays ? { extraDays } : undefined;
     const link = onSelect(selectedIndex, extra);
     if (!skipNavigation && link) {
-      window.open(link, '_blank');
+      window.open(link, '_blank', 'noopener,noreferrer');
     }
     onClose();
   };
