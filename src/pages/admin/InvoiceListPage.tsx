@@ -27,14 +27,9 @@ export function InvoiceListPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editInvoice, setEditInvoice] = useState<Invoice | null>(null);
 
-  // Show loading state while fetching data
-  if (isLoading) {
-    return <SkeletonTable rows={8} cols={6} />;
-  }
-
-  // Get data after loading is complete
-  const allMembers = memberService.getAll();
-  const allInvoices = invoiceService.getAll();
+  // Get data (empty arrays when loading)
+  const allMembers = isLoading ? [] : memberService.getAll();
+  const allInvoices = isLoading ? [] : invoiceService.getAll();
 
   // Pre-build member lookup map to avoid per-row service calls
   const memberMap = useMemo(() => {
@@ -42,6 +37,11 @@ export function InvoiceListPage() {
     for (const m of allMembers) map.set(m.id, m);
     return map;
   }, [allMembers]);
+
+  // Show loading state while fetching data
+  if (isLoading) {
+    return <SkeletonTable rows={8} cols={6} />;
+  }
 
   // Check if Web Share API with files is supported
   const canShareFiles = typeof navigator !== 'undefined' &&
