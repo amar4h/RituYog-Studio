@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Card, Button, Input, Modal } from '../../../components/common';
 import { settingsService } from '../../../services';
 import { formatDate, getDayNameShort } from '../../../utils/dateUtils';
-import type { Holiday } from '../../../types';
+import { isWeekend, parseISO } from 'date-fns';
+import type { Holiday, ExtraWorkingDay } from '../../../types';
 import type { SettingsTabProps } from './types';
 
 export function HolidaysTab({ setError, setSuccess, loading, setLoading }: SettingsTabProps) {
@@ -16,6 +17,12 @@ export function HolidaysTab({ setError, setSuccess, loading, setLoading }: Setti
     name: '',
     isRecurringYearly: false,
   });
+
+  // Extra Working Days state
+  const [extraWorkingDays, setExtraWorkingDays] = useState<ExtraWorkingDay[]>(settings.extraWorkingDays || []);
+  const [showExtraWorkingDayModal, setShowExtraWorkingDayModal] = useState(false);
+  const [editingExtraDay, setEditingExtraDay] = useState<ExtraWorkingDay | null>(null);
+  const [extraDayForm, setExtraDayForm] = useState({ date: '', reason: '' });
 
   const handleAddHoliday = () => {
     setEditingHoliday(null);
@@ -80,6 +87,74 @@ export function HolidaysTab({ setError, setSuccess, loading, setLoading }: Setti
       setSuccess(editingHoliday ? 'Holiday updated and saved to database' : 'Holiday added and saved to database');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save holiday to database');
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  // Extra Working Day handlers
+  const handleAddExtraDay = () => {
+    setEditingExtraDay(null);
+    setExtraDayForm({ date: '', reason: '' });
+    setShowExtraWorkingDayModal(true);
+  };
+
+  const handleEditExtraDay = (day: ExtraWorkingDay) => {
+    setEditingExtraDay(day);
+    setExtraDayForm({ date: day.date, reason: day.reason });
+    setShowExtraWorkingDayModal(true);
+  };
+
+  const handleDeleteExtraDay = async (date: string) => {
+    const updated = extraWorkingDays.filter(d => d.date !== date);
+    setLoading('extra-day-delete');
+    setExtraWorkingDays(updated);
+    try {
+      await settingsService.updatePartialAsync({ extraWorkingDays: updated });
+      setSuccess('Extra working day deleted');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete');
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleSaveExtraDay = async () => {
+    if (!extraDayForm.date || !extraDayForm.reason.trim()) {
+      setError('Please fill in both date and reason');
+      return;
+    }
+    if (!isWeekend(parseISO(extraDayForm.date))) {
+      setError('Only Saturday or Sunday can be marked as extra working days');
+      return;
+    }
+
+    let updated: ExtraWorkingDay[];
+    if (editingExtraDay) {
+      updated = extraWorkingDays.map(d =>
+        d.date === editingExtraDay.date
+          ? { date: extraDayForm.date, reason: extraDayForm.reason.trim() }
+          : d
+      );
+    } else {
+      if (extraWorkingDays.some(d => d.date === extraDayForm.date)) {
+        setError('This date is already marked as an extra working day');
+        return;
+      }
+      updated = [
+        ...extraWorkingDays,
+        { date: extraDayForm.date, reason: extraDayForm.reason.trim() },
+      ].sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    setLoading('extra-day');
+    setExtraWorkingDays(updated);
+    try {
+      await settingsService.updatePartialAsync({ extraWorkingDays: updated });
+      setShowExtraWorkingDayModal(false);
+      setSuccess(editingExtraDay ? 'Extra working day updated' : 'Extra working day added');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save');
     } finally {
       setLoading(null);
     }
@@ -205,6 +280,86 @@ export function HolidaysTab({ setError, setSuccess, loading, setLoading }: Setti
               Recurring yearly (for fixed-date holidays like Independence Day, Republic Day)
             </span>
           </label>
+        </div>
+      </Modal>
+
+      {/* Extra Working Days Card */}
+      <Card
+        title="Extra Working Days"
+        actions={
+          <Button size="sm" onClick={handleAddExtraDay}>
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Extra Working Day
+          </Button>
+        }
+      >
+        <p className="text-sm text-gray-600 mb-4">
+          Mark weekend days (Saturday/Sunday) as working days. Attendance can be recorded and these days count towards working day totals.
+        </p>
+
+        {extraWorkingDays.length === 0 ? (
+          <p className="text-gray-500 text-center py-4">No extra working days configured</p>
+        ) : (
+          <div className="space-y-2">
+            {extraWorkingDays.map((day, index) => (
+              <div
+                key={`${day.date}-${index}`}
+                className="flex items-center justify-between p-3 bg-orange-50 rounded-lg"
+              >
+                <div>
+                  <span className="font-medium text-gray-900">{day.reason}</span>
+                  <span className="text-gray-500 ml-2 text-sm">
+                    {formatDate(day.date)}
+                    <span className="ml-1 text-xs text-gray-400">({getDayNameShort(day.date)})</span>
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => handleEditExtraDay(day)}>
+                    Edit
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => handleDeleteExtraDay(day.date)} loading={loading === 'extra-day-delete'}>
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* Extra Working Day Modal */}
+      <Modal
+        isOpen={showExtraWorkingDayModal}
+        onClose={() => setShowExtraWorkingDayModal(false)}
+        title={editingExtraDay ? 'Edit Extra Working Day' : 'Add Extra Working Day'}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setShowExtraWorkingDayModal(false)} disabled={loading === 'extra-day'}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveExtraDay} loading={loading === 'extra-day'}>
+              {editingExtraDay ? 'Update' : 'Add'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Date (must be a Saturday or Sunday)"
+            type="date"
+            value={extraDayForm.date}
+            onChange={(e) => setExtraDayForm(prev => ({ ...prev, date: e.target.value }))}
+            required
+          />
+          <Input
+            label="Reason"
+            value={extraDayForm.reason}
+            onChange={(e) => setExtraDayForm(prev => ({ ...prev, reason: e.target.value }))}
+            placeholder="e.g., Makeup class for Diwali, Special weekend session"
+            required
+          />
         </div>
       </Modal>
     </>

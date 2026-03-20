@@ -138,15 +138,15 @@ export function validatePastDate(dateString: string, fieldName: string = 'Date')
   return { isValid: true };
 }
 
-export function validateWorkingDay(dateString: string): ValidationResult {
+export function validateWorkingDay(dateString: string, extraWorkingDays: { date: string }[] = []): ValidationResult {
   const dateResult = validateDate(dateString);
   if (!dateResult.isValid) return dateResult;
 
   const date = new Date(dateString);
   const dayOfWeek = date.getDay();
 
-  if (dayOfWeek === 0 || dayOfWeek === 6) {
-    return { isValid: false, error: 'Sessions are only available Monday to Friday' };
+  if ((dayOfWeek === 0 || dayOfWeek === 6) && !extraWorkingDays.some(d => d.date === dateString)) {
+    return { isValid: false, error: 'Sessions are only available Monday to Friday (unless marked as extra working day)' };
   }
   return { isValid: true };
 }

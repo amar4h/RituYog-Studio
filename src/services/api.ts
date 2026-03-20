@@ -362,12 +362,12 @@ export const slotsApi = {
     params: { action: 'getActive' }
   }),
 
-  getAvailability: (slotId: string, date: string) => apiRequest<unknown>('slots', {
-    params: { action: 'getAvailability', slotId, date }
+  getAvailability: (slotId: string, date: string, forTrial: boolean = false) => apiRequest<unknown>('slots', {
+    params: { action: 'getAvailability', slotId, date, ...(forTrial ? { forTrial: '1' } : {}) }
   }),
 
-  getAllAvailability: (date: string) => apiRequest<unknown[]>('slots', {
-    params: { action: 'getAllAvailability', date }
+  getAllAvailability: (date: string, forTrial: boolean = false) => apiRequest<unknown[]>('slots', {
+    params: { action: 'getAllAvailability', date, ...(forTrial ? { forTrial: '1' } : {}) }
   }),
 
   hasCapacity: (slotId: string, date: string, useException = false) => apiRequest<{ hasCapacity: boolean }>('slots', {

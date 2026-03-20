@@ -125,15 +125,21 @@ export function isExpiringSoon(endDate: string, daysThreshold: number = 7): bool
 // WORKING DAY UTILITIES
 // ============================================
 
-export function isWorkingDay(dateString: string, holidays: { date: string; name: string }[] = []): boolean {
+export function isExtraWorkingDay(dateString: string, extraWorkingDays: { date: string }[] = []): boolean {
+  return extraWorkingDays.some(d => d.date === dateString);
+}
+
+export function isWorkingDay(dateString: string, holidays: { date: string; name: string }[] = [], extraWorkingDays: { date: string }[] = []): boolean {
+  // Extra working days always count (override both weekends and holidays)
+  if (isExtraWorkingDay(dateString, extraWorkingDays)) {
+    return true;
+  }
   const date = parseISO(dateString);
-  // Check if weekend
   if (isWeekend(date)) {
     return false;
   }
-  // Check if holiday
-  const isHoliday = holidays.some(h => h.date === dateString);
-  return !isHoliday;
+  const isHolidayDate = holidays.some(h => h.date === dateString);
+  return !isHolidayDate;
 }
 
 export function isHoliday(dateString: string, holidays: { date: string; name: string }[]): boolean {
@@ -145,23 +151,24 @@ export function getHolidayName(dateString: string, holidays: { date: string; nam
   return holiday ? holiday.name : null;
 }
 
-export function getNextWorkingDay(dateString: string): string {
+export function getNextWorkingDay(dateString: string, extraWorkingDays: { date: string }[] = []): string {
   let date = parseISO(dateString);
   date = dateAddDays(date, 1);
-  while (isWeekend(date)) {
+  while (isWeekend(date) && !isExtraWorkingDay(format(date, 'yyyy-MM-dd'), extraWorkingDays)) {
     date = dateAddDays(date, 1);
   }
   return format(date, 'yyyy-MM-dd');
 }
 
-export function getWorkingDaysInRange(startDate: string, endDate: string): string[] {
+export function getWorkingDaysInRange(startDate: string, endDate: string, extraWorkingDays: { date: string }[] = []): string[] {
   const result: string[] = [];
   let current = parseISO(startDate);
   const end = parseISO(endDate);
 
   while (!isAfter(current, end)) {
-    if (!isWeekend(current)) {
-      result.push(format(current, 'yyyy-MM-dd'));
+    const dateStr = format(current, 'yyyy-MM-dd');
+    if (!isWeekend(current) || isExtraWorkingDay(dateStr, extraWorkingDays)) {
+      result.push(dateStr);
     }
     current = dateAddDays(current, 1);
   }
@@ -169,13 +176,14 @@ export function getWorkingDaysInRange(startDate: string, endDate: string): strin
   return result;
 }
 
-export function getNextNWorkingDays(n: number, fromDate?: string): string[] {
+export function getNextNWorkingDays(n: number, fromDate?: string, extraWorkingDays: { date: string }[] = []): string[] {
   const result: string[] = [];
   let current = fromDate ? parseISO(fromDate) : new Date();
 
   while (result.length < n) {
-    if (!isWeekend(current)) {
-      result.push(format(current, 'yyyy-MM-dd'));
+    const dateStr = format(current, 'yyyy-MM-dd');
+    if (!isWeekend(current) || isExtraWorkingDay(dateStr, extraWorkingDays)) {
+      result.push(dateStr);
     }
     current = dateAddDays(current, 1);
   }
@@ -184,10 +192,10 @@ export function getNextNWorkingDays(n: number, fromDate?: string): string[] {
 }
 
 /**
- * Count working days (Mon-Fri) in a date range
+ * Count working days (Mon-Fri + extra working days) in a date range
  */
-export function getWorkingDaysCount(startDate: string, endDate: string): number {
-  return getWorkingDaysInRange(startDate, endDate).length;
+export function getWorkingDaysCount(startDate: string, endDate: string, extraWorkingDays: { date: string }[] = []): number {
+  return getWorkingDaysInRange(startDate, endDate, extraWorkingDays).length;
 }
 
 /**
@@ -198,7 +206,8 @@ export function getWorkingDaysCountForSubscription(
   periodStart: string,
   periodEnd: string,
   subscriptionStart: string,
-  subscriptionEnd: string
+  subscriptionEnd: string,
+  extraWorkingDays: { date: string }[] = []
 ): number {
   // Find the overlap between period and subscription
   const effectiveStart = periodStart > subscriptionStart ? periodStart : subscriptionStart;
@@ -209,7 +218,7 @@ export function getWorkingDaysCountForSubscription(
     return 0;
   }
 
-  return getWorkingDaysCount(effectiveStart, effectiveEnd);
+  return getWorkingDaysCount(effectiveStart, effectiveEnd, extraWorkingDays);
 }
 
 // ============================================

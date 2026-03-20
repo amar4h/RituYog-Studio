@@ -482,6 +482,9 @@ CREATE TABLE studio_settings (
     -- Holidays (JSON array)
     holidays JSON NOT NULL DEFAULT '[]',
 
+    -- Extra working days (weekend dates marked as working, JSON array)
+    extra_working_days JSON NULL DEFAULT '[]',
+
     -- Auth
     admin_password VARCHAR(255) NULL DEFAULT 'admin123',
 

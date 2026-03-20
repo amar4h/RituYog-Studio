@@ -86,15 +86,18 @@ export function MemberHomePage() {
   const currentStreak = useMemo(() => {
     if (!member || !activeSub || allSubs.length === 0) return 0;
 
-    const holidays = settingsService.get()?.holidays || [];
+    const settings = settingsService.get();
+    const holidays = settings?.holidays || [];
+    const extraWorkingDays = settings?.extraWorkingDays || [];
     const earliestSub = allSubs.reduce((min, s) => s.startDate < min ? s.startDate : min, allSubs[0].startDate);
     const effectiveStart = earliestSub > ATTENDANCE_TRACKING_START_DATE ? earliestSub : ATTENDANCE_TRACKING_START_DATE;
     if (effectiveStart > today) return 0;
 
     const isInAnySub = (date: string) => allSubs.some(s => date >= s.startDate && date <= s.endDate);
-    const workingDays = getWorkingDaysInRange(effectiveStart, today).filter(date =>
+    const workingDays = getWorkingDaysInRange(effectiveStart, today, extraWorkingDays).filter(date =>
       isInAnySub(date) &&
-      !holidays.some(h => h.date === date || (h.isRecurringYearly && h.date.substring(5) === date.substring(5)))
+      (extraWorkingDays.some(d => d.date === date) ||
+        !holidays.some(h => h.date === date || (h.isRecurringYearly && h.date.substring(5) === date.substring(5))))
     );
     if (workingDays.length === 0) return 0;
 

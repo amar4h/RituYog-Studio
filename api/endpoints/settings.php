@@ -7,7 +7,7 @@ require_once __DIR__ . '/BaseHandler.php';
 
 class SettingsHandler extends BaseHandler {
     protected string $table = 'studio_settings';
-    protected array $jsonFields = ['working_hours', 'holidays', 'invoice_template', 'whatsapp_templates'];
+    protected array $jsonFields = ['working_hours', 'holidays', 'extra_working_days', 'invoice_template', 'whatsapp_templates'];
     protected array $boolFields = ['trial_class_enabled'];
 
     // Valid columns in the studio_settings table (snake_case)
@@ -17,7 +17,7 @@ class SettingsHandler extends BaseHandler {
         'working_hours', 'terms_and_conditions', 'health_disclaimer',
         'renewal_reminder_days', 'class_reminder_hours', 'tax_rate',
         'invoice_prefix', 'receipt_prefix', 'invoice_start_number', 'receipt_start_number',
-        'trial_class_enabled', 'max_trials_per_person', 'holidays',
+        'trial_class_enabled', 'max_trials_per_person', 'holidays', 'extra_working_days',
         'admin_password', 'invoice_template', 'whatsapp_templates'
     ];
 

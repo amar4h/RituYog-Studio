@@ -83,9 +83,10 @@ export const trialBookingService = {
       throw new Error(isException ? 'Exception capacity full' : 'Slot is full for this date');
     }
 
-    // Check if it's a working day (Monday-Friday)
+    // Check if it's a working day (Monday-Friday, or extra working day)
     const dayOfWeek = new Date(date).getDay();
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
+    const extraWorkingDays = settingsService.get()?.extraWorkingDays || [];
+    if ((dayOfWeek === 0 || dayOfWeek === 6) && !extraWorkingDays.some(d => d.date === date)) {
       throw new Error('Sessions only available Monday to Friday');
     }
 

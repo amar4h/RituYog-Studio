@@ -1,8 +1,8 @@
 import { useState, useCallback, useMemo } from 'react';
 import { Card, Button, Alert, SlotSelector, PageLoading } from '../../components/common';
 import { MemberAttendanceTile } from '../../components/attendance';
-import { slotService, attendanceService, attendanceLockService } from '../../services';
-import { getToday, getMonthStart, getMonthEnd, formatDate } from '../../utils/dateUtils';
+import { slotService, attendanceService, attendanceLockService, settingsService } from '../../services';
+import { getToday, getMonthStart, getMonthEnd, formatDate, isExtraWorkingDay } from '../../utils/dateUtils';
 import { parseISO, isWeekend, addDays, subDays, format, startOfMonth, endOfMonth, isAfter, isBefore } from 'date-fns';
 import { useFreshData } from '../../hooks';
 import { ATTENDANCE_EDIT_WINDOW_DAYS, SLOT_SELECTION_OFFSET_MINUTES } from '../../constants';
@@ -148,8 +148,9 @@ export function AttendancePage() {
   const [success, setSuccess] = useState('');
   const [refreshKey, setRefreshKey] = useState(0); // Force re-render after attendance change
 
-  // Check if selected date is a weekend
-  const isWeekendDay = isWeekend(parseISO(selectedDate));
+  // Check if selected date is a weekend (but not an extra working day)
+  const extraWorkingDays = settingsService.getOrDefault().extraWorkingDays || [];
+  const isWeekendDay = isWeekend(parseISO(selectedDate)) && !isExtraWorkingDay(selectedDate, extraWorkingDays);
 
   // Check attendance lock/marking rules for selected date+slot
   const attendanceCheck = useMemo(() => {
@@ -282,15 +283,15 @@ export function AttendancePage() {
     <div className="space-y-3" key={refreshKey}>
       {/* Compact Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">Attendance</h1>
+        <h1 className="text-lg sm:text-xl font-bold text-gray-900">Attendance</h1>
         <div className="flex gap-2">
           {error && (
-            <span className="text-sm text-red-600 bg-red-50 px-3 py-1 rounded">
+            <span className="text-xs sm:text-sm text-red-600 bg-red-50 px-2 sm:px-3 py-1 rounded">
               {error}
             </span>
           )}
           {success && (
-            <span className="text-sm text-green-600 bg-green-50 px-3 py-1 rounded">
+            <span className="text-xs sm:text-sm text-green-600 bg-green-50 px-2 sm:px-3 py-1 rounded">
               {success}
             </span>
           )}
@@ -299,13 +300,13 @@ export function AttendancePage() {
 
       {/* Combined Controls - Responsive */}
       <div className="bg-white rounded-lg border border-gray-200 p-2 sm:p-3">
-        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-4">
-          {/* Date Selection */}
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 sm:gap-3">
+          {/* Row 1: Date + Lock + Status */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <span className="text-xs font-medium text-gray-500 uppercase shrink-0">Date:</span>
             <button
               onClick={handlePreviousDay}
-              className="p-1.5 rounded border border-gray-300 hover:bg-gray-100 text-sm"
+              className="p-1 sm:p-1.5 rounded border border-gray-300 hover:bg-gray-100 text-sm"
             >
               ◀
             </button>
@@ -317,14 +318,14 @@ export function AttendancePage() {
                 onChange={(e) => setSelectedDate(e.target.value)}
                 className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
               />
-              <span className="px-2 py-1 border border-gray-300 rounded text-sm bg-white whitespace-nowrap pointer-events-none">
+              <span className="px-1.5 sm:px-2 py-1 border border-gray-300 rounded text-xs sm:text-sm bg-white whitespace-nowrap pointer-events-none">
                 {formatDate(selectedDate)}
               </span>
             </div>
             <button
               onClick={handleNextDay}
               disabled={selectedDate >= today}
-              className={`p-1.5 rounded border border-gray-300 text-sm ${
+              className={`p-1 sm:p-1.5 rounded border border-gray-300 text-sm ${
                 selectedDate >= today ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'
               }`}
             >
@@ -332,7 +333,7 @@ export function AttendancePage() {
             </button>
             <button
               onClick={handleToday}
-              className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
+              className="px-1.5 sm:px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
             >
               Today
             </button>
@@ -340,7 +341,7 @@ export function AttendancePage() {
             {isEditableDate && !isWeekendDay && (
               <button
                 onClick={handleToggleLock}
-                className={`p-1.5 rounded border text-sm transition-colors ${
+                className={`p-1 sm:p-1.5 rounded border text-sm transition-colors ${
                   isLocked
                     ? 'bg-red-50 border-red-300 text-red-600 hover:bg-red-100'
                     : 'bg-green-50 border-green-300 text-green-600 hover:bg-green-100'
@@ -350,23 +351,27 @@ export function AttendancePage() {
                 {isLocked ? '🔒' : '🔓'}
               </button>
             )}
+            {/* Extra working day indicator */}
+            {isWeekend(parseISO(selectedDate)) && isExtraWorkingDay(selectedDate, extraWorkingDays) && (
+              <span className="text-xs text-orange-700 px-1.5 py-0.5 bg-orange-50 rounded border border-orange-200" title={extraWorkingDays.find(d => d.date === selectedDate)?.reason || 'Extra working day'}>
+                Extra WD
+              </span>
+            )}
             {/* Status indicators for non-editable dates */}
             {isFutureDate && (
-              <span className="text-xs text-gray-400 px-2 py-1 bg-gray-50 rounded" title="Cannot mark attendance for future dates">
+              <span className="text-xs text-gray-400 px-1.5 py-0.5 bg-gray-50 rounded" title="Cannot mark attendance for future dates">
                 Future
               </span>
             )}
             {isTooOld && (
-              <span className="text-xs text-gray-400 px-2 py-1 bg-gray-50 rounded" title="Cannot mark attendance for dates older than 3 days">
+              <span className="text-xs text-gray-400 px-1.5 py-0.5 bg-gray-50 rounded" title="Cannot mark attendance for dates older than 3 days">
                 Too old
               </span>
             )}
           </div>
 
-          <div className="hidden sm:block h-6 w-px bg-gray-300" />
-
-          {/* Session Selection - Compact Tiles */}
-          <div className="flex items-center gap-2">
+          {/* Row 2: Session Selection */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <span className="text-xs font-medium text-gray-500 uppercase shrink-0">Session:</span>
             <SlotSelector
               selectedSlotId={selectedSlotId}
@@ -375,10 +380,8 @@ export function AttendancePage() {
             />
           </div>
 
-          <div className="hidden sm:block h-6 w-px bg-gray-300" />
-
-          {/* Period Selection - Preset buttons + date inputs */}
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* Row 3: Period Selection */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <span className="text-xs font-medium text-gray-500 uppercase shrink-0">Period:</span>
             {/* Period Preset Buttons */}
             <div className="flex gap-1">
@@ -386,7 +389,7 @@ export function AttendancePage() {
                 <button
                   key={preset.id}
                   onClick={() => handlePresetSelect(preset.id)}
-                  className={`px-2 py-1 text-xs rounded border transition-colors ${
+                  className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs rounded border transition-colors ${
                     selectedPresetId === preset.id
                       ? 'bg-indigo-600 text-white border-indigo-600'
                       : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
@@ -405,11 +408,11 @@ export function AttendancePage() {
                 onChange={(e) => handleManualPeriodChange('start', e.target.value)}
                 className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
               />
-              <span className="px-1 sm:px-2 py-1 border border-gray-300 rounded text-xs bg-white whitespace-nowrap pointer-events-none">
+              <span className="px-1 sm:px-2 py-0.5 sm:py-1 border border-gray-300 rounded text-xs bg-white whitespace-nowrap pointer-events-none">
                 {formatDate(periodStart)}
               </span>
             </div>
-            <span className="text-gray-400">-</span>
+            <span className="text-gray-400 text-xs">-</span>
             <div className="relative">
               <input
                 type="date"
@@ -417,7 +420,7 @@ export function AttendancePage() {
                 onChange={(e) => handleManualPeriodChange('end', e.target.value)}
                 className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
               />
-              <span className="px-1 sm:px-2 py-1 border border-gray-300 rounded text-xs bg-white whitespace-nowrap pointer-events-none">
+              <span className="px-1 sm:px-2 py-0.5 sm:py-1 border border-gray-300 rounded text-xs bg-white whitespace-nowrap pointer-events-none">
                 {formatDate(periodEnd)}
               </span>
             </div>
@@ -427,11 +430,11 @@ export function AttendancePage() {
 
       {/* Member Tiles - Full width, compact */}
       {selectedSlotId ? (
-        <div className="bg-white rounded-lg border border-gray-200 p-3">
+        <div className="bg-white rounded-lg border border-gray-200 p-2 sm:p-3">
           {/* Compact Header */}
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-4">
-              <h2 className="text-sm font-semibold text-gray-900">{selectedSlot?.displayName}</h2>
+          <div className="flex items-center justify-between mb-2 sm:mb-3">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <h2 className="text-xs sm:text-sm font-semibold text-gray-900">{selectedSlot?.displayName}</h2>
               {!isWeekendDay && attendanceData.length > 0 && (
                 <span className="text-sm text-gray-600">
                   <span className="font-semibold text-green-600">{presentToday}</span>/{totalMembers} present
@@ -457,7 +460,7 @@ export function AttendancePage() {
               <p className="text-gray-500 text-sm">No members scheduled for this slot</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-1.5 sm:gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-1 sm:gap-2">
               {attendanceData.map(({ member, isPresent, presentDays, totalWorkingDays }) => (
                 <MemberAttendanceTile
                   key={member.id}

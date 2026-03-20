@@ -48,8 +48,9 @@ export function MemberInsightsPage() {
     ).sort((a, b) => b.startDate.localeCompare(a.startDate));
   }, [member, activeSub, today]);
 
-  // Holidays from settings
+  // Holidays and extra working days from settings
   const holidays = useMemo(() => settingsService.get()?.holidays || [], []);
+  const extraWorkingDays = useMemo(() => settingsService.get()?.extraWorkingDays || [], []);
 
   // Effective start: earliest subscription start, clamped to tracking date
   const effectiveSubStart = useMemo(() => {
@@ -77,10 +78,12 @@ export function MemberInsightsPage() {
     const latestEnd = allMemberSubs.reduce((max, s) => s.endDate > max ? s.endDate : max, allMemberSubs[0].endDate);
     const endDate = today < latestEnd ? today : latestEnd;
     if (effectiveSubStart > endDate) return [];
-    const workingDays = getWorkingDaysInRange(effectiveSubStart, endDate);
+    const workingDays = getWorkingDaysInRange(effectiveSubStart, endDate, extraWorkingDays);
     return workingDays.filter(date => {
       // Must be within at least one subscription
       if (!isInAnySub(date)) return false;
+      // Extra working days override holidays
+      if (extraWorkingDays.some(d => d.date === date)) return true;
       // Must not be a holiday
       return !holidays.some(h => {
         if (h.date === date) return true;
@@ -90,7 +93,7 @@ export function MemberInsightsPage() {
         return false;
       });
     });
-  }, [allMemberSubs, effectiveSubStart, today, holidays, isInAnySub]);
+  }, [allMemberSubs, effectiveSubStart, today, holidays, extraWorkingDays, isInAnySub]);
 
   // Streak calculation — calendar days (weekends/holidays don't break and DO count)
   const streakData = useMemo(() => {
@@ -214,7 +217,8 @@ export function MemberInsightsPage() {
 
       if (effectiveStart <= clampedEnd) {
         // Get working days for this week, excluding holidays
-        const weekWorkingDays = getWorkingDaysInRange(effectiveStart, clampedEnd).filter(date => {
+        const weekWorkingDays = getWorkingDaysInRange(effectiveStart, clampedEnd, extraWorkingDays).filter(date => {
+          if (extraWorkingDays.some(d => d.date === date)) return true;
           return !holidays.some(h => {
             if (h.date === date) return true;
             if (h.isRecurringYearly) return h.date.substring(5) === date.substring(5);

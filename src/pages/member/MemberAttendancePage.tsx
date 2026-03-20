@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useMemberAuth } from '../../hooks/useMemberAuth';
 import { useFreshData } from '../../hooks/useFreshData';
-import { subscriptionService, slotService, attendanceService } from '../../services';
+import { subscriptionService, slotService, attendanceService, settingsService } from '../../services';
 import { PageLoading } from '../../components/common/LoadingSpinner';
 import { Card } from '../../components/common/Card';
 import {
@@ -9,6 +9,7 @@ import {
   eachDayOfInterval, getDay, parseISO,
 } from 'date-fns';
 import { ATTENDANCE_TRACKING_START_DATE } from '../../constants';
+import { isExtraWorkingDay } from '../../utils/dateUtils';
 
 export function MemberAttendancePage() {
   const { member, memberId, refreshMember } = useMemberAuth();
@@ -142,9 +143,11 @@ export function MemberAttendancePage() {
     );
   }
 
+  const extraWorkingDays = settingsService.getOrDefault().extraWorkingDays || [];
+
   const getDayStatus = (dateStr: string) => {
     const dayOfWeek = getDay(parseISO(dateStr));
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6) && !isExtraWorkingDay(dateStr, extraWorkingDays);
     const isOutsideSub = !isWithinAnySub(dateStr);
     const isFuture = dateStr > today;
 

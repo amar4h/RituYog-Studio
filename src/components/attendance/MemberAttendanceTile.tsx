@@ -28,7 +28,7 @@ export function MemberAttendanceTile({
       disabled={disabled}
       title={`${member.firstName} ${member.lastName} - ${presentDays}/${totalWorkingDays} days present${disabled ? ' (locked)' : ''}`}
       className={`
-        relative p-2 rounded-lg border-2 transition-all duration-150 text-center
+        relative p-1.5 sm:p-2 rounded-lg border-2 transition-all duration-150 text-center
         ${disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:shadow-md active:scale-95'}
         ${isPresent
           ? 'bg-green-100 border-green-400'
@@ -51,22 +51,22 @@ export function MemberAttendanceTile({
         </div>
       )}
       {/* Compact layout: Avatar + Name inline */}
-      <div className="flex items-center gap-2 mb-1">
+      <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
         <div
           className={`
-            w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold
+            w-6 h-6 sm:w-8 sm:h-8 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] sm:text-xs font-bold
             ${isPresent ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}
           `}
         >
           {initials}
         </div>
-        <p className={`font-medium text-xs truncate ${isPresent ? 'text-green-800' : 'text-red-800'}`}>
+        <p className={`font-medium text-[11px] sm:text-xs truncate ${isPresent ? 'text-green-800' : 'text-red-800'}`}>
           {member.firstName}
         </p>
       </div>
 
       {/* Attendance Count - Compact */}
-      <p className={`text-lg font-bold leading-none ${isPresent ? 'text-green-700' : 'text-red-700'}`}>
+      <p className={`text-base sm:text-lg font-bold leading-none ${isPresent ? 'text-green-700' : 'text-red-700'}`}>
         {presentDays}/{totalWorkingDays}
       </p>
     </button>

@@ -26,6 +26,7 @@ class SlotsHandler extends BaseHandler {
     public function getAvailability(): array {
         $slotId = getQueryParam('slotId');
         $date = getQueryParam('date', getToday());
+        $forTrial = getQueryParam('forTrial', '0') === '1';
 
         if (empty($slotId)) {
             throw new Exception('slotId parameter is required');
@@ -36,7 +37,11 @@ class SlotsHandler extends BaseHandler {
             throw new Exception('Slot not found');
         }
 
-        // Count membership subscriptions covering this date
+        // For trial booking: use today's membership count for future dates (members will likely renew)
+        $today = getToday();
+        $membershipDate = ($forTrial && $date > $today) ? $today : $date;
+
+        // Count membership subscriptions covering the membership date
         // Include 'expired' status to match localStorage behavior — prevents overbooking
         // when a subscription is marked expired (e.g., after renewal) but date range still covers the date
         $stmt = $this->db->prepare(
@@ -46,7 +51,7 @@ class SlotsHandler extends BaseHandler {
              AND start_date <= :dateStart
              AND end_date >= :dateEnd"
         );
-        $stmt->execute(['slotId' => $slotId, 'dateStart' => $date, 'dateEnd' => $date]);
+        $stmt->execute(['slotId' => $slotId, 'dateStart' => $membershipDate, 'dateEnd' => $membershipDate]);
         $membershipSubs = (int) $stmt->fetch()['count'];
 
         // Count slot subscriptions marked as exception

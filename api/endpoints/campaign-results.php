@@ -37,8 +37,8 @@ class CampaignResultsHandler extends BaseHandler
         );
         $slots = $stmtSlots->fetchAll();
 
-        // 2. Get holidays from settings
-        $stmtSettings = $this->db->query("SELECT holidays FROM studio_settings WHERE id = 1");
+        // 2. Get holidays and extra working days from settings
+        $stmtSettings = $this->db->query("SELECT holidays, extra_working_days FROM studio_settings WHERE id = 1");
         $settingsRow = $stmtSettings->fetch();
         $holidays = [];
         if ($settingsRow && !empty($settingsRow['holidays'])) {
@@ -47,15 +47,22 @@ class CampaignResultsHandler extends BaseHandler
                 $holidays[] = $h['date'] ?? '';
             }
         }
+        $extraWorkingDaySet = [];
+        if ($settingsRow && !empty($settingsRow['extra_working_days'])) {
+            $extraList = json_decode($settingsRow['extra_working_days'], true) ?: [];
+            foreach ($extraList as $d) {
+                $extraWorkingDaySet[$d['date'] ?? ''] = true;
+            }
+        }
 
-        // 3. Count working days (Mon-Fri, excluding holidays) in period
+        // 3. Count working days (Mon-Fri + extra working days, excluding holidays) in period
         $totalSessions = 0;
         $d = new \DateTime($campaignStart);
         $endDt = new \DateTime($effectiveEnd);
         while ($d <= $endDt) {
             $dow = (int) $d->format('N'); // 1=Mon..7=Sun
             $ds = $d->format('Y-m-d');
-            if ($dow <= 5 && !in_array($ds, $holidays)) {
+            if (isset($extraWorkingDaySet[$ds]) || ($dow <= 5 && !in_array($ds, $holidays))) {
                 $totalSessions++;
             }
             $d->modify('+1 day');

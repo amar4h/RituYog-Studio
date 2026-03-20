@@ -57,14 +57,17 @@ export const slotService = {
   },
 
   // Get slot availability for a date
-  getSlotAvailability: (slotId: string, date: string): SlotAvailability => {
+  // forTrial: use today's membership count for future dates (members will likely renew)
+  getSlotAvailability: (slotId: string, date: string, forTrial: boolean = false): SlotAvailability => {
     const slot = slotService.getById(slotId);
     if (!slot) {
       throw new Error('Slot not found');
     }
 
-    // Get active membership subscriptions for the specific date
-    const membershipSubs = subscriptionService.getActiveForSlotOnDate(slotId, date);
+    // For trial booking: use today's membership count as baseline for future dates
+    const today = new Date().toISOString().split('T')[0];
+    const membershipDate = forTrial && date > today ? today : date;
+    const membershipSubs = subscriptionService.getActiveForSlotOnDate(slotId, membershipDate);
 
     // Also check SlotSubscription for exception bookings (admin overrides)
     const slotSubscriptions = slotSubscriptionService.getActiveForSlot(slotId, date);
@@ -98,9 +101,9 @@ export const slotService = {
   },
 
   // Get all slots availability
-  getAllSlotsAvailability: (date: string): SlotAvailability[] => {
+  getAllSlotsAvailability: (date: string, forTrial: boolean = false): SlotAvailability[] => {
     const slots = slotService.getActive();
-    return slots.map(slot => slotService.getSlotAvailability(slot.id, date));
+    return slots.map(slot => slotService.getSlotAvailability(slot.id, date, forTrial));
   },
 
   // Check if slot has capacity
@@ -149,18 +152,18 @@ export const slotService = {
       return slotService.getActive();
     },
 
-    getSlotAvailability: async (slotId: string, date: string): Promise<SlotAvailability> => {
+    getSlotAvailability: async (slotId: string, date: string, forTrial: boolean = false): Promise<SlotAvailability> => {
       if (isApiMode()) {
-        return slotsApi.getAvailability(slotId, date) as Promise<SlotAvailability>;
+        return slotsApi.getAvailability(slotId, date, forTrial) as Promise<SlotAvailability>;
       }
-      return slotService.getSlotAvailability(slotId, date);
+      return slotService.getSlotAvailability(slotId, date, forTrial);
     },
 
-    getAllSlotsAvailability: async (date: string): Promise<SlotAvailability[]> => {
+    getAllSlotsAvailability: async (date: string, forTrial: boolean = false): Promise<SlotAvailability[]> => {
       if (isApiMode()) {
-        return slotsApi.getAllAvailability(date) as Promise<SlotAvailability[]>;
+        return slotsApi.getAllAvailability(date, forTrial) as Promise<SlotAvailability[]>;
       }
-      return slotService.getAllSlotsAvailability(date);
+      return slotService.getAllSlotsAvailability(date, forTrial);
     },
 
     hasCapacity: async (slotId: string, date: string, useException: boolean = false): Promise<boolean> => {

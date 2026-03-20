@@ -350,12 +350,15 @@ export const attendanceService = {
       }
     }
 
-    // Count working days (Mon-Fri) in the selected period, excluding holidays
+    // Count working days (Mon-Fri + extra working days) in the selected period, excluding holidays
     // Same for ALL members — does NOT factor in subscription dates
+    const extraWorkingDays = settings?.extraWorkingDays || [];
     const workingDays = effectivePeriodEnd >= periodStart
-      ? getWorkingDaysInRange(periodStart, effectivePeriodEnd)
+      ? getWorkingDaysInRange(periodStart, effectivePeriodEnd, extraWorkingDays)
       : [];
     const totalWorkingDays = workingDays.filter(date => {
+      // Extra working days override holidays
+      if (extraWorkingDays.some(d => d.date === date)) return true;
       const isHolidayDate = holidays.some(h => {
         if (h.date === date) return true;
         if (h.isRecurringYearly) {

@@ -5,7 +5,7 @@ import { leadService, memberService, slotService, trialBookingService, settingsS
 import { isApiMode, trialsApi } from '../../services/api';
 import { renderMarkdownContent } from '../../utils/renderMarkdown';
 import { validateEmail, validatePhone } from '../../utils/validationUtils';
-import { getToday, formatDate, isHoliday, getHolidayName } from '../../utils/dateUtils';
+import { getToday, formatDate, isHoliday, getHolidayName, isExtraWorkingDay } from '../../utils/dateUtils';
 import { format, addDays, subDays, addWeeks, isWeekend, isBefore, isAfter, startOfToday, parseISO } from 'date-fns';
 import type { MedicalCondition, ConsentRecord, Holiday, Lead, TrialBooking, SlotAvailability, SessionSlot } from '../../types';
 
@@ -33,6 +33,7 @@ export function BookTrialPage() {
   }, []);
   const settings = settingsService.getOrDefault();
   const holidays: Holiday[] = settings.holidays || [];
+  const extraWorkingDays = settings.extraWorkingDays || [];
 
   const [step, setStep] = useState<'form' | 'success'>('form');
   const [leadId, setLeadId] = useState<string | null>(null);
@@ -104,6 +105,8 @@ export function BookTrialPage() {
       if (isBefore(current, tomorrow)) continue;
       // Don't go beyond booking window
       if (isAfter(current, bookingWindowEnd)) return null;
+      // Extra working days override both weekends and holidays
+      if (isExtraWorkingDay(dateStr, extraWorkingDays)) return dateStr;
       // Skip weekends
       if (isWeekend(current)) continue;
       // Skip holidays
@@ -112,7 +115,7 @@ export function BookTrialPage() {
       return dateStr;
     }
     return null;
-  }, [holidays, bookingWindowEnd]);
+  }, [holidays, extraWorkingDays, bookingWindowEnd]);
 
   // Get initial valid date (always next working day, never today)
   const getInitialDate = useCallback(() => {
@@ -124,7 +127,7 @@ export function BookTrialPage() {
   const fetchAvailability = useCallback(async (date: string) => {
     setAvailabilityLoading(true);
     try {
-      const availability = await slotService.async.getAllSlotsAvailability(date);
+      const availability = await slotService.async.getAllSlotsAvailability(date, true);
       setSlotAvailability(availability);
     } catch (err) {
       console.error('Failed to load slot availability:', err);

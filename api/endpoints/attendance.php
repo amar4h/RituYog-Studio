@@ -288,11 +288,18 @@ class AttendanceHandler extends BaseHandler {
      * Same for all members — does NOT factor in subscription dates.
      */
     private function calculateWorkingDays(string $periodStart, string $periodEnd): int {
-        // Get holidays from settings
-        $settingsStmt = $this->db->prepare("SELECT holidays FROM studio_settings WHERE id = 1");
+        // Get holidays and extra working days from settings
+        $settingsStmt = $this->db->prepare("SELECT holidays, extra_working_days FROM studio_settings WHERE id = 1");
         $settingsStmt->execute();
         $row = $settingsStmt->fetch();
         $holidays = $row && $row['holidays'] ? json_decode($row['holidays'], true) : [];
+        $extraWorkingDays = $row && $row['extra_working_days'] ? json_decode($row['extra_working_days'], true) : [];
+
+        // Build a set of extra working day dates for fast lookup
+        $extraDaySet = [];
+        foreach ($extraWorkingDays as $d) {
+            $extraDaySet[$d['date'] ?? ''] = true;
+        }
 
         $start = new DateTime($periodStart);
         $end = new DateTime($periodEnd);
@@ -302,26 +309,33 @@ class AttendanceHandler extends BaseHandler {
         $current = clone $start;
         while ($current <= $end) {
             $dayOfWeek = (int) $current->format('N');
-            // Only weekdays (Mon=1 to Fri=5)
-            if ($dayOfWeek >= 1 && $dayOfWeek <= 5) {
-                $dateStr = $current->format('Y-m-d');
-                $isHoliday = false;
-                foreach ($holidays as $h) {
-                    $hDate = $h['date'] ?? '';
-                    if ($hDate === $dateStr) {
-                        $isHoliday = true;
-                        break;
-                    }
-                    if (!empty($h['isRecurringYearly'])) {
-                        // Compare MM-DD
-                        if (substr($hDate, 5) === substr($dateStr, 5)) {
+            $dateStr = $current->format('Y-m-d');
+            $isWeekday = $dayOfWeek >= 1 && $dayOfWeek <= 5;
+            $isExtraWorkingDay = isset($extraDaySet[$dateStr]);
+
+            if ($isWeekday || $isExtraWorkingDay) {
+                // Extra working days override holidays
+                if ($isExtraWorkingDay) {
+                    $workingDays++;
+                } else {
+                    $isHoliday = false;
+                    foreach ($holidays as $h) {
+                        $hDate = $h['date'] ?? '';
+                        if ($hDate === $dateStr) {
                             $isHoliday = true;
                             break;
                         }
+                        if (!empty($h['isRecurringYearly'])) {
+                            // Compare MM-DD
+                            if (substr($hDate, 5) === substr($dateStr, 5)) {
+                                $isHoliday = true;
+                                break;
+                            }
+                        }
                     }
-                }
-                if (!$isHoliday) {
-                    $workingDays++;
+                    if (!$isHoliday) {
+                        $workingDays++;
+                    }
                 }
             }
             $current->modify('+1 day');

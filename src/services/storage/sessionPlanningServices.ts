@@ -593,11 +593,12 @@ export const sessionExecutionService = {
 
   /**
    * Auto-complete executions for a date range (e.g., for member report periods).
-   * Only processes weekdays (Mon-Fri) since sessions don't run on weekends.
+   * Only processes weekdays (Mon-Fri) and extra working days since sessions don't run on regular weekends.
    */
   autoCompleteForDateRange: (startDate: string, endDate: string): number => {
     const today = new Date().toISOString().split('T')[0];
     const effectiveEnd = endDate > today ? today : endDate;
+    const extraWorkingDays = settingsService.get()?.extraWorkingDays || [];
     let totalCreated = 0;
 
     // Iterate through each date in the range
@@ -606,9 +607,9 @@ export const sessionExecutionService = {
 
     while (current <= end) {
       const day = current.getDay();
-      // Only weekdays (Mon=1 to Fri=5)
-      if (day >= 1 && day <= 5) {
-        const dateStr = current.toISOString().split('T')[0];
+      const dateStr = current.toISOString().split('T')[0];
+      // Weekdays (Mon=1 to Fri=5) or extra working days
+      if ((day >= 1 && day <= 5) || extraWorkingDays.some(d => d.date === dateStr)) {
         totalCreated += sessionExecutionService.autoCompleteExecutions(dateStr);
       }
       current.setDate(current.getDate() + 1);

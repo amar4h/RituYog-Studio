@@ -598,6 +598,11 @@ export interface Holiday {
   isRecurringYearly?: boolean; // For fixed-date holidays like Independence Day
 }
 
+export interface ExtraWorkingDay {
+  date: string; // YYYY-MM-DD format (must be a Saturday or Sunday)
+  reason: string; // e.g., "Makeup class for Diwali", "Special weekend session"
+}
+
 export interface StudioSettings {
   studioName: string;
   logoUrl?: string;
@@ -639,6 +644,9 @@ export interface StudioSettings {
 
   // Holidays (studio closed)
   holidays: Holiday[];
+
+  // Extra working days (weekends marked as working)
+  extraWorkingDays?: ExtraWorkingDay[];
 
   // Auth
   adminPassword?: string;
