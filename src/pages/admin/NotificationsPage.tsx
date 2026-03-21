@@ -131,7 +131,7 @@ export function NotificationsPage() {
       plan?: MembershipPlan;
     }[] = [];
 
-    const defaultPlan = { id: '', name: 'Unknown Plan', type: 'monthly' as const, price: 0, durationMonths: 1, isActive: true, allowedSessionTypes: ['offline' as const], createdAt: '', updatedAt: '' };
+    const defaultPlan = { id: '', name: 'Unknown Plan', type: 'monthly' as const, mode: 'offline' as const, price: 0, durationMonths: 1, isActive: true, allowedSessionTypes: ['offline' as const], createdAt: '', updatedAt: '' };
 
     // Renewal reminders (expiring soon) - sorted by expiry date (nearest first)
     [...expiringSubscriptions]

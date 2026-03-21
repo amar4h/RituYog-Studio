@@ -125,7 +125,7 @@ function formatDate(dateStr: string): string {
 export interface RenewalReminderData {
   member: Member;
   subscription: MembershipSubscription;
-  plan: Pick<MembershipPlan, 'name'>;
+  plan: Pick<MembershipPlan, 'name' | 'mode'>;
   templateIndex?: number;  // Which template to use (0-based index)
 }
 
@@ -136,10 +136,25 @@ export function generateRenewalReminder(data: RenewalReminderData): { phone: str
 
   const daysRemaining = differenceInDays(parseISO(subscription.endDate), new Date());
 
-  // Get active plan prices for monthly and quarterly
+  // Get active plans filtered by same mode as member's current plan
   const allPlans = membershipPlanService.getActive();
-  const monthlyPlan = allPlans.find(p => p.type === 'monthly');
-  const quarterlyPlan = allPlans.find(p => p.type === 'quarterly');
+  const planMode = plan.mode || 'offline';
+  const sameModeMonthly = allPlans.find(p => p.type === 'monthly' && (p.mode || 'offline') === planMode);
+  const sameModeQuarterly = allPlans.find(p => p.type === 'quarterly' && (p.mode || 'offline') === planMode);
+
+  // Build available plans list (same mode, sorted by duration)
+  const sameModePlans = allPlans
+    .filter(p => (p.mode || 'offline') === planMode)
+    .sort((a, b) => a.durationMonths - b.durationMonths);
+  const monthlyPrice = sameModePlans.find(p => p.type === 'monthly')?.price;
+  const availablePlansList = sameModePlans.map(p => {
+    let line = `${p.name}: ${formatAmount(p.price)}`;
+    if (monthlyPrice && p.durationMonths > 1) {
+      const savings = (monthlyPrice * p.durationMonths) - p.price;
+      if (savings > 0) line += ` (Save ${formatAmount(savings)})`;
+    }
+    return line;
+  }).join('\n');
 
   // Calculate discount percentage
   const discountPercent = subscription.originalAmount > 0
@@ -159,8 +174,9 @@ export function generateRenewalReminder(data: RenewalReminderData): { phone: str
     payableAmount: formatAmount(subscription.payableAmount),
     currentDiscount: formatAmount(subscription.discountAmount),
     discountPercent: `${discountPercent}%`,
-    monthlyPlanPrice: monthlyPlan ? formatAmount(monthlyPlan.price) : 'N/A',
-    quarterlyPlanPrice: quarterlyPlan ? formatAmount(quarterlyPlan.price) : 'N/A',
+    monthlyPlanPrice: sameModeMonthly ? formatAmount(sameModeMonthly.price) : 'N/A',
+    quarterlyPlanPrice: sameModeQuarterly ? formatAmount(sameModeQuarterly.price) : 'N/A',
+    availablePlans: availablePlansList || 'N/A',
     ...studioInfo,
   };
 

@@ -103,7 +103,7 @@ export function LeadListPage() {
           const slot = slots.find(s => s.id === lead.trialSlotId);
           return (
             <div className="text-sm">
-              <p className="text-gray-900">{formatDate(lead.trialDate)}</p>
+              <p className="text-gray-900 whitespace-nowrap">{formatDate(lead.trialDate)}</p>
               <p className="text-gray-500">{slot?.displayName}</p>
             </div>
           );

@@ -445,7 +445,7 @@ export function DashboardPage() {
       )}
 
       {/* Slot utilization and expiring members */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
         {/* Slot utilization */}
         <Card title="Session Slots" subtitle={`Today: ${formatDate(today)}`}>
           <div className="space-y-4">

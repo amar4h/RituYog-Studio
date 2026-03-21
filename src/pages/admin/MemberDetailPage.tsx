@@ -221,7 +221,7 @@ export function MemberDetailPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
         <div>
           <Link to="/admin/members" className="text-sm text-gray-500 hover:text-gray-700">
             ← Back to Members
@@ -236,7 +236,7 @@ export function MemberDetailPage() {
             )}
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link to={`/admin/members/${member.id}/edit`}>
             <Button variant="outline">Edit</Button>
           </Link>
@@ -830,7 +830,7 @@ export function MemberDetailPage() {
             whatsappService.generateRenewalReminder({
               member,
               subscription,
-              plan: membershipPlanService.getById(subscription.planId) || { name: 'Membership' },
+              plan: membershipPlanService.getById(subscription.planId) || { name: 'Membership', mode: 'offline' as const },
               templateIndex,
             }).link
           }

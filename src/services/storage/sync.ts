@@ -188,37 +188,27 @@ export async function syncEssentialData(): Promise<void> {
   const { markSynced } = await import('../../hooks/useFreshData');
 
   try {
-    // Fetch essential (settings, slots, plans) + common data (members, subscriptions,
-    // leads, invoices, payments) in a single parallel batch on startup.
-    // This way the dashboard (and most admin pages) render instantly from cache.
-    const [slots, settings, plansData, members, subscriptions, leads, invoices, payments] = await Promise.all([
+    // Fetch only truly essential data on startup (settings, slots, plans).
+    // Heavy collections (members, subscriptions, leads, invoices, payments)
+    // are fetched on-demand by each page via useFreshData with stale-while-revalidate.
+    const [slots, settings, plansData] = await Promise.all([
       slotsApi.getAll().catch(() => []),
       settingsApi.get().catch(() => null),
       fetch(`${TIERED_API_URL}/plans`, {
         headers: { 'X-API-Key': TIERED_API_KEY },
       }).then(r => r.json()).catch(() => []),
-      membersApi.getAll().catch(() => []),
-      subscriptionsApi.getAll().catch(() => []),
-      leadsApi.getAll().catch(() => []),
-      invoicesApi.getAll().catch(() => []),
-      paymentsApi.getAll().catch(() => []),
     ]);
 
     // Store in localStorage
     saveAll(STORAGE_KEYS.SESSION_SLOTS, slots as SessionSlot[]);
     saveAll(STORAGE_KEYS.MEMBERSHIP_PLANS, Array.isArray(plansData) ? plansData : plansData.data || []);
-    saveAll(STORAGE_KEYS.MEMBERS, members as Member[]);
-    saveAll(STORAGE_KEYS.SUBSCRIPTIONS, subscriptions as MembershipSubscription[]);
-    saveAll(STORAGE_KEYS.LEADS, leads as Lead[]);
-    saveAll(STORAGE_KEYS.INVOICES, invoices as Invoice[]);
-    saveAll(STORAGE_KEYS.PAYMENTS, payments as Payment[]);
 
     if (settings) {
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
     }
 
-    // Mark all pre-fetched types in TTL cache so useFreshData skips re-fetching
-    markSynced(['slots', 'plans', 'settings', 'members', 'subscriptions', 'leads', 'invoices', 'payments']);
+    // Mark only pre-fetched types in TTL cache
+    markSynced(['slots', 'plans', 'settings']);
 
     // Mark essential sync as completed
     localStorage.setItem('yoga_studio_essential_synced', new Date().toISOString());
@@ -226,7 +216,6 @@ export async function syncEssentialData(): Promise<void> {
     console.log('[Storage] Essential sync complete:', {
       slots: (slots as SessionSlot[]).length,
       plans: (Array.isArray(plansData) ? plansData : plansData.data || []).length,
-      members: (members as Member[]).length,
       settings: settings ? 'loaded' : 'none',
     });
   } catch (error) {

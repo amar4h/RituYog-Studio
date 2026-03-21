@@ -477,7 +477,7 @@ export function AttendancePage() {
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
+        <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-6 text-center">
           <p className="text-gray-500 text-sm">Select a session above to mark attendance</p>
         </div>
       )}

@@ -172,7 +172,7 @@ export function LeadDetailPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
         <div>
           <Link to="/admin/leads" className="text-sm text-gray-500 hover:text-gray-700">
             ← Back to Leads

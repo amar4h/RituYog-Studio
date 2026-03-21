@@ -177,7 +177,7 @@ export function InvoiceListPage() {
       key: 'date',
       header: 'Date',
       render: (invoice) => (
-        <span className="text-gray-600">{formatDate(invoice.invoiceDate)}</span>
+        <span className="text-gray-600 whitespace-nowrap">{formatDate(invoice.invoiceDate)}</span>
       ),
     },
     {

@@ -72,6 +72,7 @@ export function PlanListPage() {
         membershipPlanService.create({
           name: formData.name.trim(),
           type: formData.type,
+          mode: 'offline',
           price: formData.price,
           durationMonths: formData.durationMonths,
           description: formData.description.trim() || undefined,

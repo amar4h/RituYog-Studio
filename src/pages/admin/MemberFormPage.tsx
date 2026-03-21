@@ -375,11 +375,11 @@ export function MemberFormPage() {
           </Card>
 
           {/* Submit */}
-          <div className="flex justify-end gap-4 pt-2">
-            <Link to="/admin/members">
-              <Button type="button" variant="outline">Cancel</Button>
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-4 pt-2">
+            <Link to="/admin/members" className="w-full sm:w-auto">
+              <Button type="button" variant="outline" className="w-full sm:w-auto">Cancel</Button>
             </Link>
-            <Button type="submit" loading={loading}>
+            <Button type="submit" loading={loading} className="w-full sm:w-auto">
               {isEditing ? 'Update Member' : 'Create Member'}
             </Button>
           </div>

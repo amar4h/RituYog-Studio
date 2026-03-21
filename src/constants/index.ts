@@ -74,6 +74,7 @@ export const DEFAULT_MEMBERSHIP_PLANS: Omit<MembershipPlan, 'id' | 'createdAt' |
   {
     name: 'Monthly',
     type: 'monthly',
+    mode: 'offline',
     price: 2100,
     durationMonths: 1,
     description: 'Unlimited yoga sessions for 1 month. Access to your assigned slot Monday to Friday.',
@@ -88,6 +89,7 @@ export const DEFAULT_MEMBERSHIP_PLANS: Omit<MembershipPlan, 'id' | 'createdAt' |
   {
     name: 'Quarterly',
     type: 'quarterly',
+    mode: 'offline',
     price: 5500,
     durationMonths: 3,
     description: 'Unlimited yoga sessions for 3 months. Access to your assigned slot Monday to Friday. Save ₹800!',
@@ -103,6 +105,7 @@ export const DEFAULT_MEMBERSHIP_PLANS: Omit<MembershipPlan, 'id' | 'createdAt' |
   {
     name: 'Semi-Annual',
     type: 'semi-annual',
+    mode: 'offline',
     price: 10000,
     durationMonths: 6,
     description: 'Unlimited yoga sessions for 6 months. Access to your assigned slot Monday to Friday. Save ₹2,600!',
@@ -440,8 +443,9 @@ export const WHATSAPP_PLACEHOLDERS = {
     { key: '{payableAmount}', description: 'Total payable amount' },
     { key: '{currentDiscount}', description: 'Current subscription discount' },
     { key: '{discountPercent}', description: 'Discount percentage (e.g., 10%)' },
-    { key: '{monthlyPlanPrice}', description: 'Active monthly plan price' },
-    { key: '{quarterlyPlanPrice}', description: 'Active quarterly plan price' },
+    { key: '{monthlyPlanPrice}', description: 'Monthly plan price (same mode as member)' },
+    { key: '{quarterlyPlanPrice}', description: 'Quarterly plan price (same mode as member)' },
+    { key: '{availablePlans}', description: 'List of all plans with prices (same mode as member)' },
   ],
   class: [
     { key: '{classTime}', description: 'Session time' },

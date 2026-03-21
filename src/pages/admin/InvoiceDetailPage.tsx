@@ -200,7 +200,7 @@ export function InvoiceDetailPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
         <div>
           <Link to="/admin/invoices" className="text-sm text-gray-500 hover:text-gray-700">
             ← Back to Invoices
@@ -214,7 +214,7 @@ export function InvoiceDetailPage() {
             <span className="text-gray-600">{formatDate(invoice.invoiceDate)}</span>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {invoice.status !== 'paid' && balance > 0 && (
             <Link to="/admin/payments/record" state={{ invoiceId: invoice.id }}>
               <Button>Record Payment</Button>

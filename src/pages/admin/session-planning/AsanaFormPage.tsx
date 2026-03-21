@@ -398,7 +398,7 @@ export function AsanaFormPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Type <span className="text-red-500">*</span>
               </label>
-              <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
                 {ASANA_TYPE_OPTIONS.map(option => (
                   <button
                     key={option.value}
@@ -448,7 +448,7 @@ export function AsanaFormPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Difficulty <span className="text-red-500">*</span>
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {DIFFICULTY_LEVEL_OPTIONS.map(option => (
                   <button
                     key={option.value}
@@ -483,7 +483,7 @@ export function AsanaFormPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Breathing Cue
                 </label>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {/* No specific cue option */}
                   <button
                     type="button"

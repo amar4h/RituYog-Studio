@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, Button, Input, Modal, StatusBadge } from '../../../components/common';
 import { membershipPlanService } from '../../../services';
 import { formatCurrency } from '../../../utils/formatUtils';
-import type { MembershipPlan } from '../../../types';
+import type { MembershipPlan, SessionType } from '../../../types';
 import type { SettingsTabProps } from './types';
 
 export function MembershipsTab({ setError, setSuccess }: SettingsTabProps) {
@@ -11,6 +11,7 @@ export function MembershipsTab({ setError, setSuccess }: SettingsTabProps) {
   const [planFormData, setPlanFormData] = useState({
     name: '',
     type: 'monthly' as MembershipPlan['type'],
+    mode: 'offline' as SessionType,
     price: 0,
     durationMonths: 1,
     description: '',
@@ -25,6 +26,7 @@ export function MembershipsTab({ setError, setSuccess }: SettingsTabProps) {
       setPlanFormData({
         name: plan.name,
         type: plan.type,
+        mode: plan.mode || 'offline',
         price: plan.price,
         durationMonths: plan.durationMonths,
         description: plan.description || '',
@@ -35,6 +37,7 @@ export function MembershipsTab({ setError, setSuccess }: SettingsTabProps) {
       setPlanFormData({
         name: '',
         type: 'monthly',
+        mode: 'offline',
         price: 0,
         durationMonths: 1,
         description: '',
@@ -60,6 +63,7 @@ export function MembershipsTab({ setError, setSuccess }: SettingsTabProps) {
         membershipPlanService.update(editingPlan.id, {
           name: planFormData.name.trim(),
           type: planFormData.type,
+          mode: planFormData.mode,
           price: planFormData.price,
           durationMonths: planFormData.durationMonths,
           description: planFormData.description.trim() || undefined,
@@ -70,11 +74,12 @@ export function MembershipsTab({ setError, setSuccess }: SettingsTabProps) {
         membershipPlanService.create({
           name: planFormData.name.trim(),
           type: planFormData.type,
+          mode: planFormData.mode,
           price: planFormData.price,
           durationMonths: planFormData.durationMonths,
           description: planFormData.description.trim() || undefined,
           isActive: planFormData.isActive,
-          allowedSessionTypes: ['offline'],
+          allowedSessionTypes: [planFormData.mode],
         });
         setSuccess('Plan created successfully');
       }
@@ -122,7 +127,7 @@ export function MembershipsTab({ setError, setSuccess }: SettingsTabProps) {
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">{plan.name}</h3>
-                    <p className="text-sm text-gray-500 capitalize">{plan.type}</p>
+                    <p className="text-sm text-gray-500 capitalize">{plan.type} &middot; {plan.mode || 'offline'}</p>
                   </div>
                   <StatusBadge status={plan.isActive ? 'active' : 'inactive'} />
                 </div>
@@ -211,6 +216,21 @@ export function MembershipsTab({ setError, setSuccess }: SettingsTabProps) {
               value={planFormData.durationMonths}
               onChange={(e) => setPlanFormData(prev => ({ ...prev, durationMonths: parseInt(e.target.value) || 1 }))}
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Mode
+            </label>
+            <select
+              value={planFormData.mode}
+              onChange={(e) => setPlanFormData(prev => ({ ...prev, mode: e.target.value as SessionType }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="offline">Offline</option>
+              <option value="online">Online</option>
+              <option value="hybrid">Hybrid</option>
+            </select>
           </div>
 
           <Input

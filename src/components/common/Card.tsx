@@ -39,7 +39,7 @@ export function Card({
       onClick={onClick}
     >
       {(title || actions) && (
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100/80">
+        <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-b border-gray-100/80">
           <div>
             {title && <h3 className="text-lg font-semibold text-gray-900">{title}</h3>}
             {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}

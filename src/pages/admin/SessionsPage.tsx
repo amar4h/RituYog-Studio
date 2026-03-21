@@ -320,7 +320,7 @@ export function SessionsPage() {
             <div className="space-y-4">
               {/* Capacity Info */}
               <div className="p-4 bg-gray-50 rounded-lg space-y-3">
-                <div className="grid grid-cols-3 gap-3 sm:gap-8">
+                <div className="grid grid-cols-3 gap-2 sm:gap-4 lg:gap-8">
                   <div>
                     <p className="text-xs sm:text-sm text-gray-500">Booked / Capacity</p>
                     <p className={`text-xl sm:text-2xl font-bold ${data.isOverbooked ? 'text-red-600' : 'text-gray-900'}`}>

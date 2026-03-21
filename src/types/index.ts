@@ -158,6 +158,7 @@ export type MembershipPlanType = 'trial' | 'monthly' | 'quarterly' | 'semi-annua
 export interface MembershipPlan extends BaseEntity {
   name: string;
   type: MembershipPlanType;
+  mode: SessionType; // 'offline' | 'online' | 'hybrid'
   price: number;
   durationMonths: number; // duration in months (1 = monthly, 3 = quarterly, 6 = semi-annual)
   classesIncluded?: number; // for class-pack type

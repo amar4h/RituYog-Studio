@@ -52,6 +52,7 @@ CREATE TABLE membership_plans (
     description TEXT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     allowed_session_types JSON NOT NULL,  -- Array of session types
+    mode ENUM('offline', 'online', 'hybrid') NOT NULL DEFAULT 'offline',
     features JSON NULL,  -- Array of feature strings
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -530,10 +531,10 @@ INSERT INTO session_slots (id, start_time, end_time, display_name, capacity, exc
 ('slot-online', '00:00', '23:59', 'Online', 100, 0, 'online', TRUE);
 
 -- Default membership plans
-INSERT INTO membership_plans (id, name, type, price, duration_months, description, is_active, allowed_session_types, features) VALUES
-(UUID(), 'Monthly', 'monthly', 2100.00, 1, 'Unlimited yoga sessions for 1 month. Access to your assigned slot Monday to Friday.', TRUE, '["offline"]', '["Unlimited sessions (Mon-Fri)", "One assigned slot", "Access to all class types"]'),
-(UUID(), 'Quarterly', 'quarterly', 5500.00, 3, 'Unlimited yoga sessions for 3 months. Access to your assigned slot Monday to Friday. Save ₹800!', TRUE, '["offline"]', '["Unlimited sessions (Mon-Fri)", "One assigned slot", "Access to all class types", "Save ₹800 vs monthly"]'),
-(UUID(), 'Semi-Annual', 'semi-annual', 10000.00, 6, 'Unlimited yoga sessions for 6 months. Access to your assigned slot Monday to Friday. Save ₹2,600!', TRUE, '["offline"]', '["Unlimited sessions (Mon-Fri)", "One assigned slot", "Access to all class types", "Save ₹2,600 vs monthly"]');
+INSERT INTO membership_plans (id, name, type, price, duration_months, description, is_active, allowed_session_types, mode, features) VALUES
+(UUID(), 'Monthly', 'monthly', 2100.00, 1, 'Unlimited yoga sessions for 1 month. Access to your assigned slot Monday to Friday.', TRUE, '["offline"]', 'offline', '["Unlimited sessions (Mon-Fri)", "One assigned slot", "Access to all class types"]'),
+(UUID(), 'Quarterly', 'quarterly', 5500.00, 3, 'Unlimited yoga sessions for 3 months. Access to your assigned slot Monday to Friday. Save ₹800!', TRUE, '["offline"]', 'offline', '["Unlimited sessions (Mon-Fri)", "One assigned slot", "Access to all class types", "Save ₹800 vs monthly"]'),
+(UUID(), 'Semi-Annual', 'semi-annual', 10000.00, 6, 'Unlimited yoga sessions for 6 months. Access to your assigned slot Monday to Friday. Save ₹2,600!', TRUE, '["offline"]', 'offline', '["Unlimited sessions (Mon-Fri)", "One assigned slot", "Access to all class types", "Save ₹2,600 vs monthly"]');
 
 -- Default studio settings
 INSERT INTO studio_settings (id, studio_name, currency, timezone, working_hours, terms_and_conditions, health_disclaimer, invoice_template, holidays) VALUES

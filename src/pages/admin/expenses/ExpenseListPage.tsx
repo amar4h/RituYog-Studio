@@ -249,7 +249,7 @@ export function ExpenseListPage() {
         </div>
 
         {/* Spending row */}
-        <div className="grid grid-cols-3 gap-3 mb-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
           <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
             <div className="text-xs text-gray-500 font-medium">Total Spent</div>
             <div className="text-lg font-bold text-gray-900 mt-0.5">{formatCurrency(bd.totalSpent)}</div>
