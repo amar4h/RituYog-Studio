@@ -68,11 +68,12 @@ export const memberService = {
       }
     }
 
-    // Then: update member statuses
+    // Then: update member statuses (re-read subscriptions after status updates above)
+    const updatedSubscriptions = getAll<MembershipSubscription>(STORAGE_KEYS.SUBSCRIPTIONS);
     for (const member of members) {
-      if (member.status !== 'active') continue;
+      if (member.status !== 'active' && member.status !== 'expired') continue;
 
-      const memberSubs = subscriptions.filter(s => s.memberId === member.id);
+      const memberSubs = updatedSubscriptions.filter(s => s.memberId === member.id);
 
       // Check if member has any currently active or future subscription
       const hasActiveOrFuture = memberSubs.some(s =>
@@ -81,7 +82,9 @@ export const memberService = {
         (s.status === 'active' && s.startDate > today)
       );
 
-      if (!hasActiveOrFuture) {
+      if (hasActiveOrFuture && member.status !== 'active') {
+        updateDual<Member>(STORAGE_KEYS.MEMBERS, member.id, { status: 'active' as Member['status'] });
+      } else if (!hasActiveOrFuture && member.status === 'active') {
         updateDual<Member>(STORAGE_KEYS.MEMBERS, member.id, { status: 'expired' as Member['status'] });
       }
     }

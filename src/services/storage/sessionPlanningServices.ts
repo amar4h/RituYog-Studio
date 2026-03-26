@@ -20,7 +20,8 @@ import {
   BODY_AREA_LABELS,
   MS_PER_DAY,
 } from '../../constants';
-import { getAll, getById, createDual, updateDual, removeDual } from './helpers';
+import { getAll, getById, create, update, remove, createDual, updateDual, removeDual } from './helpers';
+import { isApiMode, asanasApi, sessionPlansApi, sessionPlanAllocationsApi, sessionExecutionsApi } from '../api';
 import { memberService } from './memberService';
 import { slotService } from './slotService';
 import { settingsService } from './settingsService';
@@ -174,6 +175,48 @@ export const asanaService = {
       .map(child => asanaService.getById(child.asanaId)?.name || '?')
       .join(' → ');
     return `${asana.name}: ${childNames}`;
+  },
+
+  // ============================================
+  // ASYNC METHODS - Dual-mode support
+  // Use these in React Query or async contexts
+  // ============================================
+  async: {
+    getAll: async (): Promise<Asana[]> => {
+      if (isApiMode()) {
+        return asanasApi.getAll() as Promise<Asana[]>;
+      }
+      return getAll<Asana>(STORAGE_KEYS.ASANAS);
+    },
+
+    getById: async (id: string): Promise<Asana | null> => {
+      if (isApiMode()) {
+        return asanasApi.getById(id) as Promise<Asana | null>;
+      }
+      return getById<Asana>(STORAGE_KEYS.ASANAS, id);
+    },
+
+    create: async (data: Omit<Asana, 'id' | 'createdAt' | 'updatedAt'>): Promise<Asana> => {
+      if (isApiMode()) {
+        return asanasApi.create(data as any) as Promise<Asana>;
+      }
+      return create<Asana>(STORAGE_KEYS.ASANAS, data);
+    },
+
+    update: async (id: string, data: Partial<Asana>): Promise<Asana | null> => {
+      if (isApiMode()) {
+        return asanasApi.update(id, data as any) as Promise<Asana | null>;
+      }
+      return update<Asana>(STORAGE_KEYS.ASANAS, id, data);
+    },
+
+    delete: async (id: string): Promise<boolean> => {
+      if (isApiMode()) {
+        const result = await asanasApi.delete(id);
+        return result.deleted;
+      }
+      return remove<Asana>(STORAGE_KEYS.ASANAS, id);
+    },
   },
 };
 
@@ -346,6 +389,48 @@ export const sessionPlanService = {
       (p.description && p.description.toLowerCase().includes(lower))
     );
   },
+
+  // ============================================
+  // ASYNC METHODS - Dual-mode support
+  // Use these in React Query or async contexts
+  // ============================================
+  async: {
+    getAll: async (): Promise<SessionPlan[]> => {
+      if (isApiMode()) {
+        return sessionPlansApi.getAll() as Promise<SessionPlan[]>;
+      }
+      return getAll<SessionPlan>(STORAGE_KEYS.SESSION_PLANS);
+    },
+
+    getById: async (id: string): Promise<SessionPlan | null> => {
+      if (isApiMode()) {
+        return sessionPlansApi.getById(id) as Promise<SessionPlan | null>;
+      }
+      return getById<SessionPlan>(STORAGE_KEYS.SESSION_PLANS, id);
+    },
+
+    create: async (data: Omit<SessionPlan, 'id' | 'createdAt' | 'updatedAt'>): Promise<SessionPlan> => {
+      if (isApiMode()) {
+        return sessionPlansApi.create(data as any) as Promise<SessionPlan>;
+      }
+      return create<SessionPlan>(STORAGE_KEYS.SESSION_PLANS, data);
+    },
+
+    update: async (id: string, data: Partial<SessionPlan>): Promise<SessionPlan | null> => {
+      if (isApiMode()) {
+        return sessionPlansApi.update(id, data as any) as Promise<SessionPlan | null>;
+      }
+      return update<SessionPlan>(STORAGE_KEYS.SESSION_PLANS, id, data);
+    },
+
+    delete: async (id: string): Promise<boolean> => {
+      if (isApiMode()) {
+        const result = await sessionPlansApi.delete(id);
+        return result.deleted;
+      }
+      return remove<SessionPlan>(STORAGE_KEYS.SESSION_PLANS, id);
+    },
+  },
 };
 
 // ============================================
@@ -434,6 +519,48 @@ export const sessionPlanAllocationService = {
   },
 
   delete: (id: string) => removeDual<SessionPlanAllocation>(STORAGE_KEYS.SESSION_PLAN_ALLOCATIONS, id),
+
+  // ============================================
+  // ASYNC METHODS - Dual-mode support
+  // Use these in React Query or async contexts
+  // ============================================
+  async: {
+    getAll: async (): Promise<SessionPlanAllocation[]> => {
+      if (isApiMode()) {
+        return sessionPlanAllocationsApi.getAll() as Promise<SessionPlanAllocation[]>;
+      }
+      return getAll<SessionPlanAllocation>(STORAGE_KEYS.SESSION_PLAN_ALLOCATIONS);
+    },
+
+    getById: async (id: string): Promise<SessionPlanAllocation | null> => {
+      if (isApiMode()) {
+        return sessionPlanAllocationsApi.getById(id) as Promise<SessionPlanAllocation | null>;
+      }
+      return getById<SessionPlanAllocation>(STORAGE_KEYS.SESSION_PLAN_ALLOCATIONS, id);
+    },
+
+    create: async (data: Omit<SessionPlanAllocation, 'id' | 'createdAt' | 'updatedAt'>): Promise<SessionPlanAllocation> => {
+      if (isApiMode()) {
+        return sessionPlanAllocationsApi.create(data as any) as Promise<SessionPlanAllocation>;
+      }
+      return create<SessionPlanAllocation>(STORAGE_KEYS.SESSION_PLAN_ALLOCATIONS, data);
+    },
+
+    update: async (id: string, data: Partial<SessionPlanAllocation>): Promise<SessionPlanAllocation | null> => {
+      if (isApiMode()) {
+        return sessionPlanAllocationsApi.update(id, data as any) as Promise<SessionPlanAllocation | null>;
+      }
+      return update<SessionPlanAllocation>(STORAGE_KEYS.SESSION_PLAN_ALLOCATIONS, id, data);
+    },
+
+    delete: async (id: string): Promise<boolean> => {
+      if (isApiMode()) {
+        const result = await sessionPlanAllocationsApi.delete(id);
+        return result.deleted;
+      }
+      return remove<SessionPlanAllocation>(STORAGE_KEYS.SESSION_PLAN_ALLOCATIONS, id);
+    },
+  },
 };
 
 // ============================================
@@ -616,6 +743,48 @@ export const sessionExecutionService = {
     }
 
     return totalCreated;
+  },
+
+  // ============================================
+  // ASYNC METHODS - Dual-mode support
+  // Use these in React Query or async contexts
+  // ============================================
+  async: {
+    getAll: async (): Promise<SessionExecution[]> => {
+      if (isApiMode()) {
+        return sessionExecutionsApi.getAll() as Promise<SessionExecution[]>;
+      }
+      return getAll<SessionExecution>(STORAGE_KEYS.SESSION_EXECUTIONS);
+    },
+
+    getById: async (id: string): Promise<SessionExecution | null> => {
+      if (isApiMode()) {
+        return sessionExecutionsApi.getById(id) as Promise<SessionExecution | null>;
+      }
+      return getById<SessionExecution>(STORAGE_KEYS.SESSION_EXECUTIONS, id);
+    },
+
+    create: async (data: Omit<SessionExecution, 'id' | 'createdAt' | 'updatedAt'>): Promise<SessionExecution> => {
+      if (isApiMode()) {
+        return sessionExecutionsApi.create(data as any) as Promise<SessionExecution>;
+      }
+      return create<SessionExecution>(STORAGE_KEYS.SESSION_EXECUTIONS, data);
+    },
+
+    update: async (id: string, data: Partial<SessionExecution>): Promise<SessionExecution | null> => {
+      if (isApiMode()) {
+        return sessionExecutionsApi.update(id, data as any) as Promise<SessionExecution | null>;
+      }
+      return update<SessionExecution>(STORAGE_KEYS.SESSION_EXECUTIONS, id, data);
+    },
+
+    delete: async (id: string): Promise<boolean> => {
+      if (isApiMode()) {
+        const result = await sessionExecutionsApi.delete(id);
+        return result.deleted;
+      }
+      return remove<SessionExecution>(STORAGE_KEYS.SESSION_EXECUTIONS, id);
+    },
   },
 };
 

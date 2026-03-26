@@ -22,11 +22,13 @@ export function SessionPlanDetailPage() {
   const [allocateDate, setAllocateDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [allocateSuccess, setAllocateSuccess] = useState('');
   const [allocateError, setAllocateError] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const plan = useMemo(() => {
     if (isLoading || !id) return null;
     return sessionPlanService.getById(id);
-  }, [id, isLoading]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isLoading, refreshKey]);
 
   const allAsanas = useMemo(() => {
     if (isLoading) return [];
@@ -36,19 +38,21 @@ export function SessionPlanDetailPage() {
   const overuseWarning = useMemo(() => {
     if (!id) return { isOverused: false };
     return sessionPlanService.getOveruseWarning(id);
-  }, [id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, refreshKey]);
 
   // All executions for this plan (for computing usage count and past sessions)
   const allExecutions = useMemo(() => {
     if (isLoading || !id) return [];
     return sessionExecutionService.getByPlan(id);
-  }, [id, isLoading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isLoading, refreshKey]);
 
   // Actual usage count = number of unique dates this plan was executed
   const actualUsageCount = useMemo(() => {
     const uniqueDates = new Set(allExecutions.map(e => e.date));
     return uniqueDates.size;
-  }, [allExecutions]);
+  }, [allExecutions, refreshKey]);
 
   // Past executions for this plan (attendee count from attendance records — source of truth)
   const pastExecutions = useMemo(() => {
@@ -69,7 +73,8 @@ export function SessionPlanDetailPage() {
           attendeeCount: present || e.attendeeCount || e.memberIds.length,
         };
       });
-  }, [id, isLoading, allExecutions]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isLoading, allExecutions, refreshKey]);
 
   // Future allocations for this plan
   const futureAllocations = useMemo(() => {
@@ -84,7 +89,8 @@ export function SessionPlanDetailPage() {
         date: a.date,
         slotName: slotMap.get(a.slotId) || a.slotId,
       }));
-  }, [id, isLoading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isLoading, refreshKey]);
 
   if (isLoading) {
     return <PageLoading />;
@@ -168,6 +174,7 @@ export function SessionPlanDetailPage() {
       setAllocateSuccess(`Allocated to all batches on ${format(new Date(allocateDate + 'T00:00:00'), 'dd MMM yyyy')}`);
       setAllocateError('');
       setShowAllocateModal(false);
+      setRefreshKey(k => k + 1);
     } catch (err: any) {
       setAllocateError(err.message || 'Failed to allocate plan');
     }
@@ -423,7 +430,11 @@ export function SessionPlanDetailPage() {
                               <div className="flex-1 min-w-0">
                                 {isVinyasa ? (
                                   <span className="text-gray-900 break-words">
-                                    <span className="font-medium text-pink-600">{asana?.name}</span>
+                                    {asana ? (
+                                      <Link to={`/admin/asanas/${asana.id}`} className="font-medium text-pink-600 hover:text-pink-800">{asana.name}</Link>
+                                    ) : (
+                                      <span className="font-medium text-pink-600">Unknown</span>
+                                    )}
                                     {asana?.type === 'surya_namaskar' && asana?.childAsanas?.length ? (
                                       <>
                                         <button
@@ -457,7 +468,11 @@ export function SessionPlanDetailPage() {
                                   </span>
                                 ) : (
                                   <>
-                                    <span className="font-medium text-gray-900">{asana?.name || 'Unknown Asana'}</span>
+                                    {asana ? (
+                                      <Link to={`/admin/asanas/${asana.id}`} className="font-medium text-indigo-600 hover:text-indigo-800">{asana.name}</Link>
+                                    ) : (
+                                      <span className="font-medium text-gray-900">Unknown Asana</span>
+                                    )}
                                     {sanskritName && (
                                       <span className="text-gray-400 text-xs italic ml-1">({sanskritName})</span>
                                     )}

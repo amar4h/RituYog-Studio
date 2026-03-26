@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, Button, Alert, PageLoading, Modal, Badge, Input } from '../../../components/common';
 import {
   sessionPlanAllocationService,
@@ -173,7 +174,7 @@ function SlotTile({ slot, date, allocation, plan, hasExecution, onAllocate, onCa
 
       {plan ? (
         <div className="space-y-2">
-          <div className="font-medium text-gray-900 text-sm">{plan.name}</div>
+          <Link to={`/admin/session-plans/${plan.id}`} className="font-medium text-indigo-600 hover:text-indigo-800 text-sm" onClick={(e) => e.stopPropagation()}>{plan.name}</Link>
           <div className="flex items-center gap-2">
             <Badge variant={plan.level === 'beginner' ? 'green' : plan.level === 'intermediate' ? 'yellow' : 'red'}>
               {plan.level}

@@ -212,6 +212,16 @@ export function SessionPlanListPage() {
       ),
     },
     {
+      key: 'createdAt',
+      header: 'Created',
+      sortValue: (plan) => plan.createdAt || '',
+      render: (plan) => (
+        <span className="text-gray-500 text-sm whitespace-nowrap">
+          {plan.createdAt ? format(new Date(plan.createdAt), 'dd MMM yyyy') : '—'}
+        </span>
+      ),
+    },
+    {
       key: 'actions',
       header: '',
       render: (plan) => (

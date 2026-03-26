@@ -1,8 +1,73 @@
-import { useState, useMemo, FormEvent } from 'react';
+import { useState, useMemo, useEffect, FormEvent } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useMemberAuth } from '../../hooks/useMemberAuth';
 import { useFreshData } from '../../hooks/useFreshData';
 import { memberAuthService, memberService, subscriptionService, attendanceService, slotService } from '../../services';
+
+// ── Install App Banner ──
+function InstallAppBanner() {
+  const [dismissed, setDismissed] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+
+  useEffect(() => {
+    // Check if already running as PWA
+    const standalone = window.matchMedia('(display-mode: standalone)').matches
+      || (navigator as any).standalone === true;
+    setIsStandalone(standalone);
+    // Check if previously dismissed
+    if (sessionStorage.getItem('pwa-banner-dismissed')) {
+      setDismissed(true);
+    }
+  }, []);
+
+  if (isStandalone || dismissed) return null;
+
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const isAndroid = /Android/.test(navigator.userAgent);
+
+  // Only show on mobile
+  if (!isIOS && !isAndroid) return null;
+
+  const handleDismiss = () => {
+    setDismissed(true);
+    sessionStorage.setItem('pwa-banner-dismissed', '1');
+  };
+
+  return (
+    <div className="w-full max-w-sm">
+      <div className="bg-white border border-indigo-200 rounded-2xl p-4 shadow-sm relative">
+        <button
+          onClick={handleDismiss}
+          className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 p-1"
+          aria-label="Dismiss"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+          </div>
+          <div className="flex-1 pr-4">
+            <h3 className="text-sm font-semibold text-gray-900">Install RituYog App</h3>
+            {isIOS ? (
+              <p className="text-xs text-gray-500 mt-1">
+                Tap <span className="inline-flex items-center"><svg className="w-3.5 h-3.5 text-blue-500 mx-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></span> Share, then <strong>"Add to Home Screen"</strong>
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500 mt-1">
+                Tap <strong>&#8942;</strong> menu, then <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Monthly Attendance Challenge ──
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -444,6 +509,9 @@ export function MemberLoginPage() {
               </div>
             </div>
           </div>
+
+          {/* Install app banner */}
+          <InstallAppBanner />
 
           {/* Campaign leaderboard — below the form */}
           <CampaignLeaderboard />

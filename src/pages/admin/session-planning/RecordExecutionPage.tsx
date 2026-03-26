@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Card, Alert, PageLoading, Badge, DateNavigator } from '../../../components/common';
 import {
   sessionExecutionService,
@@ -359,7 +359,7 @@ export function RecordExecutionPage() {
               <>
                 {/* Plan header with inline action */}
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="font-semibold text-gray-900">{slotData.plan.name}</span>
+                  <Link to={`/admin/session-plans/${slotData.plan.id}`} className="font-semibold text-indigo-600 hover:text-indigo-800">{slotData.plan.name}</Link>
                   <Badge variant={getDifficultyColor(slotData.plan.level)} size="sm">
                     {slotData.plan.level}
                   </Badge>
@@ -535,7 +535,11 @@ export function RecordExecutionPage() {
                                       <div className="flex-1 min-w-0">
                                         {isVinyasa ? (
                                           <span className="text-gray-900 break-words">
-                                            <span className="font-medium text-pink-600">{asana?.name}</span>
+                                            {asana ? (
+                                              <Link to={`/admin/asanas/${asana.id}`} className="font-medium text-pink-600 hover:text-pink-800">{asana.name}</Link>
+                                            ) : (
+                                              <span className="font-medium text-pink-600">Unknown</span>
+                                            )}
                                             {asana?.type === 'surya_namaskar' && asana?.childAsanas?.length ? (
                                               <>
                                                 <button
@@ -569,7 +573,11 @@ export function RecordExecutionPage() {
                                           </span>
                                         ) : (
                                           <>
-                                            <span className="font-medium text-gray-900">{asana?.name || 'Unknown Asana'}</span>
+                                            {asana ? (
+                                              <Link to={`/admin/asanas/${asana.id}`} className="font-medium text-indigo-600 hover:text-indigo-800">{asana.name}</Link>
+                                            ) : (
+                                              <span className="font-medium text-gray-900">Unknown Asana</span>
+                                            )}
                                             {sanskritName && (
                                               <span className="text-gray-400 text-xs italic ml-1">({sanskritName})</span>
                                             )}

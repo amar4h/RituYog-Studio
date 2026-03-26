@@ -1,10 +1,12 @@
 /**
  * Trial Booking Service
+ * Dual-mode: localStorage (default) or API
  */
 
+import { isApiMode, trialsApi } from '../api';
 import type { TrialBooking } from '../../types';
 import { STORAGE_KEYS } from '../../constants';
-import { getAll, getById, createDual, updateDual, removeDual } from './helpers';
+import { getAll, getById, create, update, remove, createDual, updateDual, removeDual } from './helpers';
 import { leadService } from './leadService';
 import { memberService } from './memberService';
 import { subscriptionService } from './subscriptionService';
@@ -141,5 +143,47 @@ export const trialBookingService = {
     });
 
     return updated;
+  },
+
+  // ============================================
+  // ASYNC METHODS - Dual-mode support
+  // Use these in React Query or async contexts
+  // ============================================
+  async: {
+    getAll: async (): Promise<TrialBooking[]> => {
+      if (isApiMode()) {
+        return trialsApi.getAll() as Promise<TrialBooking[]>;
+      }
+      return getAll<TrialBooking>(STORAGE_KEYS.TRIAL_BOOKINGS);
+    },
+
+    getById: async (id: string): Promise<TrialBooking | null> => {
+      if (isApiMode()) {
+        return trialsApi.getById(id) as Promise<TrialBooking | null>;
+      }
+      return getById<TrialBooking>(STORAGE_KEYS.TRIAL_BOOKINGS, id);
+    },
+
+    create: async (data: Omit<TrialBooking, 'id' | 'createdAt' | 'updatedAt'>): Promise<TrialBooking> => {
+      if (isApiMode()) {
+        return trialsApi.create(data as any) as Promise<TrialBooking>;
+      }
+      return create<TrialBooking>(STORAGE_KEYS.TRIAL_BOOKINGS, data);
+    },
+
+    update: async (id: string, data: Partial<TrialBooking>): Promise<TrialBooking | null> => {
+      if (isApiMode()) {
+        return trialsApi.update(id, data as any) as Promise<TrialBooking | null>;
+      }
+      return update<TrialBooking>(STORAGE_KEYS.TRIAL_BOOKINGS, id, data);
+    },
+
+    delete: async (id: string): Promise<boolean> => {
+      if (isApiMode()) {
+        const result = await trialsApi.delete(id);
+        return result.deleted;
+      }
+      return remove<TrialBooking>(STORAGE_KEYS.TRIAL_BOOKINGS, id);
+    },
   },
 };

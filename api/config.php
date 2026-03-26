@@ -52,8 +52,8 @@ define('DB_CHARSET', 'utf8mb4');
 // API key for authenticating requests (change this in production!)
 define('API_KEY', $_ENV['API_KEY'] ?? 'yoga_studio_api_key_change_me_in_production');
 
-// Session duration in seconds (24 hours)
-define('SESSION_DURATION', 86400);
+// Session duration in seconds (30 days)
+define('SESSION_DURATION', 2592000);
 
 // Enable CORS for frontend
 define('CORS_ORIGIN', $_ENV['CORS_ORIGIN'] ?? '*');

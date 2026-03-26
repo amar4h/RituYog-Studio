@@ -15,7 +15,8 @@ import type {
   PaymentMethod,
 } from '../../types';
 import { STORAGE_KEYS } from '../../constants';
-import { getAll, getById, createDual, updateDual, removeDual } from './helpers';
+import { getAll, getById, create, update, remove, createDual, updateDual, removeDual } from './helpers';
+import { isApiMode, productsApi, inventoryApi, expensesApi } from '../api';
 import { settingsService } from './settingsService';
 
 // ============================================
@@ -113,6 +114,48 @@ export const productService = {
   isSkuUnique: (sku: string, excludeId?: string): boolean => {
     const products = getAll<Product>(STORAGE_KEYS.PRODUCTS);
     return !products.some(p => p.sku === sku && p.id !== excludeId);
+  },
+
+  // ============================================
+  // ASYNC METHODS - Dual-mode support
+  // Use these in React Query or async contexts
+  // ============================================
+  async: {
+    getAll: async (): Promise<Product[]> => {
+      if (isApiMode()) {
+        return productsApi.getAll() as Promise<Product[]>;
+      }
+      return getAll<Product>(STORAGE_KEYS.PRODUCTS);
+    },
+
+    getById: async (id: string): Promise<Product | null> => {
+      if (isApiMode()) {
+        return productsApi.getById(id) as Promise<Product | null>;
+      }
+      return getById<Product>(STORAGE_KEYS.PRODUCTS, id);
+    },
+
+    create: async (data: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<Product> => {
+      if (isApiMode()) {
+        return productsApi.create(data as Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) as Promise<Product>;
+      }
+      return create<Product>(STORAGE_KEYS.PRODUCTS, data);
+    },
+
+    update: async (id: string, data: Partial<Product>): Promise<Product | null> => {
+      if (isApiMode()) {
+        return productsApi.update(id, data as Partial<Product>) as Promise<Product | null>;
+      }
+      return update<Product>(STORAGE_KEYS.PRODUCTS, id, data);
+    },
+
+    delete: async (id: string): Promise<boolean> => {
+      if (isApiMode()) {
+        const result = await productsApi.delete(id);
+        return result.deleted;
+      }
+      return remove<Product>(STORAGE_KEYS.PRODUCTS, id);
+    },
   },
 };
 
@@ -338,6 +381,48 @@ export const inventoryService = {
       count: salesTransactions.length,
     };
   },
+
+  // ============================================
+  // ASYNC METHODS - Dual-mode support
+  // Use these in React Query or async contexts
+  // ============================================
+  async: {
+    getAll: async (): Promise<InventoryTransaction[]> => {
+      if (isApiMode()) {
+        return inventoryApi.getAll() as Promise<InventoryTransaction[]>;
+      }
+      return getAll<InventoryTransaction>(STORAGE_KEYS.INVENTORY_TRANSACTIONS);
+    },
+
+    getById: async (id: string): Promise<InventoryTransaction | null> => {
+      if (isApiMode()) {
+        return inventoryApi.getById(id) as Promise<InventoryTransaction | null>;
+      }
+      return getById<InventoryTransaction>(STORAGE_KEYS.INVENTORY_TRANSACTIONS, id);
+    },
+
+    create: async (data: Omit<InventoryTransaction, 'id' | 'createdAt' | 'updatedAt'>): Promise<InventoryTransaction> => {
+      if (isApiMode()) {
+        return inventoryApi.create(data as Omit<InventoryTransaction, 'id' | 'createdAt' | 'updatedAt'>) as Promise<InventoryTransaction>;
+      }
+      return create<InventoryTransaction>(STORAGE_KEYS.INVENTORY_TRANSACTIONS, data);
+    },
+
+    update: async (id: string, data: Partial<InventoryTransaction>): Promise<InventoryTransaction | null> => {
+      if (isApiMode()) {
+        return inventoryApi.update(id, data as Partial<InventoryTransaction>) as Promise<InventoryTransaction | null>;
+      }
+      return update<InventoryTransaction>(STORAGE_KEYS.INVENTORY_TRANSACTIONS, id, data);
+    },
+
+    delete: async (id: string): Promise<boolean> => {
+      if (isApiMode()) {
+        const result = await inventoryApi.delete(id);
+        return result.deleted;
+      }
+      return remove<InventoryTransaction>(STORAGE_KEYS.INVENTORY_TRANSACTIONS, id);
+    },
+  },
 };
 
 // ============================================
@@ -556,5 +641,47 @@ export const expenseService = {
   getTotal: (startDate: string, endDate: string): number => {
     const expenses = expenseService.getByDateRange(startDate, endDate);
     return expenses.reduce((sum, e) => sum + e.totalAmount, 0);
+  },
+
+  // ============================================
+  // ASYNC METHODS - Dual-mode support
+  // Use these in React Query or async contexts
+  // ============================================
+  async: {
+    getAll: async (): Promise<Expense[]> => {
+      if (isApiMode()) {
+        return expensesApi.getAll() as Promise<Expense[]>;
+      }
+      return getAll<Expense>(STORAGE_KEYS.EXPENSES);
+    },
+
+    getById: async (id: string): Promise<Expense | null> => {
+      if (isApiMode()) {
+        return expensesApi.getById(id) as Promise<Expense | null>;
+      }
+      return getById<Expense>(STORAGE_KEYS.EXPENSES, id);
+    },
+
+    create: async (data: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>): Promise<Expense> => {
+      if (isApiMode()) {
+        return expensesApi.create(data as Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>) as Promise<Expense>;
+      }
+      return create<Expense>(STORAGE_KEYS.EXPENSES, data);
+    },
+
+    update: async (id: string, data: Partial<Expense>): Promise<Expense | null> => {
+      if (isApiMode()) {
+        return expensesApi.update(id, data as Partial<Expense>) as Promise<Expense | null>;
+      }
+      return update<Expense>(STORAGE_KEYS.EXPENSES, id, data);
+    },
+
+    delete: async (id: string): Promise<boolean> => {
+      if (isApiMode()) {
+        const result = await expensesApi.delete(id);
+        return result.deleted;
+      }
+      return remove<Expense>(STORAGE_KEYS.EXPENSES, id);
+    },
   },
 };

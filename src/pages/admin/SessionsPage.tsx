@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Button, Input, Select, Modal, Alert } from '../../components/common';
-import { slotService, memberService, trialBookingService, subscriptionService, leadService, sessionExecutionService, sessionPlanAllocationService } from '../../services';
+import { slotService, memberService, trialBookingService, subscriptionService, leadService, sessionExecutionService, sessionPlanAllocationService, sessionPlanService } from '../../services';
 import { useFreshData } from '../../hooks/useFreshData';
 import { getToday, formatDateCompact } from '../../utils/dateUtils';
 import type { SessionSlot, Member, MembershipSubscription } from '../../types';
@@ -289,18 +289,30 @@ export function SessionsPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <span className="font-medium">Session Recorded</span>
-                    <span className="text-green-600">· {execution.sessionPlanName}</span>
+                    <span className="text-green-600">· <Link to={`/admin/session-plans/${execution.sessionPlanId}`} className="hover:underline">{execution.sessionPlanName}</Link></span>
                   </div>
-                ) : status === 'completed' && allocation ? (
-                  <Link
-                    to={`/admin/session-executions/record?slotId=${slot.id}&date=${today}`}
-                    className="mt-2 flex items-center justify-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-md px-2 py-1 transition-colors"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Pending Recording
-                  </Link>
+                ) : allocation ? (
+                  <div className="mt-2 space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs text-blue-700 bg-blue-50 rounded-md px-2 py-1">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <Link to={`/admin/session-plans/${allocation.sessionPlanId}`} className="font-medium hover:underline">
+                        {sessionPlanService.getById(allocation.sessionPlanId)?.name || 'Allocated Plan'}
+                      </Link>
+                    </div>
+                    {status === 'completed' && (
+                      <Link
+                        to={`/admin/session-executions/record?slotId=${slot.id}&date=${today}`}
+                        className="flex items-center justify-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-100 hover:bg-amber-200 rounded-md px-2 py-1 transition-colors"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Pending Recording
+                      </Link>
+                    )}
+                  </div>
                 ) : null}
               </div>
             );
